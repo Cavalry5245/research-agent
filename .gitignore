@@ -1,0 +1,15 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+app/storage/papers/*
+app/storage/notes/*
+app/storage/vector_db/*
+app/storage/metadata/*
+
+!app/storage/papers/.gitkeep
+!app/storage/notes/.gitkeep
+!app/storage/vector_db/.gitkeep
+!app/storage/metadata/.gitkeep
