@@ -111,6 +111,7 @@ def test_parse_pdf_sections():
 
         method_section = next(s for s in result.sections if s.heading == "Method")
         assert "vision-language model" in method_section.content
+        assert method_section.page_number == 1
 
 
 def test_parse_pdf_full_text():

@@ -118,7 +118,7 @@ def test_chunk_all_empty_falls_back_to_full_text():
 
 def test_chunk_metadata_complete():
     parsed = _make_parsed([
-        Section(heading="Results", content="x" * 1000),
+        Section(heading="Results", content="x" * 1000, page_number=4),
     ])
     chunks = chunk_paper(parsed)
     for c in chunks:
@@ -127,6 +127,10 @@ def test_chunk_metadata_complete():
         assert c.title == "Test Paper"
         assert c.section == "Results"
         assert len(c.content) > 0
+        assert c.page_number == 4
+        assert c.chunk_start is not None
+        assert c.chunk_end is not None
+        assert c.chunk_start < c.chunk_end
 
 
 def test_chunk_exact_boundary():

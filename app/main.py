@@ -1,5 +1,6 @@
 import os
 import shutil
+import time
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -14,6 +15,7 @@ from app.schemas import (
     LibraryIndexStatusResponse,
     NoteGenerateResponse,
     NoteReadResponse,
+    PaperComparisonResult,
     PaperIndexDetailResponse,
     PaperListResponse,
     PaperListItem,
@@ -215,26 +217,57 @@ async def download_note(paper_id: str):
 
 
 @app.post("/papers/{paper_id}/index", response_model=IndexStatusResponse)
-async def index_paper(paper_id: str):
+async def index_paper(paper_id: str, force: bool = False):
+    vector_store = _get_vector_store()
+
+    if vector_store.has_paper(paper_id) and not force:
+        status = get_index_status(vector_store, paper_id)
+        return IndexStatusResponse(
+            paper_id=paper_id,
+            status="already_indexed",
+            chunks_indexed=status["chunk_count"],
+            already_indexed=True,
+            total_seconds=0.0,
+        )
+
+    total_started = time.perf_counter()
+
     try:
         data = load_parsed_result(paper_id, _resolve_metadata_dir())
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
+    parse_seconds = time.perf_counter() - total_started
     parsed = PaperParseResult(**data)
+
+    chunk_started = time.perf_counter()
     chunks = chunk_paper(parsed)
+    chunk_seconds = time.perf_counter() - chunk_started
 
     if not chunks:
         raise HTTPException(status_code=400, detail="论文内容为空，无法生成索引块")
 
     texts = [c.content for c in chunks]
-    embeddings = _get_embedding_client().embed_texts(texts)
-    _get_vector_store().add_chunks(chunks, embeddings)
+    embedding_started = time.perf_counter()
+    embedding_client = _get_embedding_client()
+    embeddings = embedding_client.embed_texts(texts)
+    embedding_seconds = time.perf_counter() - embedding_started
+
+    persist_started = time.perf_counter()
+    vector_store.add_chunks(chunks, embeddings)
+    persist_seconds = time.perf_counter() - persist_started
+    total_seconds = time.perf_counter() - total_started
 
     return IndexStatusResponse(
         paper_id=paper_id,
         status="indexed",
         chunks_indexed=len(chunks),
+        already_indexed=False,
+        parse_seconds=parse_seconds,
+        chunk_seconds=chunk_seconds,
+        embedding_seconds=embedding_seconds,
+        persist_seconds=persist_seconds,
+        total_seconds=total_seconds,
     )
 
 
@@ -280,7 +313,7 @@ async def compare_papers_endpoint(req: CompareRequest):
         raise HTTPException(status_code=400, detail="最多支持 5 篇论文对比")
 
     try:
-        content = compare_papers(
+        comparison = compare_papers(
             req.paper_ids,
             _resolve_metadata_dir(),
             llm_client=_get_llm_client(),
@@ -292,13 +325,14 @@ async def compare_papers_endpoint(req: CompareRequest):
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
 
-    output_path = save_compare_result(content, _resolve_note_dir())
+    output_path = save_compare_result(comparison.markdown, _resolve_note_dir())
 
     return CompareResponse(
         paper_ids=req.paper_ids,
         status="compared",
         output_path=output_path,
-        content=content,
+        content=comparison.markdown,
+        comparison=comparison,
     )
 
 

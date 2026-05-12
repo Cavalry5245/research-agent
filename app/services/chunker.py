@@ -5,17 +5,20 @@ DEFAULT_CHUNK_OVERLAP = 100
 MIN_CHUNK_CHARS = 20
 
 
-def _sliding_window(text: str, chunk_size: int, chunk_overlap: int) -> list[str]:
+def _sliding_window(text: str, chunk_size: int, chunk_overlap: int) -> list[tuple[int, int, str]]:
     text = text.strip()
     if not text:
         return []
-    chunks = []
+    chunks: list[tuple[int, int, str]] = []
     start = 0
     while start < len(text):
         end = min(start + chunk_size, len(text))
         chunk_text = text[start:end].strip()
         if chunk_text:
-            chunks.append(chunk_text)
+            stripped_start = text[start:end].find(chunk_text)
+            absolute_start = start + max(stripped_start, 0)
+            absolute_end = absolute_start + len(chunk_text)
+            chunks.append((absolute_start, absolute_end, chunk_text))
         if end >= len(text):
             break
         start = end - chunk_overlap
@@ -35,7 +38,7 @@ def chunk_paper(
             continue
 
         text_parts = _sliding_window(section.content, chunk_size, chunk_overlap)
-        for part in text_parts:
+        for chunk_start, chunk_end, part in text_parts:
             if len(part) < MIN_CHUNK_CHARS:
                 continue
             seq += 1
@@ -47,13 +50,16 @@ def chunk_paper(
                     title=parsed.title,
                     section=section.heading,
                     content=part,
+                    page_number=section.page_number,
+                    chunk_start=chunk_start,
+                    chunk_end=chunk_end,
                 )
             )
 
     # If no sections produced valid chunks, fall back to full_text
     if not chunks and parsed.full_text.strip():
         text_parts = _sliding_window(parsed.full_text, chunk_size, chunk_overlap)
-        for part in text_parts:
+        for chunk_start, chunk_end, part in text_parts:
             if len(part) < MIN_CHUNK_CHARS:
                 continue
             seq += 1
@@ -65,6 +71,8 @@ def chunk_paper(
                     title=parsed.title,
                     section="全文",
                     content=part,
+                    chunk_start=chunk_start,
+                    chunk_end=chunk_end,
                 )
             )
 

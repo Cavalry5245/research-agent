@@ -205,10 +205,12 @@ def _check_torch_available() -> bool:
 def test_embedding_client_import():
     if not _check_torch_available():
         pytest.skip("torch / sentence-transformers not available (missing VC++ runtime)")
-    from app.services.embedding_client import EmbeddingClient
+    from app.config import settings
+    from app.services.embedding_client import EmbeddingClient, _resolve_model_name
 
     client = EmbeddingClient()
-    assert client.model_name == "bge-small-zh-v1.5"
+    assert client.model_name == settings.embedding_model
+    assert _resolve_model_name(client.model_name) == "BAAI/bge-small-zh-v1.5"
 
 
 def test_embedding_client_with_model():

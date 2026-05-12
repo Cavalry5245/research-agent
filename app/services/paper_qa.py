@@ -1,4 +1,5 @@
 import logging
+from typing import Protocol
 
 from app.services.embedding_client import EmbeddingClient
 from app.services.llm_client import LLMClient
@@ -12,6 +13,11 @@ CLOSED_CLIENT_MARKERS = (
     "client is closed",
     "cannot send a request, as the client has been closed",
 )
+
+
+class RerankerProtocol(Protocol):
+    def rerank(self, question: str, results: list[dict], top_k: int | None = None) -> list[dict]:
+        ...
 
 
 def _build_context(results: list[dict]) -> str:
@@ -32,6 +38,32 @@ def _is_closed_client_error(exc: Exception) -> bool:
     return any(marker in message for marker in CLOSED_CLIENT_MARKERS)
 
 
+def _apply_reranker(
+    question: str,
+    results: list[dict],
+    reranker: RerankerProtocol | None,
+    top_k: int,
+) -> list[dict]:
+    if reranker is None:
+        return results
+
+    reranked = reranker.rerank(question=question, results=results, top_k=top_k)
+    if not reranked:
+        raise ValueError("reranker returned empty results")
+
+    reranked_chunk_ids = {item.get("chunk_id") for item in reranked}
+    original_chunk_ids = {item.get("chunk_id") for item in results}
+    if not reranked_chunk_ids.issubset(original_chunk_ids):
+        raise ValueError("reranker returned unknown chunk ids")
+
+    normalized = []
+    for item in reranked[:top_k]:
+        copied = dict(item)
+        copied.setdefault("rerank_score", copied.get("score", 0.0))
+        normalized.append(copied)
+    return normalized
+
+
 def answer_question(
     question: str,
     vector_store: VectorStore,
@@ -40,6 +72,7 @@ def answer_question(
     paper_id: str | None = None,
     top_k: int = 5,
     llm_client_factory=None,
+    reranker: RerankerProtocol | None = None,
 ) -> dict:
     logger.info("QA: question='%s', paper_id=%s, top_k=%d", question[:80], paper_id, top_k)
 
@@ -56,6 +89,7 @@ def answer_question(
             "sources": [],
         }
 
+    results = _apply_reranker(question=question, results=results, reranker=reranker, top_k=top_k)
     context = _build_context(results)
     prompt = build_qa_prompt(question, context)
 
@@ -75,9 +109,14 @@ def answer_question(
             "section": r["section"],
             "chunk_id": r["chunk_id"],
             "content": r["content"][:200],
+            "score": r.get("rerank_score", r.get("score")),
+            "page_number": r.get("page_number"),
+            "chunk_start": r.get("chunk_start"),
+            "chunk_end": r.get("chunk_end"),
         }
         for r in results
     ]
+
 
     return {
         "question": question,

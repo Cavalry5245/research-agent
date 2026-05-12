@@ -1,0 +1,1073 @@
+{
+  "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
+  "summary": {
+    "sample_count": 11,
+    "evaluation_mode": "rule_based",
+    "answer_pass_rate": 1.0,
+    "citation_pass_rate": 1.0,
+    "mean_answer_score": 1.0,
+    "mean_citation_score": 1.0
+  },
+  "results": [
+    {
+      "sample_id": "paper_20260509_004-abstract",
+      "question": "What does the paper 'Receptive-Field and Direction Induced Attention' mainly propose or study?",
+      "mode": "rule_based",
+      "predicted_answer": "—Infrared small target detection plays an important role in military and civilian ﬁelds while it is difﬁcult to be solved by deep learning (DL) technologies due to scarcity of data and strong interclass imbalance. To relieve scarcity of data, we build a massive dataset IRDST, which contains 142727 frames. Also, we p...",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "Abstract",
+          "chunk_id": "paper_20260509_004-abstract-1",
+          "title": "Receptive-Field and Direction Induced Attention"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "142727",
+            "a",
+            "also",
+            "an",
+            "and",
+            "be",
+            "build",
+            "by",
+            "civilian",
+            "contains",
+            "cult",
+            "data",
+            "dataset",
+            "deep",
+            "detection",
+            "dif",
+            "dl",
+            "due",
+            "elds",
+            "frames",
+            "imbalance",
+            "important",
+            "in",
+            "infrared",
+            "interclass",
+            "irdst",
+            "is",
+            "it",
+            "learning",
+            "massive",
+            "military",
+            "of",
+            "p",
+            "plays",
+            "relieve",
+            "role",
+            "scarcity",
+            "small",
+            "solved",
+            "strong",
+            "target",
+            "technologies",
+            "to",
+            "we",
+            "which",
+            "while"
+          ],
+          "expected_token_count": 46,
+          "predicted_token_count": 46
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [
+            "abstract"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-1",
+      "question": "According to the 'results' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "with comparison methods and ablation study demonstrate effective detection performance of our model. Dataset and code will be available at http://xzbai.buaa.edu.cn/datasets.html. Index Terms—Attention mechanism, deep learning (DL), infrared small target.",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004-section-1-1",
+          "title": "Receptive-Field and Direction Induced Attention"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "ablation",
+            "and",
+            "at",
+            "attention",
+            "available",
+            "be",
+            "buaa",
+            "cn",
+            "code",
+            "comparison",
+            "dataset",
+            "datasets",
+            "deep",
+            "demonstrate",
+            "detection",
+            "dl",
+            "edu",
+            "effective",
+            "html",
+            "http",
+            "index",
+            "infrared",
+            "learning",
+            "mechanism",
+            "methods",
+            "model",
+            "of",
+            "our",
+            "performance",
+            "small",
+            "study",
+            "target",
+            "terms",
+            "will",
+            "with",
+            "xzbai"
+          ],
+          "expected_token_count": 36,
+          "predicted_token_count": 36
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "results"
+          ],
+          "matched_supporting_sections": [
+            "results"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-2",
+      "question": "According to the 'INTRODUCTION' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "I NFRARED small target detection is an important tech- nology for defense, military, and other applications. How- ever, it is difﬁcult to detect far-away targets accurately and rapidly because of three factors: 1) lack of public high- quality datasets; 2) less information of targets; and 3) complex backgrounds. Ther...",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004-section-2-1",
+          "title": "Receptive-Field and Direction Induced Attention"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "1",
+            "2",
+            "3",
+            "accurately",
+            "an",
+            "and",
+            "applications",
+            "away",
+            "backgrounds",
+            "because",
+            "complex",
+            "cult",
+            "datasets",
+            "defense",
+            "detect",
+            "detection",
+            "dif",
+            "ever",
+            "factors",
+            "far",
+            "for",
+            "high",
+            "how",
+            "i",
+            "important",
+            "information",
+            "is",
+            "it",
+            "lack",
+            "less",
+            "military",
+            "nfrared",
+            "nology",
+            "of",
+            "other",
+            "public",
+            "quality",
+            "rapidly",
+            "small",
+            "target",
+            "targets",
+            "tech",
+            "ther",
+            "three",
+            "to"
+          ],
+          "expected_token_count": 45,
+          "predicted_token_count": 45
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "introduction"
+          ],
+          "matched_supporting_sections": [
+            "introduction"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_002-abstract",
+      "question": "What does the paper '博士学位论文' mainly propose or study?",
+      "mode": "rule_based",
+      "predicted_answer": "Abstract Space-based infrared detection, with its inherent advantages of all-time operation, all-weather capability, wide-area coverage, and long-range sensing of weak-radiation targets, has been widely applied in critical fields including national defense security, space situational awareness (SSA), and emergency d...",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "Abstract",
+          "chunk_id": "paper_20260511_002-abstract-1",
+          "title": "博士学位论文"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "abstract",
+            "advantages",
+            "all",
+            "and",
+            "applied",
+            "area",
+            "awareness",
+            "based",
+            "been",
+            "capability",
+            "coverage",
+            "critical",
+            "d",
+            "defense",
+            "detection",
+            "emergency",
+            "fields",
+            "has",
+            "in",
+            "including",
+            "infrared",
+            "inherent",
+            "its",
+            "long",
+            "national",
+            "of",
+            "operation",
+            "radiation",
+            "range",
+            "security",
+            "sensing",
+            "situational",
+            "space",
+            "ssa",
+            "targets",
+            "time",
+            "weak",
+            "weather",
+            "wide",
+            "widely",
+            "with"
+          ],
+          "expected_token_count": 41,
+          "predicted_token_count": 41
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [
+            "abstract"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_002-section-1",
+      "question": "According to the 'method' section of '博士学位论文', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "achieves outstanding detection performance across three datasets. Compared with the best-performing manually designed networks on each dataset, the detection error is within 2%, the false alarm rate is on the order of 10−6, while both the param- eter count and inference speed are superior to the compared algorithms....",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002-section-1-1",
+          "title": "博士学位论文"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "10",
+            "2",
+            "6",
+            "achieves",
+            "across",
+            "alarm",
+            "algorithms",
+            "and",
+            "are",
+            "best",
+            "both",
+            "compared",
+            "count",
+            "dataset",
+            "datasets",
+            "designed",
+            "detection",
+            "each",
+            "error",
+            "eter",
+            "false",
+            "inference",
+            "is",
+            "manually",
+            "networks",
+            "of",
+            "on",
+            "order",
+            "outstanding",
+            "param",
+            "performance",
+            "performing",
+            "rate",
+            "speed",
+            "superior",
+            "the",
+            "three",
+            "to",
+            "while",
+            "with",
+            "within"
+          ],
+          "expected_token_count": 41,
+          "predicted_token_count": 41
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "method"
+          ],
+          "matched_supporting_sections": [
+            "method"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_004-abstract",
+      "question": "What does the paper 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain' mainly propose or study?",
+      "mode": "rule_based",
+      "predicted_answer": "Deep learning models are transforming agricultural appli- cations by enabling automated phenotyping, monitoring, and yield estimation. However, their effectiveness heav- ily depends on large amounts of annotated training data, which can be labor and time intensive. Recent advances in open-set object detection, parti...",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Abstract",
+          "chunk_id": "paper_20260511_004-abstract-1",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "advances",
+            "agricultural",
+            "amounts",
+            "and",
+            "annotated",
+            "appli",
+            "are",
+            "automated",
+            "be",
+            "by",
+            "can",
+            "cations",
+            "data",
+            "deep",
+            "depends",
+            "detection",
+            "effectiveness",
+            "enabling",
+            "estimation",
+            "heav",
+            "however",
+            "ily",
+            "in",
+            "intensive",
+            "labor",
+            "large",
+            "learning",
+            "models",
+            "monitoring",
+            "object",
+            "of",
+            "on",
+            "open",
+            "parti",
+            "phenotyping",
+            "recent",
+            "set",
+            "their",
+            "time",
+            "training",
+            "transforming",
+            "which",
+            "yield"
+          ],
+          "expected_token_count": 43,
+          "predicted_token_count": 43
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [
+            "abstract"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_004-section-1",
+      "question": "According to the 'Introduction' section of 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "Deep learning based object detection [7, 41, 42] and seg- mentation [9, 19] models are increasingly important in agri- culture for tasks like phenotyping [58, 61, 62], monitoring [4, 6], pest detection [1, 8], yield estimation [11, 24], etc. Due to the vast diversity of the agricultural domain, unique tasks and imag...",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Introduction",
+          "chunk_id": "paper_20260511_004-section-1-1",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "1",
+            "11",
+            "19",
+            "24",
+            "4",
+            "41",
+            "42",
+            "58",
+            "6",
+            "61",
+            "62",
+            "7",
+            "8",
+            "9",
+            "agri",
+            "agricultural",
+            "and",
+            "are",
+            "based",
+            "culture",
+            "deep",
+            "detection",
+            "diversity",
+            "domain",
+            "due",
+            "estimation",
+            "etc",
+            "for",
+            "imag",
+            "important",
+            "in",
+            "increasingly",
+            "learning",
+            "like",
+            "mentation",
+            "models",
+            "monitoring",
+            "object",
+            "of",
+            "pest",
+            "phenotyping",
+            "seg",
+            "tasks",
+            "the",
+            "to",
+            "unique",
+            "vast",
+            "yield"
+          ],
+          "expected_token_count": 48,
+          "predicted_token_count": 48
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "introduction"
+          ],
+          "matched_supporting_sections": [
+            "introduction"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_004-section-2",
+      "question": "According to the 'method' section of 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "for Grounding-DINO that eliminates the need for text prompts and enables efficient adaptation to new datasets using only a minimal number of training exam- ples and iterations. • We conduct a series of experiments across various agri- cultural datasets, demonstrating our few-shot approach’s superior performance comp...",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "method",
+          "chunk_id": "paper_20260511_004-section-2-1",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "a",
+            "across",
+            "adaptation",
+            "agri",
+            "and",
+            "approach",
+            "comp",
+            "conduct",
+            "cultural",
+            "datasets",
+            "demonstrating",
+            "dino",
+            "efficient",
+            "eliminates",
+            "enables",
+            "exam",
+            "experiments",
+            "few",
+            "for",
+            "grounding",
+            "iterations",
+            "minimal",
+            "need",
+            "new",
+            "number",
+            "of",
+            "only",
+            "our",
+            "performance",
+            "ples",
+            "prompts",
+            "s",
+            "series",
+            "shot",
+            "superior",
+            "text",
+            "that",
+            "the",
+            "to",
+            "training",
+            "using",
+            "various",
+            "we"
+          ],
+          "expected_token_count": 43,
+          "predicted_token_count": 43
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "method"
+          ],
+          "matched_supporting_sections": [
+            "method"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_005-abstract",
+      "question": "What does the paper 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022' mainly propose or study?",
+      "mode": "rule_based",
+      "predicted_answer": "Detecting tiny objects is a very challenging problem since a tiny object only contains a few pixels in size. We demonstrate that state-of-the-art detectors do not produce satisfactory results on tiny objects due to the lack of appearance information. Our key observation is that Intersection over Union (IoU) based me...",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "Abstract",
+          "chunk_id": "paper_20260511_005-abstract-1",
+          "title": "arXiv:2110.13389v2 [cs.CV] 14 Jun 2022"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "a",
+            "appearance",
+            "art",
+            "based",
+            "challenging",
+            "contains",
+            "demonstrate",
+            "detecting",
+            "detectors",
+            "do",
+            "due",
+            "few",
+            "in",
+            "information",
+            "intersection",
+            "iou",
+            "is",
+            "key",
+            "lack",
+            "me",
+            "not",
+            "object",
+            "objects",
+            "observation",
+            "of",
+            "on",
+            "only",
+            "our",
+            "over",
+            "pixels",
+            "problem",
+            "produce",
+            "results",
+            "satisfactory",
+            "since",
+            "size",
+            "state",
+            "that",
+            "the",
+            "tiny",
+            "to",
+            "union",
+            "very",
+            "we"
+          ],
+          "expected_token_count": 44,
+          "predicted_token_count": 44
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [
+            "abstract"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_005-section-1",
+      "question": "According to the 'Introduction' section of 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "Tiny objects are ubiquitous in many real world applications including driving assistance, large-scale surveillance, and maritime rescue. Even though object detection has achieved signiﬁcant progress due to the development of deep neural networks [21, 15, 27], most of them are devoted to detecting objects with normal...",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "Introduction",
+          "chunk_id": "paper_20260511_005-section-1-1",
+          "title": "arXiv:2110.13389v2 [cs.CV] 14 Jun 2022"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "15",
+            "21",
+            "27",
+            "achieved",
+            "and",
+            "applications",
+            "are",
+            "assistance",
+            "cant",
+            "deep",
+            "detecting",
+            "detection",
+            "development",
+            "devoted",
+            "driving",
+            "due",
+            "even",
+            "has",
+            "in",
+            "including",
+            "large",
+            "many",
+            "maritime",
+            "most",
+            "networks",
+            "neural",
+            "normal",
+            "object",
+            "objects",
+            "of",
+            "progress",
+            "real",
+            "rescue",
+            "scale",
+            "signi",
+            "surveillance",
+            "the",
+            "them",
+            "though",
+            "tiny",
+            "to",
+            "ubiquitous",
+            "with",
+            "world"
+          ],
+          "expected_token_count": 44,
+          "predicted_token_count": 44
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "introduction"
+          ],
+          "matched_supporting_sections": [
+            "introduction"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_005-section-2",
+      "question": "According to the 'Methodology' section of 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "Inspired by the fact that IoU is actually the Jaccard similarity coefﬁcient for computing similarity of two limited sample sets, we design a better metric for tiny objects based on Wasserstein Distance since it can consistently reﬂect the distance between distributions even if they have no overlap. Therefore, the ne...",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "Methodology",
+          "chunk_id": "paper_20260511_005-section-2-1",
+          "title": "arXiv:2110.13389v2 [cs.CV] 14 Jun 2022"
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=1.000; precision=1.000; f1=1.000.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 1.0,
+          "token_overlap_precision": 1.0,
+          "token_overlap_f1": 1.0,
+          "overlap_tokens": [
+            "a",
+            "actually",
+            "based",
+            "better",
+            "between",
+            "by",
+            "can",
+            "cient",
+            "coef",
+            "computing",
+            "consistently",
+            "design",
+            "distance",
+            "distributions",
+            "ect",
+            "even",
+            "fact",
+            "for",
+            "have",
+            "if",
+            "inspired",
+            "iou",
+            "is",
+            "it",
+            "jaccard",
+            "limited",
+            "metric",
+            "ne",
+            "no",
+            "objects",
+            "of",
+            "on",
+            "overlap",
+            "re",
+            "sample",
+            "sets",
+            "similarity",
+            "since",
+            "that",
+            "the",
+            "therefore",
+            "they",
+            "tiny",
+            "two",
+            "wasserstein",
+            "we"
+          ],
+          "expected_token_count": 46,
+          "predicted_token_count": 46
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "methodology"
+          ],
+          "matched_supporting_sections": [
+            "methodology"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    }
+  ]
+}

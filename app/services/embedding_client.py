@@ -41,15 +41,35 @@ def _resolve_model_name(model_name: str) -> str:
     return BGE_MODEL_ALIASES.get(model_name, model_name)
 
 
+def _resolve_device(explicit_device: str | None = None) -> str:
+    device = explicit_device or settings.embedding_device
+    if device != "auto":
+        return device
+
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            return "cuda"
+        if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            return "mps"
+    except Exception:
+        pass
+
+    return "cpu"
+
+
 def _is_closed_client_error(exc: Exception) -> bool:
     message = str(exc).lower()
     return any(marker in message for marker in CLOSED_CLIENT_MARKERS)
 
 
 class EmbeddingClient:
-    def __init__(self, model_name: str | None = None):
+    def __init__(self, model_name: str | None = None, device: str | None = None, batch_size: int | None = None):
         self.model_name = model_name or settings.embedding_model
         self._resolved_model_name = _resolve_model_name(self.model_name)
+        self.device = _resolve_device(device)
+        self.batch_size = batch_size or settings.embedding_batch_size
         self._model = None
 
     def _ensure_model(self):
@@ -65,11 +85,11 @@ class EmbeddingClient:
         except ImportError as e:
             raise RuntimeError(f"sentence-transformers 未安装: {e}") from e
 
-        logger.info("Loading embedding model: %s", self._resolved_model_name)
+        logger.info("Loading embedding model: %s on device=%s", self._resolved_model_name, self.device)
         last_error = None
         for attempt in range(1, EMBEDDING_LOAD_RETRIES + 1):
             try:
-                self._model = SentenceTransformer(self._resolved_model_name)
+                self._model = SentenceTransformer(self._resolved_model_name, device=self.device)
                 break
             except Exception as e:
                 last_error = e
@@ -94,15 +114,28 @@ class EmbeddingClient:
             ) from last_error
 
         dim = self._model.get_embedding_dimension()
-        logger.info("Embedding model loaded, dim=%d", dim)
+        logger.info("Embedding model loaded, dim=%d, device=%s", dim, self.device)
+
+    def _rebuild_model(self) -> None:
+        self._model = None
+        self._ensure_model()
+
+    def _encode_with_recovery(self, texts: list[str]):
+        self._ensure_model()
+        try:
+            return self._model.encode(texts, show_progress_bar=False, batch_size=self.batch_size)
+        except RuntimeError as e:
+            if not _is_closed_client_error(e):
+                raise
+            logger.warning("Embedding model encode hit closed client, rebuilding model and retrying once")
+            self._rebuild_model()
+            return self._model.encode(texts, show_progress_bar=False, batch_size=self.batch_size)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        self._ensure_model()
-        embeddings = self._model.encode(texts, show_progress_bar=False)
+        embeddings = self._encode_with_recovery(texts)
         return embeddings.tolist()
 
     def embed_query(self, query: str) -> list[float]:
-        self._ensure_model()
-        return self._model.encode([query], show_progress_bar=False)[0].tolist()
+        return self._encode_with_recovery([query])[0].tolist()

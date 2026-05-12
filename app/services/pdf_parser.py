@@ -42,13 +42,17 @@ def generate_paper_id(upload_dir: str | None = None) -> str:
     return f"paper_{today}_{seq + 1:03d}"
 
 
-def _extract_full_text(doc: fitz.Document) -> str:
+def _extract_pages_text(doc: fitz.Document) -> list[str]:
     pages = []
     for page in doc:
         text = page.get_text()
         if text.strip():
             pages.append(text.strip())
-    return "\n\n".join(pages)
+    return pages
+
+
+def _extract_full_text(doc: fitz.Document) -> str:
+    return "\n\n".join(_extract_pages_text(doc))
 
 
 def _detect_title(text: str, doc: fitz.Document) -> str:
@@ -116,7 +120,7 @@ def _extract_abstract(text: str) -> str:
     return abstract_text.strip()[:3000]
 
 
-def _extract_sections(text: str) -> list[Section]:
+def _extract_sections(text: str, page_texts: list[str] | None = None) -> list[Section]:
     # Build a regex that matches section headings
     keywords_pattern = "|".join(
         re.escape(kw) for kw in SECTION_KEYWORDS if kw.lower() != "abstract"
@@ -141,7 +145,13 @@ def _extract_sections(text: str) -> list[Section]:
         content_end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         content = text[content_start:content_end].strip()
         if content:
-            sections.append(Section(heading=heading, content=content))
+            page_number = None
+            if page_texts:
+                for index, page_text in enumerate(page_texts, start=1):
+                    if heading in page_text and content[:80].strip() in page_text:
+                        page_number = index
+                        break
+            sections.append(Section(heading=heading, content=content, page_number=page_number))
 
     return sections
 
@@ -156,13 +166,14 @@ def parse_pdf(filepath: str, paper_id: str) -> PaperParseResult:
         raise ValueError(f"无法打开 PDF 文件 (可能已损坏或格式错误): {e}") from e
 
     try:
-        full_text = _extract_full_text(doc)
+        page_texts = _extract_pages_text(doc)
+        full_text = "\n\n".join(page_texts)
         if not full_text.strip():
             raise ValueError("PDF 文件无法提取到文本内容，可能为扫描版或图片型 PDF")
 
         title = _detect_title(full_text, doc)
         abstract = _extract_abstract(full_text)
-        sections = _extract_sections(full_text)
+        sections = _extract_sections(full_text, page_texts=page_texts)
 
         logger.info("PDF parsed: %s, title=%s, sections=%d, chars=%d",
                      paper_id, title, len(sections), len(full_text))

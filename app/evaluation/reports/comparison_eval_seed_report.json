@@ -1,0 +1,49 @@
+{
+  "dataset": "app/evaluation/datasets/comparison_eval_seed.jsonl",
+  "summary": {
+    "sample_count": 1,
+    "mean_completeness": 1.0,
+    "mean_evidence_completeness": 1.0,
+    "mean_evidence_quality": 1.0,
+    "mean_section_alignment": 1.0,
+    "mean_paper_balance": 1.0
+  },
+  "results": [
+    {
+      "sample_id": "comparison-seed-001",
+      "question": "How do these papers differ in task focus, proposed method, and reported results?",
+      "expected_aspects": [
+        "task",
+        "method",
+        "results"
+      ],
+      "predicted_aspects": [
+        "task",
+        "method",
+        "results"
+      ],
+      "missing_aspects": [],
+      "aspects_with_missing_evidence": [],
+      "paper_coverage": {
+        "paper_20260509_004": true,
+        "paper_20260511_002": true,
+        "paper_20260511_004": true
+      },
+      "paper_alignment": {
+        "paper_20260509_004": 1.0,
+        "paper_20260511_002": 1.0,
+        "paper_20260511_004": 1.0
+      },
+      "completeness": 1.0,
+      "evidence_completeness": 1.0,
+      "evidence_quality": 1.0,
+      "section_alignment": 1.0,
+      "paper_balance": 1.0,
+      "evidence_quality_issues": [],
+      "section_alignment_issues": [],
+      "paper_alignment_issues": {},
+      "comparison_source": "deterministic_stub",
+      "uses_structured_summaries": false
+    }
+  ]
+}

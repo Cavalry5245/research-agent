@@ -5,6 +5,7 @@ import os
 from typing import TYPE_CHECKING
 
 from app.config import settings
+from app.services.reranker import HybridReranker
 
 if TYPE_CHECKING:
     from app.schemas import Chunk
@@ -70,6 +71,13 @@ class VectorStore:
     def add_chunks(self, chunks: "list[Chunk]", embeddings: list[list[float]]) -> int:
         if not chunks:
             return 0
+        chunk_ids_to_replace = {chunk.chunk_id for chunk in chunks}
+        if chunk_ids_to_replace:
+            self._store = [
+                (existing_chunk_id, existing_chunk, existing_embedding)
+                for existing_chunk_id, existing_chunk, existing_embedding in self._store
+                if existing_chunk_id not in chunk_ids_to_replace
+            ]
         for chunk, emb in zip(chunks, embeddings):
             self._store.append((chunk.chunk_id, chunk, emb))
         self._persist()
@@ -81,6 +89,7 @@ class VectorStore:
         query_embedding: list[float],
         top_k: int = 5,
         paper_id: str | None = None,
+        hybrid_query_text: str | None = None,
     ) -> list[dict]:
         scored = []
         for chunk_id, chunk, emb in self._store:
@@ -100,8 +109,16 @@ class VectorStore:
                 "paper_id": chunk.paper_id,
                 "title": chunk.title,
                 "section": chunk.section,
+                "page_number": chunk.page_number,
+                "chunk_start": chunk.chunk_start,
+                "chunk_end": chunk.chunk_end,
                 "score": score,
             })
+
+        if hybrid_query_text and output:
+            output = HybridReranker().rerank(question=hybrid_query_text, results=output, top_k=top_k)
+            for item in output:
+                item["score"] = item.get("rerank_score", item.get("score", 0.0))
 
         logger.info("Query returned %d results (paper_id=%s)", len(output), paper_id)
         return output
@@ -118,6 +135,22 @@ class VectorStore:
             self._persist()
         logger.info("Deleted %d chunks for paper %s", deleted, paper_id)
         return deleted
+
+    def has_paper(self, paper_id: str) -> bool:
+        return any(chunk.paper_id == paper_id for _, chunk, _ in self._store)
+
+    def backend_name(self) -> str:
+        return "json"
+
+    def metadata(self) -> dict:
+        paper_count = len({chunk.paper_id for _, chunk, _ in self._store})
+        return {
+            "backend": self.backend_name(),
+            "chunk_count": len(self._store),
+            "paper_count": paper_count,
+            "store_path": self._store_path,
+            "persist_dir": self.persist_dir,
+        }
 
     def count(self) -> int:
         return len(self._store)

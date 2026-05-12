@@ -1,0 +1,388 @@
+{
+  "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
+  "summary": {
+    "sample_count": 11,
+    "top_k": 3,
+    "hit_rate": 1.0,
+    "mean_recall": 1.0,
+    "mrr": 1.0,
+    "hits": 11,
+    "misses": 0
+  },
+  "results": [
+    {
+      "sample_id": "paper_20260509_004-abstract",
+      "query": "What does the paper 'Receptive-Field and Direction Induced Attention' mainly propose or study?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260509_004-abstract-support-1",
+          "paper_id": "paper_20260509_004",
+          "section": "Abstract",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260509_004-abstract-distractor-2",
+          "paper_id": "paper_20260509_004",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260509_004-abstract-distractor-3",
+          "paper_id": "paper_20260509_004",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260509_004-section-1",
+      "query": "According to the 'results' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260509_004-section-1-support-1",
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260509_004-section-1-distractor-2",
+          "paper_id": "paper_20260509_004",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260509_004-section-1-distractor-3",
+          "paper_id": "paper_20260509_004",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260509_004-section-2",
+      "query": "According to the 'INTRODUCTION' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260509_004-section-2-support-1",
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260509_004-section-2-distractor-2",
+          "paper_id": "paper_20260509_004",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260509_004-section-2-distractor-3",
+          "paper_id": "paper_20260509_004",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260511_002-abstract",
+      "query": "What does the paper '博士学位论文' mainly propose or study?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260511_002-abstract-support-1",
+          "paper_id": "paper_20260511_002",
+          "section": "Abstract",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260511_002-abstract-distractor-2",
+          "paper_id": "paper_20260511_002",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260511_002-abstract-distractor-3",
+          "paper_id": "paper_20260511_002",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260511_002-section-1",
+      "query": "According to the 'method' section of '博士学位论文', what key information is highlighted?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260511_002-section-1-support-1",
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260511_002-section-1-distractor-2",
+          "paper_id": "paper_20260511_002",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260511_002-section-1-distractor-3",
+          "paper_id": "paper_20260511_002",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260511_004-abstract",
+      "query": "What does the paper 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain' mainly propose or study?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260511_004-abstract-support-1",
+          "paper_id": "paper_20260511_004",
+          "section": "Abstract",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260511_004-abstract-distractor-2",
+          "paper_id": "paper_20260511_004",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260511_004-abstract-distractor-3",
+          "paper_id": "paper_20260511_004",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260511_004-section-1",
+      "query": "According to the 'Introduction' section of 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain', what key information is highlighted?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260511_004-section-1-support-1",
+          "paper_id": "paper_20260511_004",
+          "section": "Introduction",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260511_004-section-1-distractor-2",
+          "paper_id": "paper_20260511_004",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260511_004-section-1-distractor-3",
+          "paper_id": "paper_20260511_004",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260511_004-section-2",
+      "query": "According to the 'method' section of 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain', what key information is highlighted?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260511_004-section-2-support-1",
+          "paper_id": "paper_20260511_004",
+          "section": "method",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260511_004-section-2-distractor-2",
+          "paper_id": "paper_20260511_004",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260511_004-section-2-distractor-3",
+          "paper_id": "paper_20260511_004",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260511_005-abstract",
+      "query": "What does the paper 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022' mainly propose or study?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260511_005-abstract-support-1",
+          "paper_id": "paper_20260511_005",
+          "section": "Abstract",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260511_005-abstract-distractor-2",
+          "paper_id": "paper_20260511_005",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260511_005-abstract-distractor-3",
+          "paper_id": "paper_20260511_005",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260511_005-section-1",
+      "query": "According to the 'Introduction' section of 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022', what key information is highlighted?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260511_005-section-1-support-1",
+          "paper_id": "paper_20260511_005",
+          "section": "Introduction",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260511_005-section-1-distractor-2",
+          "paper_id": "paper_20260511_005",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260511_005-section-1-distractor-3",
+          "paper_id": "paper_20260511_005",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    },
+    {
+      "sample_id": "paper_20260511_005-section-2",
+      "query": "According to the 'Methodology' section of 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022', what key information is highlighted?",
+      "top_k": 3,
+      "hit_at_k": true,
+      "recall_at_k": 1.0,
+      "mrr": 1.0,
+      "retrieved_chunks": [
+        {
+          "chunk_id": "paper_20260511_005-section-2-support-1",
+          "paper_id": "paper_20260511_005",
+          "section": "Methodology",
+          "score": 1.0,
+          "rank": 1,
+          "is_relevant": true
+        },
+        {
+          "chunk_id": "paper_20260511_005-section-2-distractor-2",
+          "paper_id": "paper_20260511_005",
+          "section": "Distractor-2",
+          "score": 0.8,
+          "rank": 2,
+          "is_relevant": false
+        },
+        {
+          "chunk_id": "paper_20260511_005-section-2-distractor-3",
+          "paper_id": "paper_20260511_005",
+          "section": "Distractor-3",
+          "score": 0.7,
+          "rank": 3,
+          "is_relevant": false
+        }
+      ]
+    }
+  ]
+}
