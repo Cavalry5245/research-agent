@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -35,6 +35,7 @@ class LibraryIndexStatusResponse(BaseModel):
 class Section(BaseModel):
     heading: str
     content: str
+    page_number: int | None = None
 
 
 class PaperParseResult(BaseModel):
@@ -78,6 +79,9 @@ class Chunk(BaseModel):
     title: str
     section: str
     content: str
+    page_number: int | None = None
+    chunk_start: int | None = None
+    chunk_end: int | None = None
 
 
 class NoteReadResponse(BaseModel):
@@ -104,6 +108,7 @@ class RetrievalResult(BaseModel):
     title: str
     section: str
     score: float
+    rerank_score: float | None = None
 
 
 class SourceItem(BaseModel):
@@ -112,6 +117,10 @@ class SourceItem(BaseModel):
     section: str
     chunk_id: str
     content: str
+    score: float | None = None
+    page_number: int | None = None
+    chunk_start: int | None = None
+    chunk_end: int | None = None
 
 
 class QARequest(BaseModel):
@@ -130,10 +139,66 @@ class IndexStatusResponse(BaseModel):
     paper_id: str
     status: str
     chunks_indexed: int
+    already_indexed: bool = False
+    parse_seconds: float = 0.0
+    chunk_seconds: float = 0.0
+    embedding_seconds: float = 0.0
+    persist_seconds: float = 0.0
+    total_seconds: float = 0.0
 
 
 class CompareRequest(BaseModel):
     paper_ids: list[str]
+
+
+class PaperEvidence(BaseModel):
+    paper_id: str
+    paper_title: str
+    section: str
+    snippet: str
+
+
+class PaperStructuredSummary(BaseModel):
+    paper_id: str
+    paper_title: str
+    research_problem: str = "未明确说明"
+    method: str = "未明确说明"
+    backbone: str = "未明确说明"
+    dataset: str = "未明确说明"
+    metrics: str = "未明确说明"
+    strengths: str = "未明确说明"
+    limitations: str = "未明确说明"
+    scenarios: str = "未明确说明"
+    evidence: list[PaperEvidence] = Field(default_factory=list)
+
+
+class CompareAspect(BaseModel):
+    name: str
+    summary: str
+    key_differences: list[str] = Field(default_factory=list)
+    per_paper: dict[str, str] = Field(default_factory=dict)
+    evidence: list[PaperEvidence] = Field(default_factory=list)
+
+
+class PaperComparisonResult(BaseModel):
+    overview: str
+    aspects: list[CompareAspect]
+    markdown: str
+    structured_summaries: dict[str, PaperStructuredSummary] | None = None
+
+
+class CompareBatchSampleResult(BaseModel):
+    sample_id: str
+    question: str
+    paper_ids: list[str]
+    comparison: PaperComparisonResult
+
+
+class CompareBatchRunResult(BaseModel):
+    dataset_path: str
+    total_samples: int
+    generated_at: str
+    results: list[CompareBatchSampleResult]
 
 
 class CompareResponse(BaseModel):
@@ -141,3 +206,4 @@ class CompareResponse(BaseModel):
     status: str
     output_path: str
     content: str
+    comparison: PaperComparisonResult | None = None
