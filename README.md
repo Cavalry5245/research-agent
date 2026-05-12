@@ -30,7 +30,66 @@
 | LLM | OpenAI-compatible API (DeepSeek / Qwen / Ollama) |
 | Embedding | sentence-transformers (bge-small-zh-v1.5) |
 | 向量检索 | 余弦相似度（接口兼容 Chroma） |
+| 评测 | `app/evaluation` schemas + seed dataset builder + retrieval / QA benchmark scripts |
 | 配置 | .env (pydantic-settings) |
+
+## Phase 1 Benchmark & Evaluation
+
+Phase 1 已补齐一套可离线运行的 benchmark 骨架，用于把项目从“能跑”升级为“可评估、可讲述”。当前重点是验证评测数据流、脚本通路和报告产物，而不是宣称真实线上 RAG 效果。
+
+### 评测数据结构
+
+`app/evaluation/schemas.py` 当前定义了三类核心结构：
+- `QAEvalSample`：单论文问答样本，字段包含 `sample_id`、`question`、`expected_answer`、`paper_id`、`paper_title`、`supporting_sections`、`difficulty`、`metadata`
+- `ComparisonEvalSample`：多论文对比样本，字段包含 `paper_ids`、`paper_titles`、`expected_summary`、`comparison_aspects`、`supporting_sections`
+- `RetrievalEvalResult` / `RetrievalMatch`：检索评测结果，记录 `hit_at_k`、`recall_at_k`、`mrr` 及每个候选 chunk 的 `rank`、`section`、`score`
+
+### Benchmark 脚本与产物
+
+- Seed dataset 构建：`app/evaluation/scripts/build_seed_dataset.py`
+- Retrieval benchmark：`app/evaluation/scripts/evaluate_retrieval.py`
+- QA answer/citation benchmark 骨架：`app/evaluation/scripts/evaluate_qa.py`
+- QA seed dataset：`app/evaluation/datasets/qa_eval_seed.jsonl`
+- Comparison seed dataset：`app/evaluation/datasets/comparison_eval_seed.jsonl`
+- Baseline Markdown 报告：`app/evaluation/reports/baseline_report.md`
+- Retrieval JSON 报告：`app/evaluation/reports/retrieval_eval_seed_report.json`
+- QA JSON 报告：`app/evaluation/reports/qa_eval_seed_report.json`
+
+### 当前基线结果
+
+基于当前仓库内 parsed metadata 自动生成的 seed dataset：
+- QA samples: 11
+- Papers covered: 4
+- Supporting-section labels: 6
+
+当前 `baseline_report.md` 记录的 retrieval baseline 为：
+- Hit@3 = 1.000
+- Recall@3 = 1.000
+- MRR = 1.000
+
+当前 `qa_eval_seed_report.json` 记录的 rule-based QA scaffold 结果为：
+- answer_pass_rate = 1.000
+- citation_pass_rate = 1.000
+- mean_answer_score = 1.000
+- mean_citation_score = 1.000
+
+注意：这些数值来自离线 deterministic seed baseline。`evaluate_retrieval.py` 会把 gold supporting section 注入 rank 1，`evaluate_qa.py` 也直接使用 seed expected answer 作为预测值，因此这些结果只能证明评测框架、报告生成和数据结构已经打通，不能代表真实向量检索或真实 LLM 问答质量。
+
+### 运行环境与验证边界
+
+- 默认验证环境：WSL + 已激活 conda 环境
+- 当前 benchmark 结论：离线可复现、无需真实外部模型
+- 尚未覆盖：真实 embedding 检索链路、真实 LLM 回答链路、线上 API 波动、跨环境性能差异
+- 因此当前公开叙事应表述为：“项目已具备 benchmark 与 baseline report 骨架，可继续接入真实检索链路验证优化收益”，而不是“检索效果已达 100%”。
+
+### Benchmark 命令
+
+```bash
+python app/evaluation/scripts/build_seed_dataset.py
+python app/evaluation/scripts/evaluate_retrieval.py --top-k 3
+python app/evaluation/scripts/evaluate_qa.py --mode rule_based
+```
+
 
 ## 快速启动
 
@@ -185,7 +244,7 @@ research-agent/
 │   ├── sample_papers/
 │   └── sample_outputs/
 │       └── sample_note.md
-└── tests/                     # 48 项测试（46 passed, 2 skipped）
+└── tests/                     # 150 passed, 1 skipped（当前全量测试）
     ├── test_paper_status.py
     ├── test_paper_manager.py
     ├── test_pdf_parser.py
@@ -212,8 +271,8 @@ research-agent/
 
 ```powershell
 conda activate research_agent
-python -m pytest tests\ -v
-# 46 passed, 2 skipped
+python -m pytest tests -q
+# 150 passed, 1 skipped
 ```
 
 ## 后续升级

@@ -11,7 +11,7 @@
 - 涉及人工资源时必须显式阻塞，不得假设
 - 每阶段完成后必须输出：改了什么、怎么验证、结果如何、下一步是什么
 
-**项目根目录：** `/mnt/e/projects/ResearchAgent`
+**项目根目录：** `/home/chase/projects/ResearchAgent`
 
 **默认执行环境：**
 - 在 WSL 中执行
