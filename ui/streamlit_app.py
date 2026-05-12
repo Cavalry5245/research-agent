@@ -13,6 +13,7 @@ from app.services.llm_client import LLMClient
 from app.services.markdown_exporter import save_markdown
 from app.services.note_generator import generate_note
 from app.services.paper_compare import compare_papers, save_compare_result
+from app.services.paper_manager import delete_paper_assets
 from app.services.paper_qa import answer_question
 from app.services.pdf_parser import (
     generate_paper_id,
@@ -59,6 +60,90 @@ def load_paper_options():
     return options, papers
 
 
+def save_uploaded_files(uploaded_files) -> list[dict]:
+    os.makedirs(settings.upload_dir, exist_ok=True)
+    saved_files = []
+
+    for uploaded in uploaded_files:
+        paper_id = generate_paper_id(settings.upload_dir)
+        storage_path = os.path.join(settings.upload_dir, uploaded.name)
+        if os.path.exists(storage_path):
+            name, ext = os.path.splitext(uploaded.name)
+            storage_path = os.path.join(settings.upload_dir, f"{name}__new{ext}")
+
+        with open(storage_path, "wb") as f:
+            f.write(uploaded.getbuffer())
+
+        saved_files.append(
+            {
+                "paper_id": paper_id,
+                "filename": uploaded.name,
+                "storage_path": storage_path,
+            }
+        )
+
+    return saved_files
+
+
+def parse_saved_files(saved_files: list[dict]) -> list[dict]:
+    parsed_results = []
+
+    for item in saved_files:
+        result = parse_pdf(item["storage_path"], item["paper_id"])
+        save_parse_result(result, settings.metadata_dir)
+        parsed_results.append(
+            {
+                "paper_id": item["paper_id"],
+                "filename": item["filename"],
+                "title": result.title,
+                "sections": len(result.sections),
+                "chars": len(result.full_text),
+            }
+        )
+
+    return parsed_results
+
+
+def index_parsed_files(saved_files: list[dict]) -> list[dict]:
+    indexed_results = []
+    vector_store = get_vector_store()
+
+    for item in saved_files:
+        parsed_data = load_parsed_result(item["paper_id"], settings.metadata_dir)
+        parsed = PaperParseResult(**parsed_data)
+        chunks = chunk_paper(parsed)
+
+        if not chunks:
+            indexed_results.append(
+                {
+                    "paper_id": item["paper_id"],
+                    "filename": item["filename"],
+                    "status": "skipped_empty",
+                    "chunks_indexed": 0,
+                }
+            )
+            continue
+
+        embedding_client = get_embedding_client()
+        embeddings = embedding_client.embed_texts([chunk.content for chunk in chunks])
+        vector_store.add_chunks(chunks, embeddings)
+        indexed_results.append(
+            {
+                "paper_id": item["paper_id"],
+                "filename": item["filename"],
+                "status": "indexed",
+                "chunks_indexed": len(chunks),
+                "embedding_device": embedding_client.device,
+                "embedding_batch_size": embedding_client.batch_size,
+                "vector_backend": vector_store.backend_name(),
+                "vector_store_path": vector_store.metadata()["store_path"],
+                "vector_chunk_total": vector_store.metadata()["chunk_count"],
+            }
+        )
+
+    return indexed_results
+
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
@@ -79,12 +164,13 @@ with st.sidebar:
 
     try:
         emb = get_embedding_client()
-        st.success(f"Embedding: {emb.model_name}")
+        st.success(f"Embedding: {emb.model_name} @ {emb.device} | batch={emb.batch_size}")
     except Exception:
         st.warning("Embedding 模型未就绪")
 
     vs = get_vector_store()
-    st.caption(f"已索引 chunks: {vs.count()}")
+    vs_meta = vs.metadata()
+    st.caption(f"已索引 chunks: {vs.count()} | 向量后端: {vs_meta['backend']}")
 
     st.divider()
     st.caption(f"uvicorn → :8000  |  streamlit → :8501")
@@ -94,48 +180,147 @@ with st.sidebar:
 
 if tab == "📤 论文上传":
     st.header("📤 上传论文 PDF")
+    st.caption("支持点击选择或直接拖拽多个 PDF 到下方上传框")
 
-    uploaded = st.file_uploader("选择 PDF 论文文件", type=["pdf"], key="pdf_uploader")
+    if "pending_uploads" not in st.session_state:
+        st.session_state["pending_uploads"] = []
+    if "last_parsed_uploads" not in st.session_state:
+        st.session_state["last_parsed_uploads"] = []
+    if "last_indexed_uploads" not in st.session_state:
+        st.session_state["last_indexed_uploads"] = []
+    if "uploader_key" not in st.session_state:
+        st.session_state["uploader_key"] = 0
+    if "delete_confirm_paper_id" not in st.session_state:
+        st.session_state["delete_confirm_paper_id"] = None
 
-    if uploaded:
-        with st.spinner("上传并解析中..."):
-            os.makedirs(settings.upload_dir, exist_ok=True)
-            paper_id = generate_paper_id(settings.upload_dir)
+    uploaded_files = st.file_uploader(
+        "选择 PDF 论文文件（可拖拽多篇 PDF 到这里）",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key=f"pdf_uploader_{st.session_state['uploader_key']}",
+        help="拖拽上传后，需要点击“保存上传文件”，再点击“开始解析”。",
+    )
 
-            storage_path = os.path.join(settings.upload_dir, uploaded.name)
-            if os.path.exists(storage_path):
-                name, ext = os.path.splitext(uploaded.name)
-                storage_path = os.path.join(settings.upload_dir, f"{name}__new{ext}")
+    if uploaded_files:
+        st.caption(f"当前已选 {len(uploaded_files)} 个文件（拖拽后如果这里有文件名，说明 Streamlit 已接收到文件）")
+        for uploaded in uploaded_files:
+            st.caption(f"已选: {uploaded.name}")
 
-            with open(storage_path, "wb") as f:
-                f.write(uploaded.getbuffer())
+    col_upload, col_parse, col_clear = st.columns(3)
 
-            result = parse_pdf(storage_path, paper_id)
-            save_parse_result(result, settings.metadata_dir)
+    with col_upload:
+        if st.button("📥 保存上传文件", use_container_width=True, key="btn_save_uploads"):
+            if not uploaded_files:
+                st.warning("请先选择或拖拽至少 1 个 PDF 文件")
+            else:
+                new_saved_files = save_uploaded_files(uploaded_files)
+                st.session_state["pending_uploads"] = [
+                    *st.session_state.get("pending_uploads", []),
+                    *new_saved_files,
+                ]
+                st.session_state["last_parsed_uploads"] = []
+                st.session_state["last_indexed_uploads"] = []
+                st.session_state["uploader_key"] += 1
+                st.success(
+                    f"本次新保存 {len(new_saved_files)} 个文件，当前共有 {len(st.session_state['pending_uploads'])} 个待解析文件，请点击“开始解析”"
+                )
+                st.rerun()
 
-            st.success(f"✅ 上传并解析成功！")
-            st.json({
-                "paper_id": paper_id,
-                "filename": uploaded.name,
-                "title": result.title,
-                "sections": len(result.sections),
-                "chars": len(result.full_text),
-            })
+    with col_parse:
+        if st.button("🧠 开始解析", use_container_width=True, type="primary", key="btn_parse_uploads"):
+            pending_uploads = st.session_state.get("pending_uploads", [])
+            if not pending_uploads:
+                st.warning("没有待解析的文件，请先上传并保存 PDF")
+            else:
+                with st.spinner(f"正在解析并入库 {len(pending_uploads)} 篇论文..."):
+                    try:
+                        parsed_results = parse_saved_files(pending_uploads)
+                        indexed_results = index_parsed_files(pending_uploads)
+                        st.session_state["last_parsed_uploads"] = parsed_results
+                        st.session_state["last_indexed_uploads"] = indexed_results
+                        st.session_state["pending_uploads"] = []
+                        refresh_papers()
+                        indexed_count = sum(1 for item in indexed_results if item["status"] == "indexed")
+                        st.success(f"✅ 成功解析 {len(parsed_results)} 篇论文，并完成 {indexed_count} 篇入库")
+                    except Exception as e:
+                        st.error(f"解析失败: {e}")
+
+    with col_clear:
+        if st.button("🗑️ 清空待解析", use_container_width=True, key="btn_clear_uploads"):
+            st.session_state["pending_uploads"] = []
+            st.session_state["last_parsed_uploads"] = []
+            st.session_state["last_indexed_uploads"] = []
+            st.session_state["uploader_key"] += 1
+            st.rerun()
+
+    pending_uploads = st.session_state.get("pending_uploads", [])
+    if pending_uploads:
+        st.info(f"当前有 {len(pending_uploads)} 个待解析文件")
+        for item in pending_uploads:
+            st.caption(f"待解析: {item['filename']} → {item['paper_id']}")
+
+    if st.session_state.get("last_parsed_uploads"):
+        st.subheader("最近解析结果")
+        for item in st.session_state["last_parsed_uploads"]:
+            st.json(item)
+
+    if st.session_state.get("last_indexed_uploads"):
+        st.subheader("最近入库结果")
+        for item in st.session_state["last_indexed_uploads"]:
+            st.json(item)
+            if item.get("status") == "indexed":
+                st.caption(
+                    f"设备: {item.get('embedding_device', '-') } | batch={item.get('embedding_batch_size', '-') } | "
+                    f"后端: {item.get('vector_backend', '-') } | chunks总数: {item.get('vector_chunk_total', '-') }"
+                )
+                st.caption(f"存储路径: {item.get('vector_store_path', '-')}")
 
     st.divider()
     st.subheader("已上传论文")
 
     if st.button("刷新列表"):
-        pass
+        refresh_papers()
 
     options, papers = load_paper_options()
     if not papers:
         st.info("暂无已上传论文")
     else:
         for p in papers:
-            with st.expander(f"{p['paper_id']} — {p['title'][:80]}"):
-                st.caption(f"ID: {p['paper_id']}")
+            paper_id = p["paper_id"]
+            with st.expander(f"{paper_id} — {p['title'][:80]}"):
+                st.caption(f"ID: {paper_id}")
                 st.caption(f"摘要: {p['abstract'][:200]}...")
+
+                delete_col, confirm_col = st.columns(2)
+                with delete_col:
+                    if st.button("删除这篇论文", key=f"delete_paper_{paper_id}"):
+                        st.session_state["delete_confirm_paper_id"] = paper_id
+                        st.rerun()
+
+                if st.session_state.get("delete_confirm_paper_id") == paper_id:
+                    st.warning(f"确认删除 {paper_id} 吗？此操作会同时删除原始 PDF、解析结果、笔记和向量索引。")
+                    with confirm_col:
+                        if st.button("确认删除", key=f"confirm_delete_paper_{paper_id}", type="primary"):
+                            try:
+                                result = delete_paper_assets(
+                                    paper_id=paper_id,
+                                    upload_dir=settings.upload_dir,
+                                    metadata_dir=settings.metadata_dir,
+                                    note_dir=settings.note_dir,
+                                    vector_store=get_vector_store(),
+                                )
+                                st.session_state["delete_confirm_paper_id"] = None
+                                st.success(
+                                    f"已删除 {paper_id}，移除文件 {len(result['deleted_files'])} 个，向量块 {result['deleted_chunks']} 个"
+                                )
+                                refresh_papers()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"删除失败: {e}")
+
+                    if st.button("取消删除", key=f"cancel_delete_paper_{paper_id}"):
+                        st.session_state["delete_confirm_paper_id"] = None
+                        st.rerun()
 
 
 # ── Tab 2: Notes ─────────────────────────────────────────────────────────────
@@ -232,8 +417,8 @@ elif tab == "💬 论文问答":
         else:
             with st.spinner("检索 + 推理中..."):
                 try:
-                    llm_client = LLMClient()
-                    embedding_client = EmbeddingClient()
+                    llm_client = get_llm_client()
+                    embedding_client = get_embedding_client()
                     result = answer_question(
                         question=question.strip(),
                         vector_store=get_vector_store(),

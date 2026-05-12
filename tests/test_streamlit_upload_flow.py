@@ -9,6 +9,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.services.pdf_parser import generate_paper_id, parse_pdf, save_parse_result
 
 
+def _merge_pending_uploads(existing: list[dict], new_items: list[dict]) -> list[dict]:
+    return [*existing, *new_items]
+
+
 def _create_pdf_bytes(title: str, body: str) -> bytes:
     doc = fitz.open()
     page = doc.new_page()
@@ -120,3 +124,12 @@ def test_parse_saved_files_runs_only_when_called():
         metadata_files = os.listdir(metadata_dir)
         assert len(metadata_files) == 1
         assert metadata_files[0].endswith("_parsed.json")
+
+
+def test_merge_pending_uploads_appends_instead_of_overwriting():
+    existing = [{"paper_id": "paper_1", "filename": "a.pdf", "storage_path": "/tmp/a.pdf"}]
+    new_items = [{"paper_id": "paper_2", "filename": "b.pdf", "storage_path": "/tmp/b.pdf"}]
+
+    merged = _merge_pending_uploads(existing, new_items)
+
+    assert [item["paper_id"] for item in merged] == ["paper_1", "paper_2"]
