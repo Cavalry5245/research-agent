@@ -19,13 +19,14 @@ AI research assistant for paper reading, note generation, RAG QA, multi-paper co
 
 ## Dev commands
 
-```powershell
+```bash
 # Conda environment (recommended — ensures torch/chroma binary compatibility)
 conda activate research_agent
+pip install -r requirements.txt
 
-# Or venv fallback
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+# Optional venv fallback (use only if you are not using the conda workflow)
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
 # Start FastAPI backend
@@ -35,7 +36,7 @@ uvicorn app.main:app --reload
 streamlit run ui/streamlit_app.py
 
 # Run all tests
-python -m pytest tests\ -v
+python -m pytest tests -v
 ```
 
 ## Environment config
@@ -101,3 +102,4 @@ All models/providers are swappable via `.env`:
 - After each change, document which files were modified and how to test
 - Do not introduce complex frameworks; keep MVP simple
 - First priority: `PDF → text → Markdown notes` pipeline before any agent/UI complexity
+- Keep the codebase clean and organized at all times: no temporary files, no dead code, no dead files, no unnecessary folders/subfolders/files, and remove obsolete artifacts promptly when they are no longer needed
