@@ -1,8 +1,9 @@
 import os
 import shutil
 import time
+from typing import Protocol
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from app.config import settings
@@ -11,7 +12,9 @@ from app.schemas import (
     CompareResponse,
     DeletePaperResponse,
     HealthResponse,
+    IndexJobStatusResponse,
     IndexStatusResponse,
+    JobListResponse,
     LibraryIndexStatusResponse,
     NoteGenerateResponse,
     NoteReadResponse,
@@ -28,13 +31,18 @@ from app.schemas import (
 )
 from app.services.chunker import chunk_paper
 from app.services.embedding_client import EmbeddingClient
+from app.services.job_store import FileJobStore, InMemoryJobStore, utc_now_iso
 from app.services.llm_client import LLMClient
 from app.services.markdown_exporter import save_markdown
 from app.services.note_generator import generate_note
 from app.services.paper_compare import compare_papers, save_compare_result
 from app.services.paper_manager import delete_paper_assets
 from app.services.paper_qa import answer_question
-from app.services.paper_status import get_index_status, get_library_status
+from app.services.paper_status import (
+    build_index_job_status,
+    get_index_status,
+    get_library_status,
+)
 from app.services.pdf_parser import (
     find_pdf_path,
     generate_paper_id,
@@ -46,6 +54,16 @@ from app.services.pdf_parser import (
 from app.services.vector_store import VectorStore
 
 app = FastAPI(title="ResearchAgent", version="0.1.0")
+
+
+class JobStore(Protocol):
+    def upsert(self, job: IndexJobStatusResponse) -> IndexJobStatusResponse: ...
+
+    def get(self, job_id: str) -> IndexJobStatusResponse | None: ...
+
+    def list(self) -> list[IndexJobStatusResponse]: ...
+
+    def clear(self) -> None: ...
 
 
 def _resolve_metadata_dir() -> str:
@@ -216,26 +234,42 @@ async def download_note(paper_id: str):
 # ── Index to vector store ────────────────────────────────────────────────────
 
 
-@app.post("/papers/{paper_id}/index", response_model=IndexStatusResponse)
-async def index_paper(paper_id: str, force: bool = False):
+def _run_index_job(job_id: str, paper_id: str, force: bool, created_at: str) -> None:
     vector_store = _get_vector_store()
 
     if vector_store.has_paper(paper_id) and not force:
         status = get_index_status(vector_store, paper_id)
-        return IndexStatusResponse(
+        job = build_index_job_status(
+            job_id=job_id,
             paper_id=paper_id,
-            status="already_indexed",
+            status="completed",
+            created_at=created_at,
+            updated_at=created_at,
+            progress=1.0,
             chunks_indexed=status["chunk_count"],
             already_indexed=True,
             total_seconds=0.0,
         )
+        _get_job_store().upsert(job)
+        return
 
     total_started = time.perf_counter()
 
     try:
         data = load_parsed_result(paper_id, _resolve_metadata_dir())
     except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        failed_at = utc_now_iso()
+        failed_job = build_index_job_status(
+            job_id=job_id,
+            paper_id=paper_id,
+            status="failed",
+            created_at=created_at,
+            started_at=created_at,
+            updated_at=failed_at,
+            error=str(e),
+        )
+        _get_job_store().upsert(failed_job)
+        return
 
     parse_seconds = time.perf_counter() - total_started
     parsed = PaperParseResult(**data)
@@ -245,33 +279,151 @@ async def index_paper(paper_id: str, force: bool = False):
     chunk_seconds = time.perf_counter() - chunk_started
 
     if not chunks:
-        raise HTTPException(status_code=400, detail="论文内容为空，无法生成索引块")
+        failed_at = utc_now_iso()
+        failed_job = build_index_job_status(
+            job_id=job_id,
+            paper_id=paper_id,
+            status="failed",
+            created_at=created_at,
+            started_at=created_at,
+            updated_at=failed_at,
+            parse_seconds=parse_seconds,
+            chunk_seconds=chunk_seconds,
+            error="论文内容为空，无法生成索引块",
+        )
+        _get_job_store().upsert(failed_job)
+        return
 
     texts = [c.content for c in chunks]
-    embedding_started = time.perf_counter()
-    embedding_client = _get_embedding_client()
-    embeddings = embedding_client.embed_texts(texts)
-    embedding_seconds = time.perf_counter() - embedding_started
-
-    persist_started = time.perf_counter()
-    vector_store.add_chunks(chunks, embeddings)
-    persist_seconds = time.perf_counter() - persist_started
-    total_seconds = time.perf_counter() - total_started
-
-    return IndexStatusResponse(
-        paper_id=paper_id,
-        status="indexed",
-        chunks_indexed=len(chunks),
-        already_indexed=False,
-        parse_seconds=parse_seconds,
-        chunk_seconds=chunk_seconds,
-        embedding_seconds=embedding_seconds,
-        persist_seconds=persist_seconds,
-        total_seconds=total_seconds,
+    running_at = utc_now_iso()
+    _get_job_store().upsert(
+        build_index_job_status(
+            job_id=job_id,
+            paper_id=paper_id,
+            status="running",
+            created_at=created_at,
+            started_at=running_at,
+            updated_at=running_at,
+            progress=0.25,
+            chunks_indexed=0,
+            already_indexed=False,
+            parse_seconds=parse_seconds,
+            chunk_seconds=chunk_seconds,
+        )
     )
+
+    try:
+        embedding_started = time.perf_counter()
+        embedding_client = _get_embedding_client()
+        embeddings = embedding_client.embed_texts(texts)
+        embedding_seconds = time.perf_counter() - embedding_started
+
+        persist_started = time.perf_counter()
+        vector_store.add_chunks(chunks, embeddings)
+        persist_seconds = time.perf_counter() - persist_started
+        total_seconds = time.perf_counter() - total_started
+        completed_at = utc_now_iso()
+
+        job = build_index_job_status(
+            job_id=job_id,
+            paper_id=paper_id,
+            status="completed",
+            created_at=created_at,
+            started_at=running_at,
+            completed_at=completed_at,
+            updated_at=completed_at,
+            progress=1.0,
+            chunks_indexed=len(chunks),
+            already_indexed=False,
+            parse_seconds=parse_seconds,
+            chunk_seconds=chunk_seconds,
+            embedding_seconds=embedding_seconds,
+            persist_seconds=persist_seconds,
+            total_seconds=total_seconds,
+        )
+        _get_job_store().upsert(job)
+    except Exception as exc:
+        failed_at = utc_now_iso()
+        total_seconds = time.perf_counter() - total_started
+        _get_job_store().upsert(
+            build_index_job_status(
+                job_id=job_id,
+                paper_id=paper_id,
+                status="failed",
+                created_at=created_at,
+                started_at=running_at,
+                updated_at=failed_at,
+                progress=0.25,
+                chunks_indexed=0,
+                already_indexed=False,
+                parse_seconds=parse_seconds,
+                chunk_seconds=chunk_seconds,
+                total_seconds=total_seconds,
+                error=str(exc),
+            )
+        )
+
+
+@app.post("/papers/{paper_id}/index", response_model=IndexStatusResponse, status_code=202)
+async def index_paper(
+    paper_id: str,
+    background_tasks: BackgroundTasks,
+    response: Response,
+    force: bool = False,
+):
+    vector_store = _get_vector_store()
+    created_at = utc_now_iso()
+    job_id = f"job_{paper_id}_{int(time.time() * 1000)}"
+
+    if vector_store.has_paper(paper_id) and not force:
+        status = get_index_status(vector_store, paper_id)
+        job = build_index_job_status(
+            job_id=job_id,
+            paper_id=paper_id,
+            status="completed",
+            created_at=created_at,
+            started_at=created_at,
+            completed_at=created_at,
+            updated_at=created_at,
+            progress=1.0,
+            chunks_indexed=status["chunk_count"],
+            already_indexed=True,
+            total_seconds=0.0,
+        )
+        _get_job_store().upsert(job)
+        response.status_code = 200
+        return job
+
+    queued_job = build_index_job_status(
+        job_id=job_id,
+        paper_id=paper_id,
+        status="queued",
+        created_at=created_at,
+        updated_at=created_at,
+        progress=0.0,
+        chunks_indexed=0,
+        already_indexed=False,
+    )
+    _get_job_store().upsert(queued_job)
+    background_tasks.add_task(_run_index_job, job_id, paper_id, force, created_at)
+    return queued_job
 
 
 # ── Delete paper ─────────────────────────────────────────────────────────────
+
+
+@app.get("/jobs", response_model=JobListResponse)
+async def list_jobs_endpoint():
+    jobs = _get_job_store().list()
+    return JobListResponse(count=len(jobs), jobs=jobs)
+
+
+@app.get("/jobs/{job_id}", response_model=IndexJobStatusResponse)
+async def job_status_endpoint(job_id: str):
+    job = _get_job_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"任务 {job_id} 不存在")
+    return job
 
 
 @app.get("/papers/{paper_id}/index-status", response_model=PaperIndexDetailResponse)
@@ -342,13 +494,18 @@ async def compare_papers_endpoint(req: CompareRequest):
 _vector_store: VectorStore | None = None
 _embedding_client: EmbeddingClient | None = None
 _llm_client: LLMClient | None = None
+_job_store: JobStore | None = None
 
 
-def _get_vector_store() -> VectorStore:
-    global _vector_store
-    if _vector_store is None:
-        _vector_store = VectorStore()
-    return _vector_store
+def _get_job_store() -> JobStore:
+    global _job_store
+    if _job_store is None:
+        job_store_path = os.getenv("RESEARCH_AGENT_JOB_STORE_PATH")
+        if job_store_path:
+            _job_store = FileJobStore(job_store_path)
+        else:
+            _job_store = InMemoryJobStore()
+    return _job_store
 
 
 def _get_embedding_client() -> EmbeddingClient:
@@ -363,6 +520,13 @@ def _get_llm_client() -> LLMClient:
     if _llm_client is None:
         _llm_client = LLMClient()
     return _llm_client
+
+
+def _get_vector_store() -> VectorStore:
+    global _vector_store
+    if _vector_store is None:
+        _vector_store = VectorStore()
+    return _vector_store
 
 
 @app.post("/qa", response_model=QAResponse)

@@ -244,7 +244,7 @@ research-agent/
 │   ├── sample_papers/
 │   └── sample_outputs/
 │       └── sample_note.md
-└── tests/                     # 150 passed, 1 skipped（当前全量测试）
+└── tests/                     # 192 passed, 1 skipped（当前本地全量测试基线）
     ├── test_paper_status.py
     ├── test_paper_manager.py
     ├── test_pdf_parser.py
@@ -272,7 +272,7 @@ research-agent/
 ```powershell
 conda activate research_agent
 python -m pytest tests -q
-# 150 passed, 1 skipped
+# 192 passed, 1 skipped
 ```
 
 ## 后续升级

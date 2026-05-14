@@ -1,4 +1,7 @@
-from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class HealthResponse(BaseModel):
@@ -136,8 +139,11 @@ class QAResponse(BaseModel):
 
 
 class IndexStatusResponse(BaseModel):
+    job_id: str
+    job_type: str = "paper_index"
     paper_id: str
-    status: str
+    status: Literal["queued", "running", "completed", "failed"]
+    progress: float = Field(default=0.0, ge=0.0, le=1.0)
     chunks_indexed: int
     already_indexed: bool = False
     parse_seconds: float = 0.0
@@ -145,6 +151,56 @@ class IndexStatusResponse(BaseModel):
     embedding_seconds: float = 0.0
     persist_seconds: float = 0.0
     total_seconds: float = 0.0
+    created_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    updated_at: datetime
+    error: str | None = None
+
+    @model_validator(mode="after")
+    def validate_lifecycle_timestamps(self):
+        if self.status == "queued" and self.started_at is not None:
+            raise ValueError("queued 状态不得提供 started_at")
+        if self.status == "running" and self.started_at is None:
+            raise ValueError("running 状态必须提供 started_at")
+        if self.status == "running" and self.completed_at is not None:
+            raise ValueError("running 状态不得提供 completed_at")
+        if self.status == "completed" and self.completed_at is None:
+            raise ValueError("completed 状态必须提供 completed_at")
+        if self.status == "failed" and self.completed_at is not None:
+            raise ValueError("failed 状态不得提供 completed_at")
+        if self.completed_at is not None and self.started_at is None:
+            raise ValueError("failed/completed 状态提供 completed_at 时必须同时提供 started_at")
+        if self.completed_at is not None and self.started_at is not None and self.completed_at < self.started_at:
+            raise ValueError("completed_at 不得早于 started_at")
+        if self.updated_at < self.created_at:
+            raise ValueError("updated_at 不得早于 created_at")
+        if self.started_at is not None and self.started_at < self.created_at:
+            raise ValueError("started_at 不得早于 created_at")
+        if self.completed_at is not None and self.updated_at < self.completed_at:
+            raise ValueError("updated_at 不得早于 completed_at")
+        if self.status == "failed" and self.error and self.started_at is None:
+            raise ValueError("failed 状态提供 error 时必须同时提供 started_at")
+        if (
+            self.status == "failed"
+            and self.progress == 0.0
+            and self.started_at is not None
+            and self.completed_at is None
+            and self.error is None
+        ):
+            raise ValueError(
+                "failed 状态在 progress = 0、completed_at 缺失且 error 为空时不得提供 started_at"
+            )
+        return self
+
+
+class IndexJobStatusResponse(IndexStatusResponse):
+    pass
+
+
+class JobListResponse(BaseModel):
+    count: int
+    jobs: list[IndexJobStatusResponse] = Field(default_factory=list)
 
 
 class CompareRequest(BaseModel):

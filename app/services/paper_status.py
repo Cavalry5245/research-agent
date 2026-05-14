@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from app.schemas import IndexJobStatusResponse
 from app.services.vector_store import VectorStore
 
 
@@ -41,3 +42,43 @@ def get_library_status(vector_store: VectorStore) -> dict:
         "paper_count": len(papers),
         "papers": papers,
     }
+
+
+def build_index_job_status(
+    *,
+    job_id: str,
+    paper_id: str,
+    status: str,
+    created_at: str,
+    updated_at: str,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    chunks_indexed: int = 0,
+    already_indexed: bool = False,
+    progress: float = 0.0,
+    parse_seconds: float = 0.0,
+    chunk_seconds: float = 0.0,
+    embedding_seconds: float = 0.0,
+    persist_seconds: float = 0.0,
+    total_seconds: float = 0.0,
+    error: str | None = None,
+) -> IndexJobStatusResponse:
+    return IndexJobStatusResponse(
+        job_id=job_id,
+        job_type="paper_index",
+        paper_id=paper_id,
+        status=status,
+        progress=progress,
+        chunks_indexed=chunks_indexed,
+        already_indexed=already_indexed,
+        parse_seconds=parse_seconds,
+        chunk_seconds=chunk_seconds,
+        embedding_seconds=embedding_seconds,
+        persist_seconds=persist_seconds,
+        total_seconds=total_seconds,
+        created_at=created_at,
+        started_at=started_at,
+        completed_at=completed_at,
+        updated_at=updated_at,
+        error=error,
+    )
