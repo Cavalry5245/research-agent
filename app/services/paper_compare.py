@@ -76,12 +76,17 @@ def _normalize_summary_field(value: str | None) -> str:
 
 
 def _normalize_summary_evidence(
-    evidence_items: list[dict],
+    evidence_items: list[dict] | None,
     paper_id: str,
     paper_title: str,
 ) -> list[PaperEvidence]:
+    if not isinstance(evidence_items, list):
+        return []
+
     normalized = []
     for item in evidence_items:
+        if not isinstance(item, dict):
+            continue
         normalized.append(
             PaperEvidence(
                 paper_id=paper_id,
@@ -98,6 +103,8 @@ def _normalize_paper_summary(
     paper_title: str,
     raw: dict,
 ) -> PaperStructuredSummary:
+    if not isinstance(raw, dict):
+        raw = {}
     return PaperStructuredSummary(
         paper_id=paper_id,
         paper_title=paper_title,
@@ -139,27 +146,77 @@ def _infer_aspect_evidence(
     return inferred
 
 
+def _normalize_compare_evidence(evidence_items: object) -> list[PaperEvidence]:
+    if not isinstance(evidence_items, list):
+        return []
+
+    normalized: list[PaperEvidence] = []
+    for item in evidence_items:
+        if not isinstance(item, dict):
+            continue
+
+        paper_id = item.get("paper_id")
+        paper_title = item.get("paper_title")
+        section = item.get("section")
+        snippet = item.get("snippet")
+        if any(value is None for value in (paper_id, paper_title, section, snippet)):
+            continue
+
+        normalized.append(
+            PaperEvidence(
+                paper_id=_normalize_summary_field(paper_id),
+                paper_title=_normalize_summary_field(paper_title),
+                section=_normalize_summary_field(section),
+                snippet=_normalize_summary_field(snippet),
+            )
+        )
+    return normalized
+
+
+def _normalize_compare_key_differences(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [_normalize_summary_field(item) for item in value if item is not None]
+
+
+def _normalize_compare_aspects(raw_aspects: object) -> list[dict]:
+    if not isinstance(raw_aspects, list):
+        return []
+    return [item for item in raw_aspects if isinstance(item, dict)]
+
+
+def _normalize_compare_aspect_name(value: object) -> str:
+    normalized = _normalize_summary_field(value)
+    if normalized == "未明确说明":
+        return "unknown"
+    return normalized
+
+
 def _normalize_comparison_result(raw: dict, paper_ids: list[str], summaries: dict[str, PaperStructuredSummary]) -> PaperComparisonResult:
     aspects = []
-    for item in raw.get("aspects", []):
+    for item in _normalize_compare_aspects(raw.get("aspects", [])):
+        aspect_name = _normalize_compare_aspect_name(item.get("name"))
+        raw_per_paper = item.get("per_paper", {})
+        if not isinstance(raw_per_paper, dict):
+            raw_per_paper = {}
         per_paper = {
-            pid: item.get("per_paper", {}).get(pid, "未明确说明") for pid in paper_ids
+            pid: _normalize_summary_field(raw_per_paper.get(pid, "未明确说明")) for pid in paper_ids
         }
-        evidence = [PaperEvidence(**e) for e in item.get("evidence", [])]
+        evidence = _normalize_compare_evidence(item.get("evidence", []))
         if not evidence:
-            evidence = _infer_aspect_evidence(item.get("name", "unknown"), per_paper, summaries)
+            evidence = _infer_aspect_evidence(aspect_name, per_paper, summaries)
         aspects.append(
             CompareAspect(
-                name=item.get("name", "unknown"),
-                summary=item.get("summary", "未明确说明"),
-                key_differences=item.get("key_differences", []),
+                name=aspect_name,
+                summary=_normalize_summary_field(item.get("summary", "未明确说明")),
+                key_differences=_normalize_compare_key_differences(item.get("key_differences", [])),
                 per_paper=per_paper,
                 evidence=evidence,
             )
         )
 
     comparison = PaperComparisonResult(
-        overview=raw.get("overview", "未明确说明"),
+        overview=_normalize_summary_field(raw.get("overview", "未明确说明")),
         aspects=aspects,
         markdown="",
         structured_summaries=summaries,
@@ -169,12 +226,21 @@ def _normalize_comparison_result(raw: dict, paper_ids: list[str], summaries: dic
 
 
 
+def _escape_markdown_table_cell(value: object) -> str:
+    text = _normalize_summary_field(value)
+    text = text.replace("|", "\\|")
+    text = text.replace("\r\n", "<br>")
+    text = text.replace("\n", "<br>")
+    text = text.replace("\r", "<br>")
+    return text
+
+
 def _build_comparison_markdown(
     comparison: PaperComparisonResult,
     paper_titles: dict[str, str],
     paper_ids: list[str],
 ) -> str:
-    ordered_titles = [paper_titles.get(pid, pid) for pid in paper_ids]
+    ordered_titles = [_escape_markdown_table_cell(paper_titles.get(pid, pid)) for pid in paper_ids]
     lines = ["# 多论文结构化对比", "", "## 总览", comparison.overview, ""]
 
     header = "| 维度 | " + " | ".join(ordered_titles) + " | 总结 |"
@@ -186,20 +252,20 @@ def _build_comparison_markdown(
         aspect = aspect_map.get(aspect_name)
         if aspect is None:
             continue
-        row = [COMPARE_ASPECT_LABELS.get(aspect_name, aspect_name)]
+        row = [_escape_markdown_table_cell(COMPARE_ASPECT_LABELS.get(aspect_name, aspect_name))]
         for pid in paper_ids:
-            row.append(aspect.per_paper.get(pid, "未明确说明"))
-        row.append(aspect.summary)
+            row.append(_escape_markdown_table_cell(aspect.per_paper.get(pid, "未明确说明")))
+        row.append(_escape_markdown_table_cell(aspect.summary))
         lines.append("| " + " | ".join(row) + " |")
 
     remaining_aspects = [
         aspect for aspect in comparison.aspects if aspect.name not in COMPARE_ASPECT_ORDER
     ]
     for aspect in remaining_aspects:
-        row = [COMPARE_ASPECT_LABELS.get(aspect.name, aspect.name)]
+        row = [_escape_markdown_table_cell(COMPARE_ASPECT_LABELS.get(aspect.name, aspect.name))]
         for pid in paper_ids:
-            row.append(aspect.per_paper.get(pid, "未明确说明"))
-        row.append(aspect.summary)
+            row.append(_escape_markdown_table_cell(aspect.per_paper.get(pid, "未明确说明")))
+        row.append(_escape_markdown_table_cell(aspect.summary))
         lines.append("| " + " | ".join(row) + " |")
 
     lines.extend(["", "## 关键差异", ""])
@@ -248,6 +314,8 @@ def extract_paper_summaries(
         parsed_result = json.loads(raw_result)
     except json.JSONDecodeError as exc:
         raise RuntimeError("单篇结构化抽取结果解析失败") from exc
+    if not isinstance(parsed_result, dict):
+        raise RuntimeError("单篇结构化抽取结果解析失败")
 
     return {
         pid: _normalize_paper_summary(pid, paper_titles[pid], parsed_result.get(pid, {}))
@@ -287,6 +355,9 @@ def compare_papers(
         parsed_result = json.loads(raw_result)
     except json.JSONDecodeError as exc:
         raise RuntimeError("结构化对比结果解析失败") from exc
+
+    if not isinstance(parsed_result, dict):
+        raise RuntimeError("结构化对比结果解析失败")
 
     parsed_result["paper_titles"] = paper_titles
     return _normalize_comparison_result(parsed_result, paper_ids, extracted_summaries)

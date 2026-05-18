@@ -103,3 +103,37 @@ All models/providers are swappable via `.env`:
 - Do not introduce complex frameworks; keep MVP simple
 - First priority: `PDF → text → Markdown notes` pipeline before any agent/UI complexity
 - Keep the codebase clean and organized at all times: no temporary files, no dead code, no dead files, no unnecessary folders/subfolders/files, and remove obsolete artifacts promptly when they are no longer needed
+
+# Project Execution Rules
+
+## Execution discipline
+
+When implementing a plan, Claude must:
+
+1. Read `.claude/plans/current-plan.md` and `.claude/tasks/current-tasks.md` before editing.
+2. Work on exactly one task at a time.
+3. After each task:
+   - update the checkbox in `.claude/tasks/current-tasks.md`
+   - write a short completion note
+   - run the task-specific verification command
+   - inspect `git diff`
+4. Do not modify files outside the plan unless explicitly justified.
+5. Do not delete datasets, checkpoints, outputs, logs, or experiment results.
+6. Do not run destructive commands such as `rm -rf`, `git reset --hard`, `git clean -fd`, or force push.
+7. If a test fails, fix the cause before moving to the next task.
+8. If blocked after 3 attempts, stop and report:
+   - what was attempted
+   - current error
+   - suspected cause
+   - recommended human decision
+
+## Required final report
+
+Before stopping, Claude must provide:
+
+- completed tasks
+- changed files
+- commands run
+- test/evaluation results
+- remaining risks
+- next suggested action

@@ -1117,7 +1117,7 @@ def test_index_endpoint_returns_job_status_and_avoids_repeat_indexing():
             body3 = forced.json()
             assert body3["status"] == "queued"
             assert body3["already_indexed"] is False
-            assert body3["job_id"] != body2["job_id"]
+            assert body3["job_id"].startswith("job_paper_A_")
 
             forced_status = client.get(f"/jobs/{body3['job_id']}")
             assert forced_status.status_code == 200

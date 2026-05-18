@@ -469,13 +469,14 @@ elif tab == "📊 论文对比":
                 with st.spinner(f"对比 {selected_count} 篇论文中..."):
                     try:
                         llm = get_llm_client()
-                        content = compare_papers(
+                        comparison = compare_papers(
                             selected_ids,
                             settings.metadata_dir,
                             llm_client=llm,
                         )
-                        output_path = save_compare_result(content, settings.note_dir)
-                        st.session_state["compare_content"] = content
+                        output_path = save_compare_result(comparison.markdown, settings.note_dir)
+                        st.session_state["compare_content"] = comparison.markdown
+                        st.session_state["compare_result"] = comparison
                         st.session_state["compare_path"] = output_path
                         st.success(f"对比结果已保存: {output_path}")
                     except Exception as e:

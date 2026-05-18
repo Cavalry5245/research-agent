@@ -1,5 +1,8 @@
 # ResearchAgent
 
+> 📋 **当前执行计划**：[JD_ALIGNED_ROADMAP.md](docs/JD_ALIGNED_ROADMAP.md)  
+> 🎯 **目标**：打造符合「大语言模型与 Agent 应用开发实习生」岗位要求的完整 Agent 应用案例
+
 面向研究生的论文阅读与实验分析 AI 助手。支持 PDF 解析、结构化 Markdown 笔记生成、本地知识库构建、RAG 问答、多论文对比和 Markdown 导出。
 
 相关文档：
@@ -16,7 +19,7 @@
 | 📤 PDF 上传与解析 | PyMuPDF 提取 title / abstract / sections / full_text |
 | 📝 笔记生成 | LLM 生成 13 段结构化中文 Markdown 论文笔记 |
 | 🔍 RAG 问答 | 向量检索 + LLM，支持单篇/全库，附带依据片段 |
-| 📊 多论文对比 | 2–5 篇论文自动生成 9 维度 Markdown 对比表 |
+| 📊 多论文对比 | 2–5 篇论文自动生成结构化 Markdown 对比表（含固定核心维度与关键差异） |
 | 🗄️ 知识库 | 文本切块 + sentence-transformers 嵌入 + 向量检索 |
 | 📥 Markdown 导出 | 笔记/对比结果保存为 .md 并支持下载 |
 
@@ -142,7 +145,7 @@ uvicorn app.main:app --reload
 ### 5. 多论文对比
 - 切换到「📊 论文对比」Tab
 - 选择 2–5 篇论文，点击「📊 生成对比表」
-- LLM 生成 9 维度 Markdown 对比表
+- LLM 生成结构化 Markdown 对比表，并汇总关键差异与证据摘录
 
 ## 系统架构
 
@@ -244,7 +247,7 @@ research-agent/
 │   ├── sample_papers/
 │   └── sample_outputs/
 │       └── sample_note.md
-└── tests/                     # 192 passed, 1 skipped（当前本地全量测试基线）
+└── tests/                     # 202 passed, 1 skipped（当前最新本地全量测试基线）
     ├── test_paper_status.py
     ├── test_paper_manager.py
     ├── test_pdf_parser.py
@@ -264,31 +267,36 @@ research-agent/
 | 文本切块 | chunk_size=800, overlap=100 | ✅ |
 | Embedding + 向量库 | sentence-transformers + 本地持久化检索 | ✅ |
 | RAG 问答 | 检索 + LLM 生成 + sources | ✅ |
-| 多论文对比 | 2-5 篇 9 维度表格 | ✅ |
+| 多论文对比 | 2-5 篇结构化对比表 | ✅ |
 | Streamlit 前端 | 5 Tab 完整串联 | ✅ |
 
 ## 运行测试
 
-```powershell
+```bash
 conda activate research_agent
 python -m pytest tests -q
-# 192 passed, 1 skipped
+# 202 passed, 1 skipped
 ```
 
 ## 后续升级
 
-| 版本 | 目标 |
-|------|------|
-| v0.2 | SQLite 论文管理 + 标签分类 + 检索过滤 |
-| v0.3 | 实验日志分析（训练日志 → 指标提取 → 复盘报告） |
-| v0.4 | Agent 工具调用（工具注册 → 任务规划 → 多步执行） |
-| v0.5 | 多模态论文理解（图表/公式/模型结构图） |
-| v1.0 | 科研工作流平台 |
+> 📋 **详细升级路线图**：[JD_ALIGNED_ROADMAP.md](docs/JD_ALIGNED_ROADMAP.md)  
+> 🎯 **执行周期**：12 周（6 个 Phase）  
+> 🚀 **当前阶段**：Week 0 准备阶段
+
+| Phase | 目标 | 周期 |
+|-------|------|------|
+| Phase 1 | Agent 工作流基础（工具封装、LangChain 集成、工作流编排） | Week 1-2 |
+| Phase 2 | 数据分析与效果评估（Pandas/Matplotlib、A/B 测试、失败分析） | Week 3-4 |
+| Phase 3 | 工程化与生产就绪（异步任务、结构化日志、数据库、缓存） | Week 5-6 |
+| Phase 4 | 高级 RAG 与检索增强（Rerank、Hybrid Search、HyDE、查询改写） | Week 7-8 |
+| Phase 5 | 多 Agent 协作与记忆管理（专业化 Agent、AutoGen/CrewAI、记忆系统） | Week 9-10 |
+| Phase 6 | 项目收尾与展示准备（文档完善、代码质量、Demo 视频、面试材料） | Week 11-12 |
 
 ## 简历描述
 
 **ResearchAgent：面向科研场景的论文阅读与知识库问答 Agent**
 
-基于 FastAPI、Streamlit、PyMuPDF 和 OpenAI-compatible LLM API 构建科研论文阅读助手，支持论文 PDF 解析、13 段结构化 Markdown 笔记生成、sentence-transformers 向量嵌入、本地持久化向量检索、RAG 问答（附来源引用）、多论文 9 维度对比和 Markdown 导出。设计文本切块滑动窗口、Prompt 模板约束机制和模块化 service 架构，具备 Agent 工具化扩展能力。
+基于 FastAPI、Streamlit、PyMuPDF 和 OpenAI-compatible LLM API 构建科研论文阅读助手，支持论文 PDF 解析、13 段结构化 Markdown 笔记生成、sentence-transformers 向量嵌入、本地持久化向量检索、RAG 问答（附来源引用）、多论文结构化对比和 Markdown 导出。设计文本切块滑动窗口、Prompt 模板约束机制和模块化 service 架构，具备 Agent 工具化扩展能力。
 
 **技术亮点**: Python / FastAPI / Streamlit / PyMuPDF / sentence-transformers / Embedding / RAG / Prompt Engineering / 向量检索

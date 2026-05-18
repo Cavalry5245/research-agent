@@ -1,0 +1,57 @@
+{
+  "permissions": {
+    "defaultMode": "plan",
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -fd*)",
+      "Bash(git push --force*)",
+      "Bash(git push origin main*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Edit(data/**)",
+      "Edit(datasets/**)",
+      "Edit/checkpoints/**",
+      "Edit(outputs/**)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(pip install*)",
+      "Bash(conda install*)",
+      "Bash(npm install*)"
+    ],
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(pytest*)",
+      "Bash(python -m pytest*)",
+      "Bash(python tools/*)",
+      "Bash(bash scripts/*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/block_dangerous_bash.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/check_task_completion.py"
+          }
+        ]
+      }
+    ]
+  }
+}
