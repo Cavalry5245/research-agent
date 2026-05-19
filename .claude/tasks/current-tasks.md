@@ -192,7 +192,7 @@ cat .claude/tasks/current-tasks.md
     - ✅ 完成时间：2026-05-18
     - ✅ 无远程仓库配置，跳过推送（本地开发）
 
-- [ ] 创建 Phase 1 分支
+- [x] 创建 Phase 1 分支
   - 验收标准：feature/phase1-agent-workflow 分支已创建并切换
   - 需要运行的命令：
     ```bash
@@ -200,16 +200,20 @@ cat .claude/tasks/current-tasks.md
     git status
     ```
   - 涉及文件：无
-  - 完成后必须记录结果：当前分支名称
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-19
+    - ✅ 当前分支：feature/phase1-agent-workflow
 
-- [ ] 推送到远程
+- [x] 推送到远程
   - 验收标准：分支已推送到远程仓库
   - 需要运行的命令：
     ```bash
     git push -u origin feature/phase1-agent-workflow
     ```
   - 涉及文件：无
-  - 完成后必须记录结果：推送成功确认
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-19
+    - ✅ 推送成功：origin/feature/phase1-agent-workflow 已创建
 
 ---
 
@@ -217,7 +221,7 @@ cat .claude/tasks/current-tasks.md
 
 ### 任务 1.1: 工具封装层（Day 1）
 
-- [ ] 创建 Agent 工具目录结构
+- [x] 创建 Agent 工具目录结构
   - 验收标准：目录结构创建完成
   - 需要运行的命令：
     ```bash
@@ -228,45 +232,64 @@ cat .claude/tasks/current-tasks.md
   - 涉及文件：
     - `app/agents/__init__.py`
     - `app/agents/tools/__init__.py`
-  - 完成后必须记录结果：目录结构已创建
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-19
+    - ✅ `app/agents/`、`app/agents/tools/` 目录已创建
+    - ✅ `app/agents/__init__.py` 和 `app/agents/tools/__init__.py` 已创建
 
-- [ ] 实现工具基类 BaseTool
+- [x] 实现工具基类 BaseTool
   - 验收标准：BaseTool 类实现完成，包含 name、description、parameters、execute 方法
   - 需要运行的命令：
     ```bash
     python -c "from app.agents.tools.base import BaseTool; print('BaseTool imported successfully')"
     ```
   - 涉及文件：`app/agents/tools/base.py`
-  - 完成后必须记录结果：基类实现的核心方法
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-19
+    - ✅ 核心抽象：`BaseTool(ABC)` 含 `name`/`description` 类属性、`parameters` 抽象属性、`execute` 抽象方法、`to_dict()` 序列化方法
+    - ✅ `ToolParameter` dataclass (name, type, description, required)
+    - ✅ `ToolResult` dataclass (success, data, error)
 
-- [ ] 封装 6 个工具类
+- [x] 封装 6 个工具类
   - 验收标准：6 个工具类实现完成（UploadPaperTool、GenerateNoteTool、IndexPaperTool、QATool、ComparePapersTool、ExportMarkdownTool）
   - 需要运行的命令：
     ```bash
     python -c "from app.agents.tools.paper_tools import UploadPaperTool, GenerateNoteTool, IndexPaperTool, QATool, ComparePapersTool, ExportMarkdownTool; print('All tools imported successfully')"
     ```
   - 涉及文件：`app/agents/tools/paper_tools.py`
-  - 完成后必须记录结果：每个工具的 name 和 description
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-19
+    - ✅ UploadPaperTool: upload_paper - 上传并解析 PDF
+    - ✅ GenerateNoteTool: generate_note - 生成结构化中文笔记
+    - ✅ IndexPaperTool: index_paper - 切块、向量化、写入向量库
+    - ✅ QATool: qa - 基于已索引论文进行问答检索
+    - ✅ ComparePapersTool: compare_papers - 多篇论文(2-5篇)对比分析
+    - ✅ ExportMarkdownTool: export_markdown - 导出笔记/对比结果为 Markdown
 
-- [ ] 实现工具注册中心 ToolRegistry
+- [x] 实现工具注册中心 ToolRegistry
   - 验收标准：ToolRegistry 实现完成，可以注册和获取工具
   - 需要运行的命令：
     ```bash
     python -c "from app.agents.tools.registry import ToolRegistry; registry = ToolRegistry(); print(f'Registry has {len(registry.list_tools())} tools')"
     ```
   - 涉及文件：`app/agents/tools/registry.py`
-  - 完成后必须记录结果：注册中心的核心方法
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-19
+    - ✅ 核心方法：register(tool)、get(name)、list_tools()、list_tool_definitions()、register_all(tools)
 
-- [ ] 编写工具单元测试
+- [x] 编写工具单元测试
   - 验收标准：每个工具有独立单元测试
   - 需要运行的命令：
     ```bash
     pytest tests/test_agent_tools.py -v
     ```
   - 涉及文件：`tests/test_agent_tools.py`
-  - 完成后必须记录结果：测试通过数量、覆盖率
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-19
+    - ✅ 27 passed in 0.41s
+    - ✅ 覆盖：BaseTool(2)、ToolResult(2)、Registry(5)、Upload(3)、GenerateNote(3)、Index(3)、QA(2)、Compare(4)、Export(2)
 
-- [ ] Day 1 提交代码
+- [x] Day 1 提交代码
   - 验收标准：代码已提交
   - 需要运行的命令：
     ```bash

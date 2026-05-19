@@ -1,11 +1,11 @@
-from app.agents.tools import (
-    BaseTool,
+from app.agents.tools.base import BaseTool
+from app.agents.tools.registry import ToolRegistry
+from app.agents.tools.paper_tools import (
     ComparePapersTool,
     ExportMarkdownTool,
     GenerateNoteTool,
     IndexPaperTool,
     QATool,
-    ToolRegistry,
     UploadPaperTool,
 )
 
