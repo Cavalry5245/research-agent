@@ -156,6 +156,31 @@ def test_qa_event_time_breakdown(tmp_path: Path):
     assert breakdown["total_time"]["count"] == 2
 
 
+def test_analyze_qa_report_accepts_llm_summary_format(tmp_path: Path):
+    report_path = tmp_path / "llm_report.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "llm_summary": {"sample_count": 1, "evaluation_mode": "llm", "answer_pass_rate": 0.8},
+                "results": [
+                    {
+                        "sample_id": "s1",
+                        "question": "Q?",
+                        "predicted_answer": "answer",
+                        "answer_evaluation": {"score": 0.8, "passed": True},
+                        "citation_evaluation": {"score": 0.7, "passed": True},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload = analyze_qa.analyze_qa_report(report_path)
+    assert payload["summary"]["evaluation_mode"] == "llm"
+    assert payload["summary"]["answer_pass_rate"] == 0.8
+    assert payload["answer_length_distribution"]["count"] == 1
+
+
 # ---------------- analyze_comparison ----------------
 
 

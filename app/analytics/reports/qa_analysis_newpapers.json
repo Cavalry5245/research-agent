@@ -1,0 +1,89 @@
+{
+  "report_path": "app/evaluation/reports/qa_eval_newpapers_10sample_llmjudge_report.json",
+  "summary": {
+    "sample_count": 10,
+    "evaluation_mode": "llm",
+    "answer_pass_rate": 0.4,
+    "citation_pass_rate": 0.6,
+    "mean_answer_score": 0.41000000000000003,
+    "mean_citation_score": 0.496
+  },
+  "answer_length_distribution": {
+    "count": 10,
+    "mean": 1685.7,
+    "median": 1836.5,
+    "p95": 2281,
+    "min": 754,
+    "max": 2659
+  },
+  "citation_accuracy": {
+    "sample_count": 10,
+    "answer_pass_rate": 0.4,
+    "citation_pass_rate": 0.6,
+    "mean_answer_score": 0.41000000000000003,
+    "mean_citation_score": 0.496,
+    "answer_score_std": 0.37549966711037175
+  },
+  "top_questions": [
+    [
+      "What does the paper 'arXiv:2303.05499v5 [cs.CV] 19 Jul 2024'",
+      1
+    ],
+    [
+      "According to the 'Introduction' section of 'arXiv:2303.05499",
+      1
+    ],
+    [
+      "What does the paper 'remote sensing' mainly propose or study",
+      1
+    ],
+    [
+      "According to the 'Introduction' section of 'remote sensing',",
+      1
+    ],
+    [
+      "What does the paper 'TY-RIST: Tactical YOLO Tricks for Real-",
+      1
+    ],
+    [
+      "According to the 'Introduction' section of 'TY-RIST: Tactica",
+      1
+    ],
+    [
+      "What does the paper 'DNR-YOLO: an infrared small object dete",
+      1
+    ],
+    [
+      "According to the 'References' section of 'DNR-YOLO: an infra",
+      1
+    ],
+    [
+      "What does the paper 'Learning to Prompt for Open-Vocabulary ",
+      1
+    ],
+    [
+      "According to the 'Introduction' section of 'Learning to Prom",
+      1
+    ]
+  ],
+  "live_event_time_breakdown": {
+    "retrieval_time": {
+      "count": 17,
+      "mean": 0.7626320357641603,
+      "p95": 0.009735971994814463,
+      "median": 0.006157525000162423
+    },
+    "llm_time": {
+      "count": 17,
+      "mean": 9.128952129999936,
+      "p95": 16.868287949007936,
+      "median": 9.838057930013747
+    },
+    "total_time": {
+      "count": 17,
+      "mean": 9.891584165764096,
+      "p95": 26.809968044995912,
+      "median": 9.845823024006677
+    }
+  }
+}

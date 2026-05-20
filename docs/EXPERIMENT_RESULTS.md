@@ -30,6 +30,36 @@ Source: `app/evaluation/reports/qa_eval_live_10sample_llmjudge_report.json`
 **Recommendation**: Use `--mode llm` for any meaningful answer-quality measurement. Rule-based
 remains useful as a free smoke check during development.
 
+## 2026-05-20 New-Paper Live Evaluation
+
+After adding 5 new PDFs from `app/storage/papers/`, the pipeline parsed and indexed:
+
+| paper_id | Title (detected) | chunks |
+|---|---|---:|
+| paper_20260520_001 | arXiv:2303.05499v5 [cs.CV] 19 Jul 2024 (Grounding DINO) | 109 |
+| paper_20260520_002 | remote sensing (IRSTFormer) | 94 |
+| paper_20260520_003 | TY-RIST: Tactical YOLO Tricks... | 68 |
+| paper_20260520_004 | DNR-YOLO: an infrared small object detection | 9 |
+| paper_20260520_005 | Learning to Prompt for Open-Vocabulary Object Detection... | 73 |
+
+Vector store grew from 511 → **864 chunks**. The rebuilt QA seed dataset grew from 109 → **168 samples** across 9 papers.
+
+10 representative samples from the 5 new papers (abstract + section per paper) were evaluated with live QA + LLM judge:
+
+| Metric | Rule-based judge | LLM judge |
+|---|---:|---:|
+| answer_pass_rate | 0.30 | **0.40** |
+| citation_pass_rate | 0.30 | **0.60** |
+| mean_answer_score | 0.343 | **0.410** |
+| mean_citation_score | 0.300 | **0.496** |
+
+Source: `app/evaluation/reports/qa_eval_newpapers_10sample_llmjudge_report.json`
+
+Key takeaways:
+- New-paper citation quality is materially better than the earlier 4-paper smoke run (LLM citation pass 0.60 vs 0.30).
+- The main remaining failure mode is `qa_low_score` (6/10), not retrieval absence; all 10 QA calls returned citations.
+- The first new-paper call incurred embedding/model warm-up; steady-state QA + judging remains dominated by LLM latency.
+
 ## Headline Winners
 
 | Experiment | Variant A | Variant B | Winner | Key Driver |

@@ -100,9 +100,10 @@ def qa_event_time_breakdown(events_path: Path) -> dict[str, Any]:
 def analyze_qa_report(report_path: Path, events_path: Path | None = None) -> dict[str, Any]:
     report = load_qa_report(report_path)
     results = report.get("results", [])
+    summary = report.get("summary") or report.get("llm_summary") or report.get("rule_based_summary") or {}
     payload = {
         "report_path": str(report_path),
-        "summary": report.get("summary", {}),
+        "summary": summary,
         "answer_length_distribution": answer_length_distribution(results),
         "citation_accuracy": citation_accuracy(results),
         "top_questions": top_questions(results),
