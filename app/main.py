@@ -8,6 +8,8 @@ from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.schemas import (
+    AgentExecuteRequest,
+    AgentExecuteResponse,
     CompareRequest,
     CompareResponse,
     DeletePaperResponse,
@@ -550,3 +552,25 @@ async def qa_endpoint(req: QARequest):
         answer=result["answer"],
         sources=[SourceItem(**s) for s in result["sources"]],
     )
+
+
+# ── Agent ─────────────────────────────────────────────────────────────────────
+
+
+@app.post("/agent/execute", response_model=AgentExecuteResponse)
+async def agent_execute(req: AgentExecuteRequest):
+    from app.agents.paper_research_agent import get_agent
+
+    agent = get_agent()
+    chat_history = None
+    if req.chat_history:
+        chat_history = [
+            {"role": m.role, "content": m.content} for m in req.chat_history
+        ]
+
+    try:
+        result = agent.execute(req.task, chat_history=chat_history)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agent 执行失败: {e}") from e
+
+    return AgentExecuteResponse(task=result["task"], answer=result["answer"])

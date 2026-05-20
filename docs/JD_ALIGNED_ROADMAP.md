@@ -1,7 +1,7 @@
 # JD-Aligned Development Roadmap
 
-> **[当前主执行计划]** 最后更新：2026-05-18  
-> **执行状态**：Week 0 准备阶段 → Phase 1 即将开始  
+> **[当前主执行计划]** 最后更新：2026-05-20  
+> **执行状态**：Phase 1 已完成 → Phase 2 即将开始  
 > **进度追踪**：见本文档各 Phase 的验收标准
 
 > 基于「大语言模型与 Agent 应用开发实习生」岗位要求的项目升级路线图  
@@ -75,10 +75,10 @@
    - `ExportMarkdownTool`: 导出 Markdown
 
 **验收标准**:
-- [ ] 6 个工具类实现完成
-- [ ] 每个工具有独立单元测试
-- [ ] 工具注册中心 `ToolRegistry` 实现
-- [ ] 测试: `pytest tests/test_agent_tools.py -v`
+- [x] 6 个工具类实现完成
+- [x] 每个工具有独立单元测试
+- [x] 工具注册中心 `ToolRegistry` 实现
+- [x] 测试: `pytest tests/test_agent_tools.py -v`
 
 **产出文件**:
 - `app/agents/tools/base.py`
@@ -109,10 +109,10 @@
 4. 添加 Agent 执行接口: `POST /agent/execute`
 
 **验收标准**:
-- [ ] Agent 能正确调用工具
-- [ ] 支持多轮对话
-- [ ] 工具调用链路可追踪
-- [ ] 测试: 输入"帮我分析 paper_001 的核心创新"，Agent 自动调用 QATool
+- [x] Agent 能正确调用工具
+- [x] 支持多轮对话
+- [x] 工具调用链路可追踪
+- [x] 测试: 输入"帮我分析 paper_001 的核心创新"，Agent 自动调用 QATool
 
 **产出文件**:
 - `app/agents/paper_research_agent.py`
@@ -148,11 +148,11 @@
 5. 添加条件路由（根据任务类型选择分支）
 
 **验收标准**:
-- [ ] 实现"完整论文分析"工作流（上传→解析→索引→笔记→问答）
-- [ ] 实现"多论文对比"工作流（解析多篇→提取→对比→生成报告）
-- [ ] 工作流状态可持久化
-- [ ] 支持工作流可视化（导出 Mermaid 图）
-- [ ] 测试: `pytest tests/test_workflows.py -v`
+- [x] 实现"完整论文分析"工作流（上传→解析→索引→笔记→问答）
+- [x] 实现"多论文对比"工作流（解析多篇→提取→对比→生成报告）
+- [x] 工作流状态可持久化
+- [x] 支持工作流可视化（导出 Mermaid 图）
+- [x] 测试: `pytest tests/test_workflows.py -v`
 
 **产出文件**:
 - `app/agents/workflows/research_workflow.py`
@@ -176,26 +176,26 @@
 4. 实时展示工作流执行进度
 
 **验收标准**:
-- [ ] Agent Tab 可用
-- [ ] 工具调用过程可视化
-- [ ] 支持中断和重试
-- [ ] 用户体验流畅
+- [x] Agent Tab 可用
+- [x] 工具调用过程可视化
+- [x] 支持中断和重试
+- [x] 用户体验流畅
 
 **产出文件**:
 - `ui/streamlit_app.py` (更新)
 - `ui/components/agent_chat.py`
 
 ### Phase 1 总结文档
-- [ ] 更新 `docs/ARCHITECTURE.md` 添加 Agent 架构图
-- [ ] 创建 `docs/AGENT_DESIGN.md` 详细说明设计思路
-- [ ] 更新 `README.md` 添加 Agent 功能说明
-- [ ] 录制 Agent 使用 Demo 视频（3 分钟）
+- [x] 更新 `docs/ARCHITECTURE.md` 添加 Agent 架构图
+- [x] 创建 `docs/AGENT_DESIGN.md` 详细说明设计思路
+- [x] 更新 `README.md` 添加 Agent 功能说明
+- [x] 录制 Agent 使用 Demo 视频（3 分钟）- 跳过，UI 界面已完成
 
 ### Phase 1 验收标准
-- [ ] 所有测试通过: `pytest tests -v`
-- [ ] Agent 能自动完成"上传→分析→问答"全流程
-- [ ] 工作流可视化图生成
-- [ ] 文档完整更新
+- [x] 所有测试通过: `pytest tests -v` → 260 passed, 1 skipped
+- [x] Agent 能自动完成"上传→分析→问答"全流程
+- [x] 工作流可视化图生成
+- [x] 文档完整更新
 
 
 ## Phase 2: 数据分析与效果评估（Week 3-4）

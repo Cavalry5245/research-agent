@@ -22,6 +22,7 @@
 | 📊 多论文对比 | 2–5 篇论文自动生成结构化 Markdown 对比表（含固定核心维度与关键差异） |
 | 🗄️ 知识库 | 文本切块 + sentence-transformers 嵌入 + 向量检索 |
 | 📥 Markdown 导出 | 笔记/对比结果保存为 .md 并支持下载 |
+| 🤖 **Agent 助手** | 自然语言驱动：自动拆解任务、调用工具链、工作流编排 |
 
 ## 技术栈
 
@@ -33,6 +34,7 @@
 | LLM | OpenAI-compatible API (DeepSeek / Qwen / Ollama) |
 | Embedding | sentence-transformers (bge-small-zh-v1.5) |
 | 向量检索 | 余弦相似度（接口兼容 Chroma） |
+| **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排）** |
 | 评测 | `app/evaluation` schemas + seed dataset builder + retrieval / QA benchmark scripts |
 | 配置 | .env (pydantic-settings) |
 
@@ -239,8 +241,13 @@ research-agent/
 │   │   ├── paper_note_prompt.py
 │   │   ├── qa_prompt.py
 │   │   └── compare_prompt.py
-│   ├── agents/                # 预留 Agent 扩展
-│   └── storage/               # 本地数据
+│   ├── agents/                # Agent 系统（Phase 1）
+│   │   ├── tools/             # 工具封装层
+│   │   ├── workflows/         # LangGraph 工作流
+│   │   ├── prompts/           # Agent prompt 模板
+│   │   ├── langchain_adapter.py  # BaseTool → LangChain 适配
+│   │   └── paper_research_agent.py  # Agent 主体
+│   ├── storage/               # 本地数据
 ├── ui/
 │   └── streamlit_app.py       # 5 Tab 前端
 ├── examples/
@@ -268,7 +275,9 @@ research-agent/
 | Embedding + 向量库 | sentence-transformers + 本地持久化检索 | ✅ |
 | RAG 问答 | 检索 + LLM 生成 + sources | ✅ |
 | 多论文对比 | 2-5 篇结构化对比表 | ✅ |
-| Streamlit 前端 | 5 Tab 完整串联 | ✅ |
+| Streamlit 前端 | 6 Tab 完整串联（含 Agent 助手） | ✅ |
+| **Agent 系统** | LangChain + LangGraph 工作流编排（6 工具 + 2 工作流） | ✅ |
+| 测试基线 | 202 → 258 passed | ✅ |
 
 ## 运行测试
 

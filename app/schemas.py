@@ -263,3 +263,18 @@ class CompareResponse(BaseModel):
     output_path: str
     content: str
     comparison: PaperComparisonResult | None = None
+
+
+class AgentChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class AgentExecuteRequest(BaseModel):
+    task: str
+    chat_history: list[AgentChatMessage] | None = None
+
+
+class AgentExecuteResponse(BaseModel):
+    task: str
+    answer: str
