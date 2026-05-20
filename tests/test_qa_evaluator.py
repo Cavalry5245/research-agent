@@ -202,3 +202,110 @@ def test_evaluate_qa_script_supports_placeholder_mode(tmp_path: Path):
     assert payload["summary"]["evaluation_mode"] == "placeholder_llm"
     assert payload["results"][0]["answer_evaluation"]["metadata"]["status"] == "not_implemented"
     assert payload["results"][0]["citation_evaluation"]["metadata"]["status"] == "not_implemented"
+
+
+def test_build_live_qa_predictions_uses_answer_question(monkeypatch):
+    from app.evaluation.scripts import evaluate_qa as eq
+
+    captured: dict = {}
+
+    def fake_answer_question(question, vector_store, embedding_client, llm_client, paper_id=None, top_k=5):
+        captured["question"] = question
+        captured["paper_id"] = paper_id
+        captured["top_k"] = top_k
+        return {
+            "question": question,
+            "answer": "Live answer about retrieval.",
+            "sources": [
+                {"paper_id": paper_id, "section": "Abstract", "chunk_id": "c1", "title": "T", "score": 0.9},
+                {"paper_id": paper_id, "section": "Method", "chunk_id": "c2", "title": "T", "score": 0.8},
+            ],
+        }
+
+    monkeypatch.setattr("app.services.paper_qa.answer_question", fake_answer_question)
+
+    sample = QAEvalSample(
+        sample_id="qa-live-1",
+        question="What is the contribution?",
+        expected_answer="A retrieval-grounded QA pipeline.",
+        paper_id="paper-live-1",
+        paper_title="Live Paper",
+        supporting_sections=["Abstract"],
+    )
+
+    prediction = eq.build_live_qa_predictions(
+        sample,
+        vector_store=object(),
+        embedding_client=object(),
+        llm_client=object(),
+        top_k=3,
+    )
+
+    assert captured == {"question": "What is the contribution?", "paper_id": "paper-live-1", "top_k": 3}
+    assert prediction["predicted_answer"] == "Live answer about retrieval."
+    assert [c["section"] for c in prediction["citations"]] == ["Abstract", "Method"]
+    assert prediction["citations"][0]["score"] == 0.9
+
+
+def test_build_live_qa_predictions_returns_empty_on_failure(monkeypatch):
+    from app.evaluation.scripts import evaluate_qa as eq
+
+    def fake_answer_question(*args, **kwargs):
+        raise RuntimeError("LLM unavailable")
+
+    monkeypatch.setattr("app.services.paper_qa.answer_question", fake_answer_question)
+
+    sample = QAEvalSample(
+        sample_id="qa-live-fail",
+        question="?",
+        expected_answer="expected",
+        paper_id="p",
+        paper_title="T",
+        supporting_sections=["Abstract"],
+    )
+
+    prediction = eq.build_live_qa_predictions(
+        sample,
+        vector_store=object(),
+        embedding_client=object(),
+        llm_client=object(),
+    )
+
+    assert prediction == {"predicted_answer": "", "citations": []}
+
+
+def test_evaluate_qa_dataset_live_pipeline_flag(monkeypatch, tmp_path: Path):
+    from app.evaluation.scripts import evaluate_qa as eq
+
+    monkeypatch.setattr(eq, "_build_live_pipeline_clients", lambda: (object(), object(), object()))
+    monkeypatch.setattr(
+        eq,
+        "build_live_qa_predictions",
+        lambda sample, vector_store, embedding_client, llm_client, top_k=5: {
+            "predicted_answer": "Live: " + sample.expected_answer,
+            "citations": [
+                {"paper_id": sample.paper_id, "section": "Abstract", "chunk_id": "c", "title": "T"}
+            ],
+        },
+    )
+
+    dataset_path = tmp_path / "qa.jsonl"
+    dataset_path.write_text(
+        json.dumps(
+            {
+                "sample_id": "qa-live-ds-1",
+                "question": "Q?",
+                "expected_answer": "A.",
+                "paper_id": "p",
+                "paper_title": "T",
+                "supporting_sections": ["Abstract"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = eq.evaluate_qa_dataset(dataset_path=dataset_path, use_live_pipeline=True)
+
+    assert payload["pipeline"] == "live"
+    assert payload["results"][0]["predicted_answer"].startswith("Live: ")

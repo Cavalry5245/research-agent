@@ -67,7 +67,7 @@ def _normalize_heading(heading: str) -> str:
     return re.sub(r"[^a-z]+", "", (heading or "").lower())
 
 
-def _pick_sections(paper: PaperRecord) -> list[dict]:
+def _pick_sections(paper: PaperRecord, max_sections: int = 2) -> list[dict]:
     preferred: list[dict] = []
     remaining: list[dict] = []
     for section in paper.sections:
@@ -82,11 +82,16 @@ def _pick_sections(paper: PaperRecord) -> list[dict]:
         else:
             remaining.append(item)
     ordered = preferred + remaining
-    return ordered[:2]
+    return ordered[:max_sections]
 
 
-def build_qa_samples(papers: Iterable[PaperRecord]) -> list[QAEvalSample]:
+def build_qa_samples(papers: Iterable[PaperRecord], max_sections_per_paper: int = 2) -> list[QAEvalSample]:
     samples: list[QAEvalSample] = []
+    question_templates = [
+        "According to the '{section}' section of '{title}', what key information is highlighted?",
+        "Summarize the main points from the '{section}' section of '{title}'.",
+        "What does '{title}' describe in its '{section}' section?",
+    ]
     for paper in papers:
         if paper.abstract:
             samples.append(
@@ -106,25 +111,96 @@ def build_qa_samples(papers: Iterable[PaperRecord]) -> list[QAEvalSample]:
                     },
                 )
             )
-
-        for index, section in enumerate(_pick_sections(paper), start=1):
+            # Paraphrased abstract question (medium difficulty)
             samples.append(
                 QAEvalSample(
-                    sample_id=f"{paper.paper_id}-section-{index}",
-                    question=f"According to the '{section['heading']}' section of '{paper.title}', what key information is highlighted?",
-                    expected_answer=_clean_text(section["content"], max_length=320),
+                    sample_id=f"{paper.paper_id}-abstract-paraphrased",
+                    question=f"In one paragraph, what is the central contribution of '{paper.title}'?",
+                    expected_answer=_clean_text(paper.abstract, max_length=320),
                     paper_id=paper.paper_id,
                     paper_title=paper.title,
-                    supporting_sections=[section["heading"]],
+                    supporting_sections=["Abstract"],
                     difficulty="medium",
                     metadata={
                         "source": "seed",
-                        "generation_type": "section",
+                        "generation_type": "abstract_paraphrase",
                         "source_paper_title": paper.title,
                         "source_pdf": paper.pdf_path,
                     },
                 )
             )
+
+        sections = _pick_sections(paper, max_sections=max_sections_per_paper)
+        for index, section in enumerate(sections, start=1):
+            for template_idx, template in enumerate(question_templates):
+                samples.append(
+                    QAEvalSample(
+                        sample_id=f"{paper.paper_id}-section-{index}-v{template_idx + 1}",
+                        question=template.format(section=section["heading"], title=paper.title),
+                        expected_answer=_clean_text(section["content"], max_length=320),
+                        paper_id=paper.paper_id,
+                        paper_title=paper.title,
+                        supporting_sections=[section["heading"]],
+                        difficulty="medium" if template_idx == 0 else "hard",
+                        metadata={
+                            "source": "seed",
+                            "generation_type": "section",
+                            "template_variant": template_idx + 1,
+                            "source_paper_title": paper.title,
+                            "source_pdf": paper.pdf_path,
+                        },
+                    )
+                )
+    return samples
+
+
+def build_hard_qa_samples(papers: Iterable[PaperRecord]) -> list[QAEvalSample]:
+    """Generate intentionally harder samples to expose real misses (e.g. cross-section synthesis,
+    out-of-scope queries). These yield non-perfect metrics so the evaluation reports become useful."""
+    samples: list[QAEvalSample] = []
+    out_of_scope_topics = [
+        "blockchain consensus protocols",
+        "Quantum supremacy benchmarks",
+        "Tax policy in developing economies",
+    ]
+    for idx, paper in enumerate(papers):
+        samples.append(
+            QAEvalSample(
+                sample_id=f"{paper.paper_id}-hard-synthesis",
+                question=f"Compare the methodology and the reported main results in '{paper.title}', focusing on quantitative metrics.",
+                expected_answer=_clean_text(paper.abstract, max_length=320) if paper.abstract else "Detailed methodology and metrics required.",
+                paper_id=paper.paper_id,
+                paper_title=paper.title,
+                supporting_sections=["Method", "Results"],
+                difficulty="hard",
+                metadata={
+                    "source": "seed",
+                    "generation_type": "cross_section_synthesis",
+                    "source_paper_title": paper.title,
+                    "source_pdf": paper.pdf_path,
+                },
+            )
+        )
+        topic = out_of_scope_topics[idx % len(out_of_scope_topics)]
+        samples.append(
+            QAEvalSample(
+                sample_id=f"{paper.paper_id}-hard-oos",
+                question=f"Does the paper '{paper.title}' discuss {topic}? If yes, summarize the discussion.",
+                expected_answer="原文未明确说明。",
+                paper_id=paper.paper_id,
+                paper_title=paper.title,
+                supporting_sections=["Abstract"],
+                difficulty="hard",
+                metadata={
+                    "source": "seed",
+                    "generation_type": "out_of_scope_probe",
+                    "source_paper_title": paper.title,
+                    "source_pdf": paper.pdf_path,
+                    "expected_behavior": "model should abstain",
+                    "probe_topic": topic,
+                },
+            )
+        )
     return samples
 
 
@@ -168,12 +244,29 @@ def _write_jsonl(path: Path, rows: Iterable[QAEvalSample | ComparisonEvalSample]
             handle.write("\n")
 
 
-def build_seed_dataset(metadata_dir: Path = DEFAULT_METADATA_DIR, output_dir: Path = DEFAULT_OUTPUT_DIR) -> tuple[Path, Path]:
+def build_seed_dataset(
+    metadata_dir: Path = DEFAULT_METADATA_DIR,
+    output_dir: Path = DEFAULT_OUTPUT_DIR,
+    target_size: int | None = None,
+    include_hard_samples: bool = True,
+) -> tuple[Path, Path]:
     papers = _load_papers(metadata_dir)
     if not papers:
         raise RuntimeError(f"No parsed metadata files found in {metadata_dir}")
 
-    qa_samples = build_qa_samples(papers)
+    # Auto-scale max_sections_per_paper to hit target_size when requested.
+    max_sections = 2
+    if target_size:
+        # rough estimate: per paper we already generate 1 (abstract) + N (sections); hard pass adds 2
+        hard_count = 2 * len(papers) if include_hard_samples else 0
+        needed_from_sections = max(0, target_size - len(papers) - hard_count)
+        per_paper_sections = max(2, -(-needed_from_sections // max(1, len(papers))))
+        max_sections = per_paper_sections
+
+    qa_samples = build_qa_samples(papers, max_sections_per_paper=max_sections)
+    if include_hard_samples:
+        qa_samples.extend(build_hard_qa_samples(papers))
+
     comparison_samples = build_comparison_samples(papers)
     if not qa_samples or not comparison_samples:
         raise RuntimeError("Unable to build the minimal seed dataset from available metadata")
@@ -191,8 +284,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build a minimal benchmark seed dataset from parsed metadata.")
     parser.add_argument("--metadata-dir", type=Path, default=DEFAULT_METADATA_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--target-size", type=int, default=None, help="Target QA sample count (auto-scales sections per paper).")
+    parser.add_argument("--no-hard-samples", action="store_true", help="Skip hard/out-of-scope samples.")
     args = parser.parse_args()
 
-    qa_path, comparison_path = build_seed_dataset(args.metadata_dir, args.output_dir)
+    qa_path, comparison_path = build_seed_dataset(
+        args.metadata_dir,
+        args.output_dir,
+        target_size=args.target_size,
+        include_hard_samples=not args.no_hard_samples,
+    )
     print(f"Generated QA seed dataset: {qa_path}")
     print(f"Generated comparison seed dataset: {comparison_path}")
