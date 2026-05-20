@@ -188,3 +188,43 @@ graph TD
 - **Agent 引擎**: 使用 `langchain.agents.create_agent`（最新 API），基于 LangGraph StateGraph
 - **工作流编排**: TypedDict state + conditional edges 实现错误短路和条件路由
 - **对话历史**: list[dict] → LangChain HumanMessage/AIMessage 转换
+
+## Analytics & Experiments（Phase 2）
+
+```
+Service Layer (instrumented)              Analytics Layer
+─────────────────────────────              ──────────────────
+paper_qa.answer_question  ──────────►  _emit_qa_event ──┐
+paper_compare.compare_papers ───────►  _emit_compare ───┤
+note_generator.generate_note ───────►  _emit_note ──────┤
+                                                          ▼
+                                              AnalyticsCollector (JSONL)
+                                                  │            │
+                                                  ▼            ▼
+                                 events.jsonl       failures.jsonl
+                                       │                  │
+                                       ▼                  ▼
+                            analyze_retrieval        failure_analyzer
+                            analyze_qa               failure_detector
+                            analyze_comparison              │
+                                       │                    │
+                                       ▼                    ▼
+                                visualizer (matplotlib + seaborn)
+                                       │
+                                       ▼
+                            Jupyter notebooks (4)
+
+ExperimentRunner
+   │
+   ├─ load scenarios/<exp>.json (ExperimentConfig)
+   ├─ run two variants via variant_fn
+   ├─ compare_variants() → t-test on synthesized samples
+   └─ generate_report() → MD + JSON in experiments/reports/
+```
+
+### 关键设计决策
+
+- **Best-effort emit**: 服务层埋点失败仅 debug log，永不破坏主流程
+- **JSONL 文件持久化**: 沿用 `FileJobStore` 模式，Phase 3 才引入数据库
+- **Pluggable variant_fn**: 内置 `default_simulated_executor` 用于框架测试，真实执行器在使用方注入
+- **Reuse 评估算法**: `analyze_*.py` 不重复实现指标，直接复用 `app/evaluation/metrics.py` 和 `judges.py`

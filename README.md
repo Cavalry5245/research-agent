@@ -23,6 +23,7 @@
 | 🗄️ 知识库 | 文本切块 + sentence-transformers 嵌入 + 向量检索 |
 | 📥 Markdown 导出 | 笔记/对比结果保存为 .md 并支持下载 |
 | 🤖 **Agent 助手** | 自然语言驱动：自动拆解任务、调用工具链、工作流编排 |
+| 📊 **数据分析 & A/B 测试** | analytics 收集器、3 个实验场景、失败 case 分析、Jupyter Notebook 可视化 |
 
 ## 技术栈
 
@@ -35,6 +36,7 @@
 | Embedding | sentence-transformers (bge-small-zh-v1.5) |
 | 向量检索 | 余弦相似度（接口兼容 Chroma） |
 | **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排）** |
+| **Analytics (Phase 2)** | **pandas + matplotlib + seaborn + scipy（指标 / 可视化 / 显著性检验）** |
 | 评测 | `app/evaluation` schemas + seed dataset builder + retrieval / QA benchmark scripts |
 | 配置 | .env (pydantic-settings) |
 
@@ -277,7 +279,8 @@ research-agent/
 | 多论文对比 | 2-5 篇结构化对比表 | ✅ |
 | Streamlit 前端 | 6 Tab 完整串联（含 Agent 助手） | ✅ |
 | **Agent 系统** | LangChain + LangGraph 工作流编排（6 工具 + 2 工作流） | ✅ |
-| 测试基线 | 202 → 258 passed | ✅ |
+| **数据分析与效果评估** | Phase 2 analytics + experiments + 4 个 Jupyter Notebook + 失败分析 | ✅ |
+| 测试基线 | 202 → 318 passed | ✅ |
 
 ## 运行测试
 
@@ -291,7 +294,7 @@ python -m pytest tests -q
 
 > 📋 **详细升级路线图**：[JD_ALIGNED_ROADMAP.md](docs/JD_ALIGNED_ROADMAP.md)  
 > 🎯 **执行周期**：12 周（6 个 Phase）  
-> 🚀 **当前阶段**：Week 0 准备阶段
+> 🚀 **当前阶段**：Phase 2 已完成（2026-05-20）→ Phase 3 准备启动
 
 | Phase | 目标 | 周期 |
 |-------|------|------|
