@@ -1,0 +1,831 @@
+{
+  "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
+  "pipeline": "live",
+  "judge_mode": "llm",
+  "subset_size": 10,
+  "wall_clock_seconds": 115.12267923599575,
+  "summary": {
+    "sample_count": 10,
+    "evaluation_mode": "llm",
+    "answer_pass_rate": 0.4,
+    "citation_pass_rate": 0.3,
+    "mean_answer_score": 0.4,
+    "mean_citation_score": 0.332
+  },
+  "comparison_with_rule_based": {
+    "sample_count": 10,
+    "evaluation_mode": "rule_based",
+    "answer_pass_rate": 0.1,
+    "citation_pass_rate": 0.2,
+    "mean_answer_score": 0.10988396692267317,
+    "mean_citation_score": 0.2
+  },
+  "results": [
+    {
+      "sample_id": "paper_20260509_004-abstract",
+      "question": "What does the paper 'Receptive-Field and Direction Induced Attention' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "The paper mainly studies **infrared small target detection** using **deep learning with an attention mechanism**, and it proposes a model called **Receptive-Field and Direction Induced Attention Network**.\n\n### Main focus of the paper\nFrom the provided fragments, the paper is centered on:\n\n1. **Infrared small target detection as a segmentation-like problem**\n   - The paper states that infrared small target detection is usually treated as a **segmentation problem for tiny targets**, which is difficult for classical object detection and segmentation methods.\n   - It contrasts this task with standard object detection based on bounding boxes.\n\n2. **An attention-based deep learning method**\n   - The title and index terms indicate that the core proposal involves an **attention mechanism**.\n   - The fragments explain attention as learning weights from feature maps so that the network can **focus on important regions**.\n\n3. **Inducing attention using receptive-field and direction information**\n   - Although the provided excerpts do not give the full module design, the title strongly indicates that the proposed method uses **receptive-field cues** and **direction-related cues** to induce or guide attention.\n\n4. **Experimental evaluation for effective detection**\n   - The paper evaluates detection performance using **six metrics**, explicitly including:\n     - **BSF**: background suppression factor\n     - **gain of signal-to-clutter** (the fragment is truncated, likely part of a signal-to-clutter related metric)\n   - It also mentions **comparison experiments** and **ablation study**, and claims these demonstrate the **effectiveness of the model**.\n\n### What can be concluded confidently\nBased on the current fragments, the paper mainly proposes/studies:\n\n- a **deep learning attention network** for **infrared small target detection**;\n- the network is designed around **receptive-field** and **direction-induced attention**;\n- the method is validated through **comparisons and ablation studies** using multiple detection metrics.\n\n### What cannot be determined from the current fragments\nThe provided paper snippets do **not** fully describe:\n- the exact architecture of the proposed network,\n- how receptive-field information is computed,\n- how direction cues are incorporated,\n- the full list of six metrics.\n\nTherefore, for these details, **根据当前论文片段无法判断**。\n\n**依据片段编号：**[2], [3], [4], [1], [5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7221656356598116
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0011",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7188353191896573
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0016",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.709988310873746
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0001",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.706909701369435
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7054016136689036
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.7,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案正确抓住了论文关于红外小目标检测及其提出基于注意力网络方法的核心，但遗漏了参考答案强调的大规模IRDST数据集构建及其用于缓解数据稀缺这一关键贡献。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "构建了包含142727帧的大规模红外小目标数据集IRDST",
+            "提出该工作的动机之一是缓解红外小目标检测中数据稀缺和类别不平衡问题"
+          ],
+          "incorrect_points": [],
+          "raw_response_chars": 236
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.35,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用论文ID正确，但章节主要落在method/results，未命中最相关的Abstract，且对“论文主要提出/研究什么”这一核心结论的支撑不够直接。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004|results",
+            "paper_20260509_004|results",
+            "paper_20260509_004|results",
+            "paper_20260509_004|results"
+          ],
+          "missing_evidence": [
+            "论文主要提出的是用于红外小目标检测的 Receptive-Field and Direction Induced Attention Network 这一核心主张应由Abstract直接支撑",
+            "论文将红外小目标检测视为类似分割的小目标检测任务这一概括性表述缺少Abstract证据",
+            "关于比较实验和消融实验证明方法有效的总体结论缺少更直接的摘要性证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-1-v1",
+      "question": "According to the 'results' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "根据当前提供的论文片段，**无法直接从“results”章节判断其“highlighted key information”具体是什么**，因为检索结果中**没有给出 results 章节的完整表述**，仅有少量与实验设置和图示相关的内容。\n\n不过，从现有片段中可以确认，结果部分**至少强调了以下信息类型**：\n\n1. **检测结果的可视化展示**  \n   片段提到：\n   - “Representative images and 3-D gray level distributions of detection results by different algorithms”\n   - 即结果部分包含**不同算法检测结果的代表性图像**，以及对应的**三维灰度分布**展示。  \n   这说明论文结果章节强调了：\n   - 不同方法之间的**视觉对比**\n   - 检测后目标与背景在灰度响应上的**分布差异**\n\n2. **多种评价指标进行综合评估**  \n   片段明确指出：\n   - “To evaluate comprehensively, we use six metrics to measure different ability of the detection methods”\n   - 并列出了至少两个指标：\n     - **BSF**（background suppression factor，背景抑制因子）\n     - **gain of signal-to-clutter**（信号-杂波增益，通常对应 GSCR）\n   \n   因此可以判断，结果部分强调的是：\n   - 不是单一指标，而是**使用六个指标综合评估检测能力**\n   - 重点关注**背景抑制能力**和**目标与杂波区分能力**\n\n3. **与多种算法进行对比实验**  \n   图注中提到不同算法结果，例如：\n   - **MPCM**\n   - 以及其他方法（虽然当前片段未完整展开）\n   \n   这表明结果部分还突出：\n   - 所提方法与**多个已有算法的对比表现**\n   - 通过图像和灰度分布来说明方法差异\n\n### 结论\n根据现有片段，results 部分突出展示的关键信息应包括：\n- **不同算法检测结果的代表性图像**\n- **检测结果对应的 3D 灰度分布**\n- **基于六项指标的综合性能评估**\n- **与其他方法在背景抑制和目标增强方面的对比**\n\n但如果要进一步回答“results章节具体强调了哪些结论或哪种方法最优”，**根据当前论文片段无法判断**。\n\n**依据片段编号：**[片段 3], [片段 4]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0033",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7369108519669982
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0007",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7266690562025931
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7216798742378714
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0010",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7208430002546393
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7198320908368844
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.1,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未抓住参考答案中结果部分强调的核心信息，反而基于不完整片段展开了不对应的实验细节推测。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "与比较方法和消融实验一起表明模型具有有效的检测性能",
+            "数据集和代码将公开在 http://xzbai.buaa.edu.cn/datasets.html",
+            "Index Terms：Attention mechanism, deep learning (DL), infrared small target"
+          ],
+          "incorrect_points": [
+            "声称无法直接从results章节判断具体highlighted key information，与参考答案可直接给出的内容不符",
+            "将重点放在代表性图像、3D灰度分布、六项指标等内容上，未对应参考答案所强调的信息"
+          ],
+          "raw_response_chars": 405
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用全部来自 method 和 introduction，而问题明确要求 results 章节，无法支撑答案中关于结果展示、评价指标和对比实验的表述。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004|method",
+            "paper_20260509_004|INTRODUCTION"
+          ],
+          "missing_evidence": [
+            "results 章节中是否强调了代表性检测图像与 3D 灰度分布",
+            "results 章节中是否使用六个指标进行综合评估",
+            "results 章节中是否突出背景抑制因子和信号-杂波增益等指标",
+            "results 章节中是否包含与多种算法的对比实验"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_002-abstract",
+      "question": "What does the paper '博士学位论文' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "",
+      "citations": [],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案为空，未回答论文主要提出或研究的内容。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "论文主要研究空间基红外探测及其在国防安全、空间态势感知和应急灾害监测等领域的应用价值",
+            "论文围绕空间基红外探测对弱辐射目标进行全天时、全天候、广域、远距离感知的主题展开"
+          ],
+          "incorrect_points": [],
+          "raw_response_chars": 202
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案为空且没有任何引用，无法用期望论文的 Abstract 支撑对问题的回答。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [],
+          "missing_evidence": [
+            "未说明论文《博士学位论文》主要提出或研究的内容，且缺少对 paper_20260511_002 的 Abstract 引用支撑"
+          ],
+          "citation_count": 0
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_002-section-1-v1",
+      "question": "According to the 'method' section of '博士学位论文', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "根据给定的 **“method”** 片段，当前能够确认的“关键信息”主要是：**该方法部分突出列举了与研究方法密切相关的参考文献方向，而不是直接给出完整的方法描述**。具体可归纳为以下几类：\n\n## 1. 目标检测与红外小目标/空间目标检测相关方法\n片段中多次出现与**红外小目标检测、空间目标检测、时空局部对比/配准**相关的文献，说明方法部分重点涉及这一研究方向，包括：\n- **空间-时间局部对比方法**（spatial-temporal local contrast）\n- **空间-时间局部匹配/配准方法**（local matching / local registration）\n- **单帧红外小目标检测模型**\n- **复杂背景下的空间目标检测**\n\n这表明方法部分强调的核心信息之一是：**研究方法与红外弱小目标、空间目标在复杂背景中的检测有关，并关注时空信息建模。**\n\n## 2. 深度学习与网络结构设计相关方法\n方法部分还列出了多篇与**深度神经网络结构**相关的工作，例如：\n- **Deep Residual Learning（ResNet）**\n- **Global Context Networks**\n- **Hierarchical Context Fusion Network**\n- **Progressive Background-aware Transformer**\n\n这说明方法部分可能重点强调：\n- **利用深度学习网络进行特征提取**\n- **引入上下文信息建模**\n- **采用层次化特征融合**\n- **结合背景感知机制或 Transformer 结构提升检测性能**\n\n## 3. 神经架构搜索（NAS）与模型优化相关方法\n片段中还包含较多**神经架构搜索（NAS）**与模型高效部署相关文献，例如：\n- **Bayesian optimization with zero-cost proxies**\n- **Improving the stability of cyclic DARTS**\n- **Once-for-All**\n- **DetNAS**\n- **SpineNet**\n\n这表明方法部分还可能强调：\n- **自动化网络结构搜索**\n- **提升搜索稳定性**\n- **面向检测任务的骨干网络搜索**\n- **兼顾效率与部署性能的模型优化**\n\n## 4. 红外成像仿真、数字孪生与定量评估\n片段 5 显示，方法相关内容还涉及：\n- **红外载荷数字孪生**\n- **红外探测成像的定量评估与优化**\n- **空间目标全生命周期红外辐射特性端到端仿真与分析**\n\n这说明方法部分可能不仅关注检测算法本身，还强调：\n- **红外成像链路的建模与仿真**\n- **定量评估方法**\n- **面向系统级分析的优化手段**\n\n## 总结\n综合这些片段，**“method”部分突出强调的关键信息**主要包括：\n1. **红外小目标/空间目标检测是核心任务场景**；\n2. **方法上重视时空信息、局部对比/匹配/配准与复杂背景处理**；\n3. **采用深度学习、上下文建模、特征融合、Transformer 等技术路线**；\n4. **涉及神经架构搜索与模型效率优化**；\n5. **还关注红外成像仿真、数字孪生和定量评估。**\n\n但需要说明的是：**当前检索到的“method”片段基本为参考文献列表，缺少正文方法描述，因此无法进一步确定该论文方法部分具体提出了哪一种新模型、算法流程、实验设置或评价指标。**  \n**根据当前论文片段无法判断**更细粒度的方法创新点。\n\n**依据片段编号：**[片段 1]、[片段 2]、[片段 3]、[片段 4]、[片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0269",
+          "title": "博士学位论文",
+          "score": 0.6518826218355132
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0274",
+          "title": "博士学位论文",
+          "score": 0.6502085801962615
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0226",
+          "title": "博士学位论文",
+          "score": 0.6492212122707399
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0255",
+          "title": "博士学位论文",
+          "score": 0.6488507446351048
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0281",
+          "title": "博士学位论文",
+          "score": 0.6478996112685778
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未回答参考答案中的核心结论，反而泛化讨论方法相关文献方向，属于答非所问。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "在三个数据集上取得了突出的检测性能",
+            "与各数据集上最佳手工设计网络相比，检测误差控制在2%以内",
+            "虚警率达到10^-6量级",
+            "参数量和推理速度均优于对比算法"
+          ],
+          "incorrect_points": [
+            "将method部分概括为参考文献方向与研究主题，而非参考答案强调的性能结论",
+            "声称无法确定具体关键信息，与参考答案中明确给出的性能亮点不一致"
+          ],
+          "raw_response_chars": 291
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.72,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "引用的论文ID与章节均符合要求，且能总体支撑答案关于method片段主要由相关方法参考文献构成的判断，但答案对具体研究方向和技术路线的归纳带有一定推断性、缺少更直接的正文证据。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [],
+          "missing_evidence": [
+            "方法部分具体突出“红外小目标/空间目标检测是核心任务场景”的明确正文表述",
+            "方法部分明确采用“Transformer、层次化特征融合、上下文建模”等作为本论文方法组成的直接证据",
+            "方法部分明确涉及“神经架构搜索与模型效率优化”作为论文方法重点而非仅出现在参考文献中的证据",
+            "方法部分明确强调“红外成像仿真、数字孪生和定量评估”属于关键方法信息的直接证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_004-abstract",
+      "question": "What does the paper 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "该论文主要研究并提出了一个**面向农业领域的 Grounding-DINO 少样本适配方法**。\n\n### 核心内容\n1. **研究对象**  \n   论文关注的是将 **Grounding-DINO** 应用于**农业目标检测任务**。作者明确是在农业数据集上研究其适配问题。  \n\n2. **主要问题**  \n   作者指出，Grounding-DINO 在农业场景中存在**人工文本提示（manual text prompting）困难**的问题，尤其是农业特定场景下，文本提示依赖会带来挑战。  \n\n3. **主要方法/贡献**  \n   论文提出了一种**高效的少样本学习方法**，其关键特点是：  \n   - **消除对文本提示的依赖**；  \n   - 能够使用**极少量训练样本**和**较少迭代**，将 Grounding-DINO **高效适配到新的农业数据集**。  \n\n4. **实验研究**  \n   作者在**多个农业数据集**上进行了实验。根据片段，实验结果表明：  \n   - 该少样本方法**优于 zero-shot 方法**；  \n   - 也优于**其他先进的 few-shot 方法**。  \n\n5. **额外说明**  \n   论文还提到，尽管 Grounding-DINO **计算成本较高**，所提出的方法可以**无缝集成到 YOLO 系框架**（如 YOLO-World、YOLOE）中，用于高效的少样本检测任务。  \n\n### 简要总结\n这篇论文主要是：**研究如何将 Grounding-DINO 通过一种无需文本提示的少样本适配方法，用于农业领域目标检测，并通过多农业数据集实验验证其优于 zero-shot 和其他 few-shot 基线。**\n\n### 依据片段编号\n- [片段 1]\n- [片段 2]\n- [片段 3]\n- [片段 4]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Method",
+          "chunk_id": "paper_20260511_004_chunk_0015",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7610539508954391
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Conclusion",
+          "chunk_id": "paper_20260511_004_chunk_0059",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7604624906696335
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "method",
+          "chunk_id": "paper_20260511_004_chunk_0009",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7440703705016697
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "experiments",
+          "chunk_id": "paper_20260511_004_chunk_0058",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7248189404541152
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "References",
+          "chunk_id": "paper_20260511_004_chunk_0083",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.71632563324072
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.8,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案较准确地概括了论文提出的农业领域 Grounding-DINO 少样本适配方法及其实验优势，但对参考答案中强调的农业深度学习背景与标注成本问题覆盖不充分。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "深度学习正在推动农业中的自动表型分析、监测和产量估计等应用",
+            "现有方法效果高度依赖大量标注训练数据，而这些标注在农业中劳动和时间成本较高",
+            "论文背景中与开放集目标检测近期进展的联系未明确体现"
+          ],
+          "incorrect_points": [],
+          "raw_response_chars": 272
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.6,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "引用的论文 ID 正确且 Method/experiments/Conclusion 与答案大意基本相关，但未命中期望的 Abstract，且 References 明显不用于支撑正文结论。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260511_004 | section=References"
+          ],
+          "missing_evidence": [
+            "对论文整体主旨的直接概括应优先由 Abstract 支撑",
+            "‘优于 zero-shot 和其他先进 few-shot 方法’这一总结若来自实验结果，当前未见明确指向 Abstract 的证据",
+            "‘可无缝集成到 YOLO-World、YOLOE’这一额外说明需要更直接的来源支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_004-section-1-v1",
+      "question": "According to the 'Introduction' section of 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "According to the provided **Introduction** fragments, the paper highlights the following key information:\n\n### 1. Research scope: applying Grounding-DINO to agricultural tasks\nThe paper studies how **pretrained Grounding-DINO** can be used on a **wide range of publicly available agricultural datasets**. The mentioned tasks/datasets include:\n- **plant-weed detection**\n- **insect identification**\n- **wheat head detection**\n- **fruit counting**\n- **remote sensing**\n\nIt also mentions exploring **instance segmentation** by combining **Grounding-DINO with SAM2**, for example on **PhenoBench**.\n\n### 2. Initial zero-shot setting and its limitation\nThe authors first investigate **zero-shot learning**, where the model uses only **text prompts for class names** and **no labeled training images** from the target dataset.  \nHowever, they report **severe limitations / poor performance** on agricultural datasets, and further note that **manual prompt tuning is impractical** because it is difficult to craft effective prompts across diverse agricultural scenarios.\n\n### 3. Proposed adaptation idea\nTo address these issues, the paper proposes a **simplified adaptation method** for Grounding-DINO:\n- **remove the language processing component (BERT)**\n- **introduce randomly initialized trainable parameters** that imitate the shape of BERT text embeddings\n- thereby **eliminate the need for text prompts**\n\nThis allows the model to be adapted to specific agricultural datasets with **minimal effort**.\n\n### 4. Few-shot efficiency\nA key point emphasized in the Introduction is that the new embeddings can be learned using:\n- **as few as two labeled images**\n- **a small number of training steps**\n- only **a few thousand trainable parameters**\n\nThis makes adaptation both **simpler** and **faster** for new datasets.\n\n### 5. Reported benefit\nThe paper states that this approach achieves:\n- **excellent / superior performance across diverse agricultural datasets**\n- better results than **zero-shot approaches**\n- better results than **other state-of-the-art few-shot methods**\n\nIt is also highlighted as useful for **automating annotation tasks** in agriculture and other efficiency-critical domains.\n\n### 6. Main contributions explicitly listed\nThe Introduction explicitly summarizes the contributions as:\n1. Investigating **Grounding-DINO across diverse agricultural datasets** for object detection using its **zero-shot capability**.\n2. Finding that **manual prompt tuning is impractical** for agriculture.\n3. Proposing a **simple few-shot adaptation method** that removes dependence on text prompts and enables efficient adaptation with minimal labeled data and training.\n\n**依据片段编号：**[3], [4], [5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Method",
+          "chunk_id": "paper_20260511_004_chunk_0015",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.8355367526782237
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "method",
+          "chunk_id": "paper_20260511_004_chunk_0009",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7807747942260459
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Introduction",
+          "chunk_id": "paper_20260511_004_chunk_0007",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7417538926456853
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Introduction",
+          "chunk_id": "paper_20260511_004_chunk_0004",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7414217310901197
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Introduction",
+          "chunk_id": "paper_20260511_004_chunk_0006",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7344638528785048
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.4,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案加入了大量超出参考答案的内容，且没有准确抓住参考答案强调的核心背景信息，只部分提到农业领域任务多样性这一点。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "深度学习目标检测和分割模型在农业中日益重要",
+            "这些模型应用于表型分析、监测、病虫害检测、产量估计等任务",
+            "农业领域具有高度多样性，存在独特任务和图像特征/挑战"
+          ],
+          "incorrect_points": [
+            "过度展开为Grounding-DINO具体方法、零样本实验、去除BERT、少样本适配、SAM2等内容，这些并非参考答案中该问题所要求的关键信息",
+            "将“Introduction”强调点错误聚焦到方法贡献，而不是参考答案中的领域背景与应用重要性"
+          ],
+          "raw_response_chars": 358
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.75,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "大部分关键信息由正确论文的 Introduction 支撑，但混入了两个 Method 引用，不符合题目要求的来源章节。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260511_004 | section=Method",
+            "paper_20260511_004 | section=method"
+          ],
+          "missing_evidence": [
+            "“as few as two labeled images”“a small number of training steps”“only a few thousand trainable parameters”这类具体数值性表述若未在 Introduction 明确出现，则缺少严格支撑",
+            "“better results than other state-of-the-art few-shot methods”若 Introduction 仅概述贡献而未直接比较，也可能缺少直接证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_005-abstract",
+      "question": "What does the paper 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "根据当前给定的论文片段，**无法直接判断这篇论文“主要提出或研究了什么”**。\n\n### 原因\n目前检索到的内容全部来自 **References（参考文献）** 部分，未包含：\n- 题目正文\n- 摘要\n- 引言\n- 方法\n- 实验结论\n\n因此，片段只能说明这篇论文的**研究背景可能与目标检测相关**，并且很可能涉及：\n- **小目标检测（small object detection / tiny object detection）**\n- **航拍/遥感图像目标检测（aerial images）**\n- **anchor-based / anchor-free 检测方法**\n- **多尺度特征、特征金字塔、边框回归等目标检测技术**\n\n### 可从参考文献中谨慎推断的信息\n从引用的工作看，这篇论文可能处于**计算机视觉中的目标检测方向**，尤其关注以下主题：\n1. **小目标检测**\n   - 如引用了 small object detection、tiny person detection 等相关工作。\n2. **航拍/遥感图像目标检测**\n   - 如引用了 DOTA 数据集、aerial images 中 tiny object detection 等工作。\n3. **检测框架与训练策略**\n   - 包括 Faster R-CNN、Objects as Points、ATSS、IoU/DIoU loss 等。\n\n但这些都只是**基于参考文献主题的间接判断**，**不能等同于论文的主要贡献**。\n\n### 结论\n**根据当前论文片段无法判断**该论文具体“主要提出了什么方法”或“重点研究了什么问题”。如果提供摘要、引言或方法部分，我可以进一步准确概括其核心贡献。\n\n**依据片段编号：**[片段 1] [片段 2] [片段 3] [片段 4] [片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0061",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7436045921536171
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0055",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7020249374492885
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0058",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7015472219571647
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0052",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.6953190463111525
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0060",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.6823113390059586
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未回答论文主要研究内容，反而表示无法判断，与参考答案明确指出的“研究 tiny object detection 及 IoU 相关关键观察”不符。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "论文主要研究 tiny object detection（微小目标检测）这一挑战性问题",
+            "指出现有最先进检测器在 tiny objects 上效果不佳，原因是外观信息不足",
+            "核心观察与 IoU-based 机制/度量有关"
+          ],
+          "incorrect_points": [
+            "声称根据当前给定片段无法直接判断论文主要提出或研究了什么"
+          ],
+          "raw_response_chars": 314
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用的论文 ID 正确但全部指向 References，而题目要求的核心信息应由 Abstract 支撑；这些引用至多支撑“无法从当前片段判断”的元判断，不能支撑对论文主要内容的概括。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260511_005 | References",
+            "paper_20260511_005 | References",
+            "paper_20260511_005 | References",
+            "paper_20260511_005 | References",
+            "paper_20260511_005 | References"
+          ],
+          "missing_evidence": [
+            "论文“主要提出或研究了什么”的直接证据应来自 Abstract",
+            "答案中关于‘研究背景可能与目标检测相关’、‘可能涉及小目标检测/航拍遥感/anchor-based或anchor-free/多尺度特征等’缺少正文或摘要证据支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_005-section-1-v1",
+      "question": "According to the 'Introduction' section of 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "根据当前提供的论文片段，**无法回答“Introduction 部分强调了哪些关键信息”**，因为检索结果**全部来自 References（参考文献）部分**，没有出现 **Introduction** 的正文内容。\n\n### 目前能够确定的信息\n- 该论文与**目标检测/小目标检测**相关，因为参考文献中包含：\n  - 小目标检测综述与方法，如 small object detection、tiny object detection in aerial images\n  - 常见检测器，如 Faster R-CNN、FCOS、EfficientDet、Cascade R-CNN\n  - 航拍/遥感相关数据集与任务，如 DOTA、VisDrone\n- 但这些只能说明论文的大致研究背景，**不能据此严格推断 Introduction 中“强调了什么关键信息”**。\n\n### 结论\n**根据当前论文片段无法判断** Introduction 部分具体强调的关键内容。  \n如果你能提供 **Introduction** 章节的正文片段，我可以进一步为你提炼其中的关键信息，并按“研究背景—问题定义—挑战—贡献”结构进行总结。\n\n**依据片段编号：**[片段 1]、[片段 2]、[片段 3]、[片段 4]、[片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0055",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7146618473846083
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0058",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7097131955591078
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0057",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7064811455278437
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0050",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7018509703417932
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0061",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7000848550789986
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未回答参考答案中的引言关键信息，错误地以缺少正文为由拒答。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "引言强调微小目标在驾驶辅助、大规模监控、海上救援等真实应用中普遍存在",
+            "引言指出尽管深度神经网络推动了目标检测显著进展，但大多数方法主要关注普通尺寸目标检测"
+          ],
+          "incorrect_points": [
+            "声称无法判断 Introduction 部分具体强调的关键内容，与参考答案已明确给出的内容不一致"
+          ],
+          "raw_response_chars": 256
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.1,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用全部来自 References 而非题目要求的 Introduction，且无法直接支撑对 Introduction 关键信息的判断。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260511_005 | References",
+            "paper_20260511_005 | References",
+            "paper_20260511_005 | References",
+            "paper_20260511_005 | References",
+            "paper_20260511_005 | References"
+          ],
+          "missing_evidence": [
+            "“Introduction 部分强调了哪些关键信息”的直接正文证据",
+            "“论文与目标检测/小目标检测相关”的结论缺少来自 Introduction 的支撑",
+            "“参考文献只能说明研究背景、不能严格推断 Introduction 内容”的判断缺少对应的 Introduction 或正文证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-hard-oos",
+      "question": "Does the paper 'Receptive-Field and Direction Induced Attention' discuss blockchain consensus protocols? If yes, summarize the discussion.",
+      "mode": "llm",
+      "predicted_answer": "**回答：没有。**\n\n根据给定论文片段，论文 **《Receptive-Field and Direction Induced Attention》** 的内容集中在 **红外小目标检测**，包括：\n\n1. **检测方法与注意力机制**\n   - 利用目标灰度分布的**多方向性（multidirectionality）**来生成注意力权重；\n   - 结合**感受野**与**方向信息**增强特征图中的目标信息。  \n   见片段 3。\n\n2. **相关方法综述**\n   - 讨论了 MPCM、DECM、MODD、TBC-Net、ACM、ALCNet、GAN 等与**红外小目标检测**相关的方法；\n   - 比较传统对比度度量方法与深度学习方法。  \n   见片段 2、片段 4。\n\n3. **实验评价指标**\n   - 使用六个指标评估检测能力，如 **BSF**（背景抑制因子）和 **signal-to-clutter** 相关指标。  \n   见片段 1。\n\n在这些片段中，**没有出现区块链（blockchain）或共识协议（consensus protocols）相关讨论**。因此，该论文**不讨论 blockchain consensus protocols**。\n\n**依据片段编号：**[1], [2], [3], [4], [5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7340973542130077
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0015",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7340359923571624
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7315833196584678
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7176298760605427
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "REFERENCES",
+          "chunk_id": "paper_20260509_004_chunk_0065",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.716125943480922
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案明确表示论文未讨论区块链共识协议，与参考答案“原文未明确说明”要求的保守回答一致。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [],
+          "incorrect_points": [],
+          "raw_response_chars": 135
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.4,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用论文ID正确，但章节主要落在method/results/REFERENCES，未命中更直接支撑“不讨论区块链共识协议”的Abstract，且REFERENCES明显不相关。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004 | section=REFERENCES"
+          ],
+          "missing_evidence": [
+            "答案关于“论文不讨论 blockchain consensus protocols”的核心判断缺少来自 Abstract 的直接支撑",
+            "答案中对论文主题为红外小目标检测的概括缺少 Abstract 引用以更完整支撑结论"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_002-hard-oos",
+      "question": "Does the paper '博士学位论文' discuss Quantum supremacy benchmarks? If yes, summarize the discussion.",
+      "mode": "llm",
+      "predicted_answer": "根据当前论文片段无法判断该论文是否讨论了 **Quantum supremacy benchmarks**。\n\n### 原因说明\n给出的片段内容均为：\n- 参考文献列表；\n- 主题集中在**卷积神经网络、Transformer、神经架构搜索、红外小目标检测、图像分割**等方向；\n- 未出现“Quantum supremacy”“benchmark”“量子优越性”或相关讨论内容。\n\n### 结论\n- **是否讨论 Quantum supremacy benchmarks：无法判断。**\n- **如果有讨论，当前片段中也没有可用于总结的具体内容。**\n\n### 依据片段编号\n[片段 1], [片段 2], [片段 3], [片段 4], [片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0263",
+          "title": "博士学位论文",
+          "score": 0.6443697501048227
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0262",
+          "title": "博士学位论文",
+          "score": 0.6439591889409777
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0223",
+          "title": "博士学位论文",
+          "score": 0.6439097153796798
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0265",
+          "title": "博士学位论文",
+          "score": 0.6422911018465066
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0273",
+          "title": "博士学位论文",
+          "score": 0.6383162253769527
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案明确表示无法从原文判断、未见相关讨论，符合参考答案“原文未明确说明”的要求。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [],
+          "incorrect_points": [],
+          "raw_response_chars": 132
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用的论文 ID 正确，但章节全部指向 method，而题目期望相关证据应在 Abstract，当前引用不能有效支撑“无法判断是否讨论 Quantum supremacy benchmarks”的结论。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260511_002|method",
+            "paper_20260511_002|method",
+            "paper_20260511_002|method",
+            "paper_20260511_002|method",
+            "paper_20260511_002|method"
+          ],
+          "missing_evidence": [
+            "需要能证明论文是否讨论 Quantum supremacy benchmarks 的相关证据，尤其是 Abstract 中关于研究主题与贡献的表述",
+            "需要支撑“当前片段仅涉及卷积神经网络、Transformer、神经架构搜索、红外小目标检测、图像分割，未出现 Quantum supremacy 相关内容”的直接来源"
+          ],
+          "citation_count": 5
+        }
+      }
+    }
+  ]
+}

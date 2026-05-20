@@ -92,8 +92,9 @@ caller can either show interactively (`fig.show()`) or save (`output_path=...`).
 - New event types — add to `EVENT_TYPES` set in `data_collector.py` and write a `log_xxx` helper.
 - New analyzer — drop a new `analyze_<topic>.py` and reuse the `time_distribution` / cluster helpers.
 - New plotter — add to `visualizer.py`, follow the `_save_or_return(fig, output_path)` pattern.
-- LLM judges — `app/evaluation/judges.py` already exposes a `PlaceholderLLMJudge`. Wire a real model
-  there to upgrade QA failure detection beyond rule-based scoring.
+- LLM judges — `app/evaluation/judges.py` ships `LLMAnswerJudge` + `LLMCitationJudge` (build via
+  `build_judges("llm")`). Both accept a `llm_call` callable for test injection; default to the
+  configured `LLMClient`. Prompts live in `app/evaluation/prompts/judge_prompts.py`.
 
 ## Performance
 
@@ -107,3 +108,4 @@ Single emit call < 1ms (file append + JSON serialize). Service-layer instrumenta
 - `tests/test_failure_analyzer.py` — 20 tests (detector + analyzer)
 - `tests/test_experiments.py` — 9 tests (config, runner, comparison report)
 - `tests/test_qa_evaluator.py` — 8 tests including live pipeline path
+- `tests/test_evaluation_judges.py` — 18 tests (rule-based + placeholder + 11 LLM judge tests)

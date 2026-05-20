@@ -3,6 +3,33 @@
 > Generated 2026-05-20 from `app/experiments/reports/*_report.json`.
 > Results use the framework's default simulated executor; replace `variant_fn` to ground in live data.
 
+## ⭐ Headline Finding: Judge Matters More Than the Model
+
+A 10-sample live evaluation (real `gpt-5.4` via sub2api) judged twice — once by the
+rule-based token-overlap judge, once by the LLM judge introduced in Phase 2 P1:
+
+| Metric | Rule-based judge | LLM judge | Δ |
+|---|---|---|---|
+| answer_pass_rate | 0.10 | **0.40** | +300% |
+| citation_pass_rate | 0.20 | 0.30 | +50% |
+| mean_answer_score | 0.11 | **0.40** | +264% |
+| mean_citation_score | 0.20 | 0.33 | +66% |
+
+Source: `app/evaluation/reports/qa_eval_live_10sample_llmjudge_report.json`
+
+**Why the rule-based judge under-reported**:
+1. **Chinese long-form answers** — the LLM writes 1000-2700 char detailed Chinese answers,
+   the reference is a 320-char abstract excerpt; token overlap is naturally low even when the
+   answer is semantically correct.
+2. **Abstention handling** — for out-of-scope probes where the expected answer is "原文未明确说明",
+   the model correctly abstained, but the rule judge scored 0.00 because the strings don't overlap.
+   The LLM judge scored these 1.00 (correct behavior detected).
+3. **False positives caught** — the LLM judge also caught two cases where rule_based gave partial
+   credit (0.09-0.12) for accidental token overlap on actually-wrong answers, scoring them 0.00.
+
+**Recommendation**: Use `--mode llm` for any meaningful answer-quality measurement. Rule-based
+remains useful as a free smoke check during development.
+
 ## Headline Winners
 
 | Experiment | Variant A | Variant B | Winner | Key Driver |
@@ -58,8 +85,10 @@ CHUNK_OVERLAP=100                       # from chunk_comparison
 
 ## Next Steps
 
-1. Wire `ExperimentRunner` to the real services (replace `default_simulated_executor`).
-2. Re-run all 3 experiments against the live LLM and reranker stack.
-3. Capture per-paper variance by running each variant ≥ 5 times with different paper subsets,
+1. **Run full 109-sample evaluation with LLM judge** — current numbers are based on 10 samples;
+   need full distribution for tight confidence intervals (~21 min, ~109 × 2 = 218 LLM calls).
+2. Wire `ExperimentRunner` to the real services (replace `default_simulated_executor`).
+3. Re-run all 3 experiments against the live LLM and reranker stack, scored by LLM judge.
+4. Capture per-paper variance by running each variant ≥ 5 times with different paper subsets,
    then re-evaluate p-values with real samples (current p-values use synthesized noise).
-4. Feed winners into `app/config.py` defaults via a `phase2_winners.json` config layer.
+5. Feed winners into `app/config.py` defaults via a `phase2_winners.json` config layer.
