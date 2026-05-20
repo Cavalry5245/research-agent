@@ -1,0 +1,89 @@
+{
+  "report_path": "app/evaluation/reports/qa_eval_seed_report.json",
+  "summary": {
+    "sample_count": 109,
+    "evaluation_mode": "rule_based",
+    "answer_pass_rate": 0.963302752293578,
+    "citation_pass_rate": 1.0,
+    "mean_answer_score": 0.963302752293578,
+    "mean_citation_score": 1.0
+  },
+  "answer_length_distribution": {
+    "count": 109,
+    "mean": 285.07339449541286,
+    "median": 320,
+    "p95": 320,
+    "min": 8,
+    "max": 320
+  },
+  "citation_accuracy": {
+    "sample_count": 109,
+    "answer_pass_rate": 0.963302752293578,
+    "citation_pass_rate": 1.0,
+    "mean_answer_score": 0.963302752293578,
+    "mean_citation_score": 1.0,
+    "answer_score_std": 0.18888589072394202
+  },
+  "top_questions": [
+    [
+      "What does 'Receptive-Field and Direction Induced Attention' ",
+      10
+    ],
+    [
+      "What does 'Few-Shot Adaptation of Grounding DINO for Agricul",
+      10
+    ],
+    [
+      "What does 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022' describe ",
+      10
+    ],
+    [
+      "According to the 'method' section of 'Few-Shot Adaptation of",
+      5
+    ],
+    [
+      "Summarize the main points from the 'method' section of 'Few-",
+      5
+    ],
+    [
+      "According to the 'results' section of 'Receptive-Field and D",
+      4
+    ],
+    [
+      "Summarize the main points from the 'results' section of 'Rec",
+      4
+    ],
+    [
+      "According to the 'Method' section of 'arXiv:2110.13389v2 [cs",
+      4
+    ],
+    [
+      "Summarize the main points from the 'Method' section of 'arXi",
+      4
+    ],
+    [
+      "According to the 'method' section of 'Receptive-Field and Di",
+      3
+    ]
+  ],
+  "live_event_time_breakdown": {
+    "retrieval_time": {
+      "count": 10,
+      "mean": 3.038650029338896e-05,
+      "p95": 3.800299600698054e-05,
+      "median": 3.1226009014062583e-05
+    },
+    "llm_time": {
+      "count": 10,
+      "mean": 1.0109202412422746e-05,
+      "p95": 1.5950994566082954e-05,
+      "median": 1.0861003829631954e-05
+    },
+    "total_time": {
+      "count": 10,
+      "mean": 4.049570270581171e-05,
+      "p95": 5.211999814491719e-05,
+      "median": 4.227450699545443e-05
+    }
+  }
+}

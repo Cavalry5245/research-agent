@@ -1,0 +1,27 @@
+{
+  "report_path": "app/evaluation/reports/retrieval_eval_seed_report.json",
+  "sample_count": 11,
+  "hit_at_k_curve": {
+    "1": 1.0,
+    "3": 1.0,
+    "5": 1.0,
+    "10": 1.0
+  },
+  "failure_clusters": {
+    "by_paper": {},
+    "by_section": {}
+  },
+  "summary": {
+    "sample_count": 11,
+    "hit_rate": 1.0,
+    "mean_recall_at_k": 1.0,
+    "mean_mrr": 1.0
+  },
+  "live_retrieval_time": {
+    "count": 10,
+    "mean": 3.038650029338896e-05,
+    "median": 3.1226009014062583e-05,
+    "p95": 3.800299600698054e-05,
+    "stdev": 6.96672923169778e-06
+  }
+}

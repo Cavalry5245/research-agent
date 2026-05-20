@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime
 import logging
 from pathlib import Path
@@ -337,6 +338,8 @@ def compare_papers(
     if llm_client is None:
         llm_client = LLMClient()
 
+    compare_start = time.perf_counter()
+
     extracted_summaries = extract_paper_summaries(
         paper_ids,
         metadata_dir,
@@ -360,7 +363,29 @@ def compare_papers(
         raise RuntimeError("结构化对比结果解析失败")
 
     parsed_result["paper_titles"] = paper_titles
-    return _normalize_comparison_result(parsed_result, paper_ids, extracted_summaries)
+    result = _normalize_comparison_result(parsed_result, paper_ids, extracted_summaries)
+
+    generation_seconds = time.perf_counter() - compare_start
+    _emit_comparison_event(paper_ids=paper_ids, generation_time=generation_seconds, result=result)
+
+    return result
+
+
+def _emit_comparison_event(paper_ids: list[str], generation_time: float, result: PaperComparisonResult) -> None:
+    """Best-effort analytics emit for compare_papers."""
+    try:
+        from app.analytics import get_collector
+
+        result_length = len(getattr(result, "summary", "") or "")
+        aspects_count = len(getattr(result, "aspects", []) or [])
+        get_collector().log_comparison(
+            paper_ids=list(paper_ids),
+            generation_time=generation_time,
+            result_length=result_length,
+            aspects_count=aspects_count,
+        )
+    except Exception as exc:
+        logger.debug("Analytics emit skipped: %s", exc)
 
 
 

@@ -1,0 +1,102 @@
+{
+  "report_path": "app/evaluation/reports/comparison_eval_seed_report.json",
+  "summary": {
+    "sample_count": 1,
+    "mean_completeness": 1.0,
+    "mean_evidence_completeness": 1.0,
+    "mean_evidence_quality": 1.0,
+    "mean_section_alignment": 1.0,
+    "mean_paper_balance": 1.0
+  },
+  "aspect_coverage": {},
+  "quality_score_distribution": {
+    "completeness": {
+      "count": 1,
+      "mean": 1.0,
+      "min": 1.0,
+      "max": 1.0,
+      "stdev": 0.0
+    },
+    "evidence_completeness": {
+      "count": 1,
+      "mean": 1.0,
+      "min": 1.0,
+      "max": 1.0,
+      "stdev": 0.0
+    },
+    "evidence_quality": {
+      "count": 1,
+      "mean": 1.0,
+      "min": 1.0,
+      "max": 1.0,
+      "stdev": 0.0
+    },
+    "section_alignment": {
+      "count": 1,
+      "mean": 1.0,
+      "min": 1.0,
+      "max": 1.0,
+      "stdev": 0.0
+    },
+    "paper_balance": {
+      "count": 1,
+      "mean": 1.0,
+      "min": 1.0,
+      "max": 1.0,
+      "stdev": 0.0
+    }
+  },
+  "sample_count": 1,
+  "live_event_time_distribution": {
+    "count": 11,
+    "mean_time_by_paper_count": {
+      "2": 0.00023558290691157296
+    },
+    "all_points": [
+      [
+        2,
+        0.0006101799954194576
+      ],
+      [
+        2,
+        0.00021470199862960726
+      ],
+      [
+        2,
+        0.00026447199343238026
+      ],
+      [
+        2,
+        0.00015198699838947505
+      ],
+      [
+        2,
+        0.00015432699001394212
+      ],
+      [
+        2,
+        0.00021759900846518576
+      ],
+      [
+        2,
+        0.00010112699237652123
+      ],
+      [
+        2,
+        0.0002381670055910945
+      ],
+      [
+        2,
+        0.00022802299645263702
+      ],
+      [
+        2,
+        0.00018186400120612234
+      ],
+      [
+        2,
+        0.00022896399605087936
+      ]
+    ]
+  }
+}
