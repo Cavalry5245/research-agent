@@ -1,0 +1,829 @@
+{
+  "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
+  "pipeline": "live",
+  "subset_size": 10,
+  "wall_clock_seconds": 186.8004560720001,
+  "summary": {
+    "sample_count": 10,
+    "evaluation_mode": "rule_based",
+    "answer_pass_rate": 0.1,
+    "citation_pass_rate": 0.2,
+    "mean_answer_score": 0.10988396692267317,
+    "mean_citation_score": 0.2
+  },
+  "results": [
+    {
+      "sample_id": "paper_20260509_004-abstract",
+      "question": "What does the paper 'Receptive-Field and Direction Induced Attention' mainly propose or study?",
+      "mode": "rule_based",
+      "predicted_answer": "The paper mainly studies **infrared small target detection** using **deep learning with an attention mechanism**, and it proposes a model called **Receptive-Field and Direction Induced Attention Network**.\n\n### Main focus of the paper\nFrom the provided fragments, the paper is centered on:\n\n1. **Infrared small target detection as a segmentation-like problem**\n   - The paper states that infrared small target detection is usually treated as a **segmentation problem for tiny targets**, which is difficult for classical object detection and segmentation methods.\n   - It contrasts this task with standard object detection based on bounding boxes.\n\n2. **An attention-based deep learning method**\n   - The title and index terms indicate that the core proposal involves an **attention mechanism**.\n   - The fragments explain attention as learning weights from feature maps so that the network can **focus on important regions**.\n\n3. **Inducing attention using receptive-field and direction information**\n   - Although the provided excerpts do not give the full module design, the title strongly indicates that the proposed method uses **receptive-field cues** and **direction-related cues** to induce or guide attention.\n\n4. **Experimental evaluation for effective detection**\n   - The paper evaluates detection performance using **six metrics**, explicitly including:\n     - **BSF**: background suppression factor\n     - **gain of signal-to-clutter** (the fragment is truncated, likely part of a signal-to-clutter related metric)\n   - It also mentions **comparison experiments** and **ablation study**, and claims these demonstrate the **effectiveness of the model**.\n\n### What can be concluded confidently\nBased on the current fragments, the paper mainly proposes/studies:\n\n- a **deep learning attention network** for **infrared small target detection**;\n- the network is designed around **receptive-field** and **direction-induced attention**;\n- the method is validated through **comparisons and ablation studies** using multiple detection metrics.\n\n### What cannot be determined from the current fragments\nThe provided paper snippets do **not** fully describe:\n- the exact architecture of the proposed network,\n- how receptive-field information is computed,\n- how direction cues are incorporated,\n- the full list of six metrics.\n\nTherefore, for these details, **根据当前论文片段无法判断**。\n\n**依据片段编号：**[2], [3], [4], [1], [5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7221656356598116
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0011",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7188353191896573
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0016",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.709988310873746
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0001",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.706909701369435
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7054016136689036
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.3695652173913043,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Token overlap coverage=0.370; precision=0.110; f1=0.169.",
+          "Answer achieved the minimum token-overlap coverage threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.3695652173913043,
+          "token_overlap_precision": 0.10967741935483871,
+          "token_overlap_f1": 0.16915422885572137,
+          "overlap_tokens": [
+            "a",
+            "also",
+            "an",
+            "and",
+            "be",
+            "deep",
+            "detection",
+            "important",
+            "infrared",
+            "is",
+            "it",
+            "learning",
+            "of",
+            "small",
+            "target",
+            "to",
+            "which"
+          ],
+          "expected_token_count": 46,
+          "predicted_token_count": 155
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Supporting section coverage=0.000 (0/1).",
+          "Supporting section coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [],
+          "citation_section_count": 2,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-1-v1",
+      "question": "According to the 'results' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "根据当前提供的论文片段，**无法直接从“results”章节判断其“highlighted key information”具体是什么**，因为检索结果中**没有给出 results 章节的完整表述**，仅有少量与实验设置和图示相关的内容。\n\n不过，从现有片段中可以确认，结果部分**至少强调了以下信息类型**：\n\n1. **检测结果的可视化展示**  \n   片段提到：\n   - “Representative images and 3-D gray level distributions of detection results by different algorithms”\n   - 即结果部分包含**不同算法检测结果的代表性图像**，以及对应的**三维灰度分布**展示。  \n   这说明论文结果章节强调了：\n   - 不同方法之间的**视觉对比**\n   - 检测后目标与背景在灰度响应上的**分布差异**\n\n2. **多种评价指标进行综合评估**  \n   片段明确指出：\n   - “To evaluate comprehensively, we use six metrics to measure different ability of the detection methods”\n   - 并列出了至少两个指标：\n     - **BSF**（background suppression factor，背景抑制因子）\n     - **gain of signal-to-clutter**（信号-杂波增益，通常对应 GSCR）\n   \n   因此可以判断，结果部分强调的是：\n   - 不是单一指标，而是**使用六个指标综合评估检测能力**\n   - 重点关注**背景抑制能力**和**目标与杂波区分能力**\n\n3. **与多种算法进行对比实验**  \n   图注中提到不同算法结果，例如：\n   - **MPCM**\n   - 以及其他方法（虽然当前片段未完整展开）\n   \n   这表明结果部分还突出：\n   - 所提方法与**多个已有算法的对比表现**\n   - 通过图像和灰度分布来说明方法差异\n\n### 结论\n根据现有片段，results 部分突出展示的关键信息应包括：\n- **不同算法检测结果的代表性图像**\n- **检测结果对应的 3D 灰度分布**\n- **基于六项指标的综合性能评估**\n- **与其他方法在背景抑制和目标增强方面的对比**\n\n但如果要进一步回答“results章节具体强调了哪些结论或哪种方法最优”，**根据当前论文片段无法判断**。\n\n**依据片段编号：**[片段 3], [片段 4]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0033",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7369108519669982
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0007",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7266690562025931
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7216798742378714
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0010",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7208430002546393
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7198320908368844
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.1111111111111111,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.111; precision=0.098; f1=0.104.",
+          "Answer coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.1111111111111111,
+          "token_overlap_precision": 0.0975609756097561,
+          "token_overlap_f1": 0.1038961038961039,
+          "overlap_tokens": [
+            "and",
+            "detection",
+            "methods",
+            "of"
+          ],
+          "expected_token_count": 36,
+          "predicted_token_count": 41
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Supporting section coverage=0.000 (0/1).",
+          "Supporting section coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "results"
+          ],
+          "matched_supporting_sections": [],
+          "citation_section_count": 2,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_002-abstract",
+      "question": "What does the paper '博士学位论文' mainly propose or study?",
+      "mode": "rule_based",
+      "predicted_answer": "",
+      "citations": [],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.000; precision=0.000; f1=0.000.",
+          "Predicted answer was empty after normalization."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.0,
+          "token_overlap_precision": 0.0,
+          "token_overlap_f1": 0.0,
+          "overlap_tokens": [],
+          "expected_token_count": 41,
+          "predicted_token_count": 0
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Supporting section coverage=0.000 (0/1).",
+          "No citation matched the expected paper_id."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [],
+          "citation_section_count": 0,
+          "matched_paper_id": false
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_002-section-1-v1",
+      "question": "According to the 'method' section of '博士学位论文', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "根据给定的 **“method”** 片段，当前能够确认的“关键信息”主要是：**该方法部分突出列举了与研究方法密切相关的参考文献方向，而不是直接给出完整的方法描述**。具体可归纳为以下几类：\n\n## 1. 目标检测与红外小目标/空间目标检测相关方法\n片段中多次出现与**红外小目标检测、空间目标检测、时空局部对比/配准**相关的文献，说明方法部分重点涉及这一研究方向，包括：\n- **空间-时间局部对比方法**（spatial-temporal local contrast）\n- **空间-时间局部匹配/配准方法**（local matching / local registration）\n- **单帧红外小目标检测模型**\n- **复杂背景下的空间目标检测**\n\n这表明方法部分强调的核心信息之一是：**研究方法与红外弱小目标、空间目标在复杂背景中的检测有关，并关注时空信息建模。**\n\n## 2. 深度学习与网络结构设计相关方法\n方法部分还列出了多篇与**深度神经网络结构**相关的工作，例如：\n- **Deep Residual Learning（ResNet）**\n- **Global Context Networks**\n- **Hierarchical Context Fusion Network**\n- **Progressive Background-aware Transformer**\n\n这说明方法部分可能重点强调：\n- **利用深度学习网络进行特征提取**\n- **引入上下文信息建模**\n- **采用层次化特征融合**\n- **结合背景感知机制或 Transformer 结构提升检测性能**\n\n## 3. 神经架构搜索（NAS）与模型优化相关方法\n片段中还包含较多**神经架构搜索（NAS）**与模型高效部署相关文献，例如：\n- **Bayesian optimization with zero-cost proxies**\n- **Improving the stability of cyclic DARTS**\n- **Once-for-All**\n- **DetNAS**\n- **SpineNet**\n\n这表明方法部分还可能强调：\n- **自动化网络结构搜索**\n- **提升搜索稳定性**\n- **面向检测任务的骨干网络搜索**\n- **兼顾效率与部署性能的模型优化**\n\n## 4. 红外成像仿真、数字孪生与定量评估\n片段 5 显示，方法相关内容还涉及：\n- **红外载荷数字孪生**\n- **红外探测成像的定量评估与优化**\n- **空间目标全生命周期红外辐射特性端到端仿真与分析**\n\n这说明方法部分可能不仅关注检测算法本身，还强调：\n- **红外成像链路的建模与仿真**\n- **定量评估方法**\n- **面向系统级分析的优化手段**\n\n## 总结\n综合这些片段，**“method”部分突出强调的关键信息**主要包括：\n1. **红外小目标/空间目标检测是核心任务场景**；\n2. **方法上重视时空信息、局部对比/匹配/配准与复杂背景处理**；\n3. **采用深度学习、上下文建模、特征融合、Transformer 等技术路线**；\n4. **涉及神经架构搜索与模型效率优化**；\n5. **还关注红外成像仿真、数字孪生和定量评估。**\n\n但需要说明的是：**当前检索到的“method”片段基本为参考文献列表，缺少正文方法描述，因此无法进一步确定该论文方法部分具体提出了哪一种新模型、算法流程、实验设置或评价指标。**  \n**根据当前论文片段无法判断**更细粒度的方法创新点。\n\n**依据片段编号：**[片段 1]、[片段 2]、[片段 3]、[片段 4]、[片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0269",
+          "title": "博士学位论文",
+          "score": 0.6518826218355132
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0274",
+          "title": "博士学位论文",
+          "score": 0.6502085801962615
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0226",
+          "title": "博士学位论文",
+          "score": 0.6492212122707399
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0255",
+          "title": "博士学位论文",
+          "score": 0.6488507446351048
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0281",
+          "title": "博士学位论文",
+          "score": 0.6478996112685778
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.12195121951219512,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.122; precision=0.114; f1=0.118.",
+          "Answer coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.12195121951219512,
+          "token_overlap_precision": 0.11363636363636363,
+          "token_overlap_f1": 0.1176470588235294,
+          "overlap_tokens": [
+            "2",
+            "networks",
+            "of",
+            "the",
+            "with"
+          ],
+          "expected_token_count": 41,
+          "predicted_token_count": 44
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "method"
+          ],
+          "matched_supporting_sections": [
+            "method"
+          ],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_004-abstract",
+      "question": "What does the paper 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain' mainly propose or study?",
+      "mode": "rule_based",
+      "predicted_answer": "该论文主要研究并提出了一个**面向农业领域的 Grounding-DINO 少样本适配方法**。\n\n### 核心内容\n1. **研究对象**  \n   论文关注的是将 **Grounding-DINO** 应用于**农业目标检测任务**。作者明确是在农业数据集上研究其适配问题。  \n\n2. **主要问题**  \n   作者指出，Grounding-DINO 在农业场景中存在**人工文本提示（manual text prompting）困难**的问题，尤其是农业特定场景下，文本提示依赖会带来挑战。  \n\n3. **主要方法/贡献**  \n   论文提出了一种**高效的少样本学习方法**，其关键特点是：  \n   - **消除对文本提示的依赖**；  \n   - 能够使用**极少量训练样本**和**较少迭代**，将 Grounding-DINO **高效适配到新的农业数据集**。  \n\n4. **实验研究**  \n   作者在**多个农业数据集**上进行了实验。根据片段，实验结果表明：  \n   - 该少样本方法**优于 zero-shot 方法**；  \n   - 也优于**其他先进的 few-shot 方法**。  \n\n5. **额外说明**  \n   论文还提到，尽管 Grounding-DINO **计算成本较高**，所提出的方法可以**无缝集成到 YOLO 系框架**（如 YOLO-World、YOLOE）中，用于高效的少样本检测任务。  \n\n### 简要总结\n这篇论文主要是：**研究如何将 Grounding-DINO 通过一种无需文本提示的少样本适配方法，用于农业领域目标检测，并通过多农业数据集实验验证其优于 zero-shot 和其他 few-shot 基线。**\n\n### 依据片段编号\n- [片段 1]\n- [片段 2]\n- [片段 3]\n- [片段 4]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Method",
+          "chunk_id": "paper_20260511_004_chunk_0015",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7610539508954391
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Conclusion",
+          "chunk_id": "paper_20260511_004_chunk_0059",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7604624906696335
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "method",
+          "chunk_id": "paper_20260511_004_chunk_0009",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7440703705016697
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "experiments",
+          "chunk_id": "paper_20260511_004_chunk_0058",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7248189404541152
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "References",
+          "chunk_id": "paper_20260511_004_chunk_0083",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.71632563324072
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.000; precision=0.000; f1=0.000.",
+          "Answer coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.0,
+          "token_overlap_precision": 0.0,
+          "token_overlap_f1": 0.0,
+          "overlap_tokens": [],
+          "expected_token_count": 43,
+          "predicted_token_count": 16
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Supporting section coverage=0.000 (0/1).",
+          "Supporting section coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [],
+          "citation_section_count": 4,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_004-section-1-v1",
+      "question": "According to the 'Introduction' section of 'Few-Shot Adaptation of Grounding DINO for Agricultural Domain', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "According to the provided **Introduction** fragments, the paper highlights the following key information:\n\n### 1. Research scope: applying Grounding-DINO to agricultural tasks\nThe paper studies how **pretrained Grounding-DINO** can be used on a **wide range of publicly available agricultural datasets**. The mentioned tasks/datasets include:\n- **plant-weed detection**\n- **insect identification**\n- **wheat head detection**\n- **fruit counting**\n- **remote sensing**\n\nIt also mentions exploring **instance segmentation** by combining **Grounding-DINO with SAM2**, for example on **PhenoBench**.\n\n### 2. Initial zero-shot setting and its limitation\nThe authors first investigate **zero-shot learning**, where the model uses only **text prompts for class names** and **no labeled training images** from the target dataset.  \nHowever, they report **severe limitations / poor performance** on agricultural datasets, and further note that **manual prompt tuning is impractical** because it is difficult to craft effective prompts across diverse agricultural scenarios.\n\n### 3. Proposed adaptation idea\nTo address these issues, the paper proposes a **simplified adaptation method** for Grounding-DINO:\n- **remove the language processing component (BERT)**\n- **introduce randomly initialized trainable parameters** that imitate the shape of BERT text embeddings\n- thereby **eliminate the need for text prompts**\n\nThis allows the model to be adapted to specific agricultural datasets with **minimal effort**.\n\n### 4. Few-shot efficiency\nA key point emphasized in the Introduction is that the new embeddings can be learned using:\n- **as few as two labeled images**\n- **a small number of training steps**\n- only **a few thousand trainable parameters**\n\nThis makes adaptation both **simpler** and **faster** for new datasets.\n\n### 5. Reported benefit\nThe paper states that this approach achieves:\n- **excellent / superior performance across diverse agricultural datasets**\n- better results than **zero-shot approaches**\n- better results than **other state-of-the-art few-shot methods**\n\nIt is also highlighted as useful for **automating annotation tasks** in agriculture and other efficiency-critical domains.\n\n### 6. Main contributions explicitly listed\nThe Introduction explicitly summarizes the contributions as:\n1. Investigating **Grounding-DINO across diverse agricultural datasets** for object detection using its **zero-shot capability**.\n2. Finding that **manual prompt tuning is impractical** for agriculture.\n3. Proposing a **simple few-shot adaptation method** that removes dependence on text prompts and enables efficient adaptation with minimal labeled data and training.\n\n**依据片段编号：**[3], [4], [5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Method",
+          "chunk_id": "paper_20260511_004_chunk_0015",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.8355367526782237
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "method",
+          "chunk_id": "paper_20260511_004_chunk_0009",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7807747942260459
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Introduction",
+          "chunk_id": "paper_20260511_004_chunk_0007",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7417538926456853
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Introduction",
+          "chunk_id": "paper_20260511_004_chunk_0004",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7414217310901197
+        },
+        {
+          "paper_id": "paper_20260511_004",
+          "section": "Introduction",
+          "chunk_id": "paper_20260511_004_chunk_0006",
+          "title": "Few-Shot Adaptation of Grounding DINO for Agricultural Domain",
+          "score": 0.7344638528785048
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.2916666666666667,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.292; precision=0.070; f1=0.113.",
+          "Answer coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.2916666666666667,
+          "token_overlap_precision": 0.07035175879396985,
+          "token_overlap_f1": 0.11336032388663966,
+          "overlap_tokens": [
+            "1",
+            "4",
+            "6",
+            "agricultural",
+            "and",
+            "detection",
+            "for",
+            "in",
+            "learning",
+            "object",
+            "of",
+            "tasks",
+            "the",
+            "to"
+          ],
+          "expected_token_count": 48,
+          "predicted_token_count": 199
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 1.0,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "Supporting section coverage=1.000 (1/1).",
+          "Citations cover the expected supporting sections for the sample."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "introduction"
+          ],
+          "matched_supporting_sections": [
+            "introduction"
+          ],
+          "citation_section_count": 2,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_005-abstract",
+      "question": "What does the paper 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022' mainly propose or study?",
+      "mode": "rule_based",
+      "predicted_answer": "根据当前给定的论文片段，**无法直接判断这篇论文“主要提出或研究了什么”**。\n\n### 原因\n目前检索到的内容全部来自 **References（参考文献）** 部分，未包含：\n- 题目正文\n- 摘要\n- 引言\n- 方法\n- 实验结论\n\n因此，片段只能说明这篇论文的**研究背景可能与目标检测相关**，并且很可能涉及：\n- **小目标检测（small object detection / tiny object detection）**\n- **航拍/遥感图像目标检测（aerial images）**\n- **anchor-based / anchor-free 检测方法**\n- **多尺度特征、特征金字塔、边框回归等目标检测技术**\n\n### 可从参考文献中谨慎推断的信息\n从引用的工作看，这篇论文可能处于**计算机视觉中的目标检测方向**，尤其关注以下主题：\n1. **小目标检测**\n   - 如引用了 small object detection、tiny person detection 等相关工作。\n2. **航拍/遥感图像目标检测**\n   - 如引用了 DOTA 数据集、aerial images 中 tiny object detection 等工作。\n3. **检测框架与训练策略**\n   - 包括 Faster R-CNN、Objects as Points、ATSS、IoU/DIoU loss 等。\n\n但这些都只是**基于参考文献主题的间接判断**，**不能等同于论文的主要贡献**。\n\n### 结论\n**根据当前论文片段无法判断**该论文具体“主要提出了什么方法”或“重点研究了什么问题”。如果提供摘要、引言或方法部分，我可以进一步准确概括其核心贡献。\n\n**依据片段编号：**[片段 1] [片段 2] [片段 3] [片段 4] [片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0061",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7436045921536171
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0055",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7020249374492885
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0058",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7015472219571647
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0052",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.6953190463111525
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0060",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.6823113390059586
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.11363636363636363,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.114; precision=0.185; f1=0.141.",
+          "Answer coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.11363636363636363,
+          "token_overlap_precision": 0.18518518518518517,
+          "token_overlap_f1": 0.1408450704225352,
+          "overlap_tokens": [
+            "based",
+            "iou",
+            "object",
+            "objects",
+            "tiny"
+          ],
+          "expected_token_count": 44,
+          "predicted_token_count": 27
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Supporting section coverage=0.000 (0/1).",
+          "Supporting section coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_005-section-1-v1",
+      "question": "According to the 'Introduction' section of 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022', what key information is highlighted?",
+      "mode": "rule_based",
+      "predicted_answer": "根据当前提供的论文片段，**无法回答“Introduction 部分强调了哪些关键信息”**，因为检索结果**全部来自 References（参考文献）部分**，没有出现 **Introduction** 的正文内容。\n\n### 目前能够确定的信息\n- 该论文与**目标检测/小目标检测**相关，因为参考文献中包含：\n  - 小目标检测综述与方法，如 small object detection、tiny object detection in aerial images\n  - 常见检测器，如 Faster R-CNN、FCOS、EfficientDet、Cascade R-CNN\n  - 航拍/遥感相关数据集与任务，如 DOTA、VisDrone\n- 但这些只能说明论文的大致研究背景，**不能据此严格推断 Introduction 中“强调了什么关键信息”**。\n\n### 结论\n**根据当前论文片段无法判断** Introduction 部分具体强调的关键内容。  \n如果你能提供 **Introduction** 章节的正文片段，我可以进一步为你提炼其中的关键信息，并按“研究背景—问题定义—挑战—贡献”结构进行总结。\n\n**依据片段编号：**[片段 1]、[片段 2]、[片段 3]、[片段 4]、[片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0055",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7146618473846083
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0058",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7097131955591078
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0057",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7064811455278437
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0050",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7018509703417932
+        },
+        {
+          "paper_id": "paper_20260511_005",
+          "section": "References",
+          "chunk_id": "paper_20260511_005_chunk_0061",
+          "title": "arXiv:2110.13389v2  [cs.CV]  14 Jun 2022",
+          "score": 0.7000848550789986
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.09090909090909091,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.091; precision=0.182; f1=0.121.",
+          "Answer coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.09090909090909091,
+          "token_overlap_precision": 0.18181818181818182,
+          "token_overlap_f1": 0.12121212121212123,
+          "overlap_tokens": [
+            "detection",
+            "in",
+            "object",
+            "tiny"
+          ],
+          "expected_token_count": 44,
+          "predicted_token_count": 22
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Supporting section coverage=0.000 (0/1).",
+          "Supporting section coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "introduction"
+          ],
+          "matched_supporting_sections": [],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-hard-oos",
+      "question": "Does the paper 'Receptive-Field and Direction Induced Attention' discuss blockchain consensus protocols? If yes, summarize the discussion.",
+      "mode": "rule_based",
+      "predicted_answer": "**回答：没有。**\n\n根据给定论文片段，论文 **《Receptive-Field and Direction Induced Attention》** 的内容集中在 **红外小目标检测**，包括：\n\n1. **检测方法与注意力机制**\n   - 利用目标灰度分布的**多方向性（multidirectionality）**来生成注意力权重；\n   - 结合**感受野**与**方向信息**增强特征图中的目标信息。  \n   见片段 3。\n\n2. **相关方法综述**\n   - 讨论了 MPCM、DECM、MODD、TBC-Net、ACM、ALCNet、GAN 等与**红外小目标检测**相关的方法；\n   - 比较传统对比度度量方法与深度学习方法。  \n   见片段 2、片段 4。\n\n3. **实验评价指标**\n   - 使用六个指标评估检测能力，如 **BSF**（背景抑制因子）和 **signal-to-clutter** 相关指标。  \n   见片段 1。\n\n在这些片段中，**没有出现区块链（blockchain）或共识协议（consensus protocols）相关讨论**。因此，该论文**不讨论 blockchain consensus protocols**。\n\n**依据片段编号：**[1], [2], [3], [4], [5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7340973542130077
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0015",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7340359923571624
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7315833196584678
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7176298760605427
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "REFERENCES",
+          "chunk_id": "paper_20260509_004_chunk_0065",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.716125943480922
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.000; precision=0.000; f1=0.000.",
+          "Answer coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.0,
+          "token_overlap_precision": 0.0,
+          "token_overlap_f1": 0.0,
+          "overlap_tokens": [],
+          "expected_token_count": 0,
+          "predicted_token_count": 27
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Supporting section coverage=0.000 (0/1).",
+          "Supporting section coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [],
+          "citation_section_count": 3,
+          "matched_paper_id": true
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260511_002-hard-oos",
+      "question": "Does the paper '博士学位论文' discuss Quantum supremacy benchmarks? If yes, summarize the discussion.",
+      "mode": "rule_based",
+      "predicted_answer": "根据当前论文片段无法判断该论文是否讨论了 **Quantum supremacy benchmarks**。\n\n### 原因说明\n给出的片段内容均为：\n- 参考文献列表；\n- 主题集中在**卷积神经网络、Transformer、神经架构搜索、红外小目标检测、图像分割**等方向；\n- 未出现“Quantum supremacy”“benchmark”“量子优越性”或相关讨论内容。\n\n### 结论\n- **是否讨论 Quantum supremacy benchmarks：无法判断。**\n- **如果有讨论，当前片段中也没有可用于总结的具体内容。**\n\n### 依据片段编号\n[片段 1], [片段 2], [片段 3], [片段 4], [片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0263",
+          "title": "博士学位论文",
+          "score": 0.6443697501048227
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0262",
+          "title": "博士学位论文",
+          "score": 0.6439591889409777
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0223",
+          "title": "博士学位论文",
+          "score": 0.6439097153796798
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0265",
+          "title": "博士学位论文",
+          "score": 0.6422911018465066
+        },
+        {
+          "paper_id": "paper_20260511_002",
+          "section": "method",
+          "chunk_id": "paper_20260511_002_chunk_0273",
+          "title": "博士学位论文",
+          "score": 0.6383162253769527
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Token overlap coverage=0.000; precision=0.000; f1=0.000.",
+          "Answer coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "token_overlap_recall": 0.0,
+          "token_overlap_precision": 0.0,
+          "token_overlap_f1": 0.0,
+          "overlap_tokens": [],
+          "expected_token_count": 0,
+          "predicted_token_count": 10
+        }
+      },
+      "citation_evaluation": {
+        "mode": "rule_based",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "Supporting section coverage=0.000 (0/1).",
+          "Supporting section coverage is below the configured acceptance threshold."
+        ],
+        "metadata": {
+          "expected_supporting_sections": [
+            "abstract"
+          ],
+          "matched_supporting_sections": [],
+          "citation_section_count": 1,
+          "matched_paper_id": true
+        }
+      }
+    }
+  ]
+}
