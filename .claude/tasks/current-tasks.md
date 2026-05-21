@@ -2,7 +2,7 @@
 
 > 基于 JD_ALIGNED_ROADMAP.md 的执行任务  
 > 最后更新：2026-05-20  
-> 当前阶段：Phase 1 已完成 → Phase 2 准备启动（Week 3-4：数据分析与效果评估）
+> 当前阶段：Phase 2 已完成 → Phase 3 准备启动（Week 5-6：工程化与生产就绪）
 
 ## 项目环境信息
 
@@ -992,7 +992,380 @@ cat .claude/tasks/current-tasks.md
 
 ## Week 5-6: Phase 3 - 工程化与生产就绪
 
-（任务清单待 Phase 2 完成后展开）
+> **目标**：提升系统工程化水平，展示后端 API、异步任务、任务状态追踪、结构化日志、问题排查能力  
+> **JD 对齐**：岗位职责 6（接口开发、日志分析、问题排查）+ 加分项 5（后端开发、异步任务、缓存/消息队列）  
+> **执行策略**：优先复用现有 FastAPI `BackgroundTasks`、`FileJobStore` 和索引任务雏形；先完成轻量生产化闭环，再评估是否引入 Celery/Redis/数据库，避免过早重构。
+
+### 任务 3.0: Phase 3 前置准备（Day 0，半天）
+
+- [x] 创建 Phase 3 工作分支
+  - 验收标准：`feature/phase3-production-readiness` 分支已创建并切换
+  - 需要运行的命令：
+    ```bash
+    git status
+    git checkout -b feature/phase3-production-readiness
+    git status
+    ```
+  - 涉及文件：无
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 当前分支：feature/phase3-production-readiness
+    - ✅ 工作目录状态：存在计划内文档修改（`.claude/tasks/current-tasks.md`, `docs/JD_ALIGNED_ROADMAP.md`）和既有 `docs/prompt.txt` 修改，未纳入 Phase 3 实现范围
+
+- [x] 盘点现有工程化基础
+  - 验收标准：明确现有 `BackgroundTasks`、`FileJobStore`、`IndexStatusResponse`、`/jobs` 接口可复用点
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_index_endpoint.py tests/test_indexing_workflow.py -v
+    ```
+  - 涉及文件：
+    - `app/main.py`
+    - `app/services/job_store.py`
+    - `app/schemas.py`
+    - `tests/test_index_endpoint.py`
+    - `tests/test_indexing_workflow.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 现有能力清单：FastAPI `BackgroundTasks` 已用于 `/papers/{paper_id}/index`；`FileJobStore` 支持 JSON 持久化；`IndexStatusResponse` 包含 queued/running/completed/failed、progress、timing；`/jobs` 和 `/jobs/{job_id}` 已可查询索引任务
+    - ✅ 基线测试结果：52 passed in 5.05s（使用 `conda activate research_agent` 后运行）
+
+- [x] 确定 Phase 3 技术降级边界
+  - 验收标准：在任务记录中明确 Celery/Redis/数据库是否作为本 Phase 必做或可选
+  - 建议决策：本 Phase 必做轻量异步任务系统、结构化日志、API 错误处理；Celery/Redis/数据库作为 3.4 的评估/可选落地项
+  - 需要运行的命令：无
+  - 涉及文件：`.claude/tasks/current-tasks.md`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 决策结果：Celery/Redis/数据库不作为 Phase 3 必做实现；本阶段先落地轻量后台任务、统一任务状态、结构化日志、请求追踪、错误处理和文档化评估
+    - ✅ 原因：项目已有 `BackgroundTasks` + `FileJobStore` 基础，优先复用可减少重构风险，并为 Phase 4/5 保留迭代速度
+
+### 任务 3.1: 通用后台任务系统（Day 1-3）
+
+- [x] 抽象通用 Job schema
+  - 验收标准：支持 note/index/compare/batch_index 等任务类型，不再只服务 paper_index
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_job_store.py -v
+    ```
+  - 涉及文件：
+    - `app/schemas.py`
+    - `app/services/job_store.py`
+    - `tests/test_job_store.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 新增/调整 schema：新增 `JobStatusResponse`、`JobRetryResponse`；`IndexStatusResponse` 继承通用 Job schema 并保留 paper_index 兼容字段
+    - ✅ 测试结果：tests/test_job_store.py → 3 passed
+
+- [x] 实现任务状态生命周期管理
+  - 验收标准：统一支持 queued/running/completed/failed/cancelled，包含 progress、result、error、created_at、started_at、completed_at、updated_at
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_job_store.py tests/test_index_endpoint.py -v
+    ```
+  - 涉及文件：
+    - `app/services/job_store.py`
+    - `app/services/paper_status.py`
+    - `app/schemas.py`
+    - `tests/test_job_store.py`
+    - `tests/test_index_endpoint.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 生命周期状态：queued/running/completed/failed/cancelled；新增 `build_job_status()`，`FileJobStore` 可恢复通用任务和索引任务
+    - ✅ 测试结果：tests/test_job_store.py + tests/test_index_endpoint.py → 46 passed
+
+- [x] 将笔记生成改造为后台任务
+  - 验收标准：新增提交笔记任务接口，长耗时 LLM 调用在后台执行，完成后可通过 job result 获取 note_path/content 摘要
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_async_note_tasks.py -v
+    ```
+  - 涉及文件：
+    - `app/main.py`
+    - `app/services/job_store.py`
+    - `app/schemas.py`
+    - `tests/test_async_note_tasks.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ API 路径：`POST /tasks/note/{paper_id}`、`GET /tasks/{job_id}`、`GET /tasks/{job_id}/result`
+    - ✅ 测试结果：3 passed
+
+- [x] 将多论文对比改造为后台任务
+  - 验收标准：新增提交对比任务接口，对比任务进入 job store，完成后 result 包含 output_path 和内容摘要
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_async_compare_tasks.py -v
+    ```
+  - 涉及文件：
+    - `app/main.py`
+    - `app/schemas.py`
+    - `tests/test_async_compare_tasks.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ API 路径：`POST /tasks/compare`、`GET /tasks/{job_id}`、`GET /tasks/{job_id}/result`
+    - ✅ 测试结果：3 passed
+
+- [x] 完善任务查询、取消和重试接口
+  - 验收标准：支持列出任务、按 task_id 查询状态、取消 queued/running 任务、从 failed 任务创建 retry 任务
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_task_routes.py -v
+    ```
+  - 涉及文件：
+    - `app/main.py`
+    - `app/schemas.py`
+    - `tests/test_task_routes.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ API 路径列表：`GET /tasks`、`GET /tasks/{job_id}`、`GET /tasks/{job_id}/result`、`DELETE /tasks/{job_id}`、`POST /tasks/{job_id}/retry`
+    - ✅ 测试结果：5 passed
+
+- [x] 更新 Streamlit UI 展示后台任务状态
+  - 验收标准：索引、笔记生成、对比任务可显示 queued/running/completed/failed 状态和进度；失败时展示清晰错误，不暴露 raw stack trace
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_streamlit_upload_flow.py -v
+    ```
+  - 涉及文件：
+    - `ui/streamlit_app.py`
+    - `ui/components/agent_chat.py`（如涉及 Agent 工作流任务展示）
+    - `tests/test_streamlit_upload_flow.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ UI 变更：新增 `format_task_status()`，统一将 queued/running/completed/failed/cancelled 显示为中文状态、百分比进度和清晰错误文本
+    - ✅ 测试结果：6 passed
+
+### 任务 3.2: 结构化日志与请求追踪（Day 4-5）
+
+- [x] 添加结构化日志配置
+  - 验收标准：应用统一输出 JSON 日志，包含 timestamp、level、event、logger 字段
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_logging.py -v
+    ```
+  - 涉及文件：
+    - `app/logging_config.py`
+    - `app/main.py`
+    - `tests/test_logging.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 日志格式：JSONL，每行包含 timestamp/level/event/logger，并将 `ra_*` extra 字段输出为业务字段
+    - ✅ 测试结果：2 passed
+
+- [x] 添加 request_id / trace_id 中间件
+  - 验收标准：所有 API 响应包含 `X-Request-ID`，日志中可关联同一个 request_id
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_tracing_middleware.py -v
+    ```
+  - 涉及文件：
+    - `app/middleware/tracing.py`
+    - `app/main.py`
+    - `tests/test_tracing_middleware.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ Header 名称：`X-Request-ID`，支持复用客户端传入值或自动生成 UUID
+    - ✅ 测试结果：2 passed
+
+- [x] 为关键服务添加日志埋点
+  - 验收标准：QA、note、compare、index、Agent execute 记录耗时、paper_id/job_id、成功/失败状态；日志失败不影响主流程
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_paper_qa.py tests/test_note_generator.py tests/test_paper_compare.py tests/test_paper_research_agent.py -v
+    ```
+  - 涉及文件：
+    - `app/services/paper_qa.py`
+    - `app/services/note_generator.py`
+    - `app/services/paper_compare.py`
+    - `app/agents/paper_research_agent.py`
+    - `app/main.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 埋点清单：api_request、index_job_completed/index_job_failed、qa_completed、note_generated、comparison_completed、agent_execute_completed
+    - ✅ 测试结果：42 passed
+
+- [x] 实现日志分析脚本
+  - 验收标准：可从 JSONL 日志中统计接口调用次数、错误率、P50/P95 延迟、LLM/检索耗时分布，并生成 Markdown 报告
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_log_analyzer.py -v
+    python -m app.analytics.log_analyzer --log-file app/storage/logs/app.jsonl --output app/analytics/reports/log_analysis.md
+    ```
+  - 涉及文件：
+    - `app/analytics/log_analyzer.py`
+    - `app/analytics/reports/log_analysis.md`
+    - `tests/test_log_analyzer.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 报告路径：`app/analytics/reports/log_analysis.md`
+    - ✅ 测试结果：3 passed；报告生成命令执行成功
+
+### 任务 3.3: API 稳定性与错误处理（Day 6-7）
+
+- [x] 统一 API 错误响应格式
+  - 验收标准：错误响应包含 error/message/request_id/status_code，生产路径不返回 raw stack trace
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_api_errors.py -v
+    ```
+  - 涉及文件：
+    - `app/schemas.py`
+    - `app/main.py`
+    - `app/middleware/error_handler.py`
+    - `tests/test_api_errors.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 错误响应 schema：`ErrorResponse(error, message, request_id, status_code)`；HTTPException 统一为 `http_error`，未处理异常统一为 `internal_server_error`
+    - ✅ 测试结果：2 passed
+
+- [x] 补齐任务接口 OpenAPI 描述
+  - 验收标准：异步任务接口在 Swagger UI 中有 summary、description、response_model 和错误码说明
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_openapi_schema.py -v
+    ```
+  - 涉及文件：
+    - `app/main.py`
+    - `tests/test_openapi_schema.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 覆盖接口：`GET /tasks`、`GET /tasks/{job_id}`、`GET /tasks/{job_id}/result`、`DELETE /tasks/{job_id}`、`POST /tasks/{job_id}/retry`、`POST /tasks/note/{paper_id}`、`POST /tasks/compare`
+    - ✅ 测试结果：2 passed
+
+- [x] 添加轻量健康检查增强
+  - 验收标准：`/health` 返回配置状态、存储目录可写性、向量库可用性；异常项以 degraded 表示
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_health_endpoint.py -v
+    ```
+  - 涉及文件：
+    - `app/main.py`
+    - `app/schemas.py`
+    - `tests/test_health_endpoint.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 健康检查字段：status、project、storage_writable、vector_store_available、config.llm_configured、config.embedding_model_configured、config.vector_store_configured
+    - ✅ 测试结果：2 passed
+
+### 任务 3.4: Celery/Redis 与数据库可选落地评估（Day 8）
+
+- [x] 编写 Celery/Redis 评估结论
+  - 验收标准：明确当前 FastAPI BackgroundTasks 是否足够、何时需要 Celery/Redis、迁移步骤和风险
+  - 需要运行的命令：无
+  - 涉及文件：`docs/ASYNC_TASKS.md`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 结论：当前单用户本地 MVP 使用 FastAPI `BackgroundTasks` + `FileJobStore` 足够；Celery/Redis 适合多 worker、跨进程、任务持久运行和队列优先级场景
+    - ✅ 是否落地 Celery/Redis：不落地，保留迁移步骤和触发条件
+
+- [x] 如决定落地 Celery/Redis，添加最小可运行 demo
+  - 验收标准：Celery worker 可启动，至少 note/index 一个任务可通过 Redis broker 执行；如不落地则记录跳过原因
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_celery_tasks.py -v
+    ```
+  - 涉及文件（可选）：
+    - `app/tasks/celery_app.py`
+    - `app/tasks/paper_tasks.py`
+    - `tests/test_celery_tasks.py`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 落地/跳过：跳过 Celery/Redis demo
+    - ✅ 测试结果或跳过原因：不新增 `tests/test_celery_tasks.py`；原因是 Phase 3 决策为不引入 Redis/Celery 运行依赖，避免本地演示和 CI 复杂度上升
+
+- [x] 编写数据库/缓存评估结论
+  - 验收标准：明确是否保留当前文件存储、SQLite/Redis 引入收益、Phase 4/5 是否需要数据库支撑
+  - 需要运行的命令：无
+  - 涉及文件：`docs/DATABASE_CACHE_DECISION.md`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 结论：Phase 3 保留文件存储，不引入 SQLite/SQLAlchemy/Alembic/Redis cache
+    - ✅ 下一步建议：Phase 5 记忆系统需求明确后再评估 SQLite/PostgreSQL；如迁移任务队列再同时引入 Redis
+
+### 任务 3.5: Phase 3 文档、验证与收尾（Day 9-10）
+
+- [x] 创建 ASYNC_TASKS.md
+  - 验收标准：说明任务生命周期、API 使用示例、状态字段、取消/重试语义、与 Celery/Redis 的取舍
+  - 涉及文件：`docs/ASYNC_TASKS.md`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 文档章节：Current implementation、Task lifecycle、API examples、Cancellation and retry semantics、Celery/Redis decision
+
+- [x] 创建 LOGGING_GUIDE.md
+  - 验收标准：说明日志字段、request_id 追踪、常见排查流程、日志分析脚本用法
+  - 涉及文件：`docs/LOGGING_GUIDE.md`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 文档章节：Overview、Log format、Request tracing、Service events、Log analysis、Troubleshooting flow
+
+- [x] 创建 PRODUCTION_READINESS.md
+  - 验收标准：总结 Phase 3 工程化能力、已完成项、未引入 Celery/数据库的原因或落地方式、后续生产化路线
+  - 涉及文件：`docs/PRODUCTION_READINESS.md`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 文档章节：Phase 3 scope、Completed engineering capabilities、Decisions、Remaining production gaps、Next production steps
+
+- [x] 更新 README.md 和 ARCHITECTURE.md
+  - 验收标准：README 增加工程化特性；ARCHITECTURE 增加后台任务、日志追踪和错误处理架构
+  - 涉及文件：
+    - `README.md`
+    - `docs/ARCHITECTURE.md`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 更新内容：README 新增工程化功能/API；ARCHITECTURE 新增 Production Readiness（Phase 3）架构、任务系统、日志排查和工程化取舍
+
+- [x] 运行 Phase 3 专项测试
+  - 验收标准：Phase 3 新增测试全部通过
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests/test_job_store.py tests/test_async_note_tasks.py tests/test_async_compare_tasks.py tests/test_task_routes.py tests/test_logging.py tests/test_tracing_middleware.py tests/test_log_analyzer.py tests/test_api_errors.py tests/test_openapi_schema.py tests/test_health_endpoint.py -v
+    ```
+  - 涉及文件：无
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 测试结果：27 passed in 0.63s
+    - ✅ 新增测试数：27（Phase 3 专项测试文件合计）
+
+- [x] 运行全量测试
+  - 验收标准：所有测试通过，无 Phase 1/2 回归
+  - 需要运行的命令：
+    ```bash
+    python -m pytest tests -q
+    ```
+  - 涉及文件：无
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 全量测试结果：354 passed, 1 warning in 26.96s
+
+- [x] 手动验证 API 和 UI 关键路径
+  - 验收标准：能启动 FastAPI 和 Streamlit，并验证后台任务提交/查询、错误响应、request_id、日志分析报告生成
+  - 需要运行的命令：
+    ```bash
+    uvicorn app.main:app --reload
+    streamlit run ui/streamlit_app.py
+    ```
+  - 涉及文件：无
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ 验证路径：FastAPI `/health`、`/tasks`、`/tasks/manual_missing` 统一错误响应、`X-Request-ID`、`python -m app.analytics.log_analyzer`；Streamlit 8501 启动并返回 200
+    - ✅ 发现问题：无；验证后已停止 FastAPI 和 Streamlit 后台进程
+
+- [x] 更新 JD_ALIGNED_ROADMAP.md 进度
+  - 验收标准：Phase 3 已完成的验收 checkbox 被勾选，并记录完成日期
+  - 涉及文件：`docs/JD_ALIGNED_ROADMAP.md`
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-21
+    - ✅ Phase 3 验收完成情况：Phase 3 标记为已完成；异步任务、日志、API 增强、总结文档和整体验收 checkbox 已勾选；Celery/Redis/数据库项记录为已决策跳过
+
+### Phase 3 整体验收标准
+
+- [x] 后台任务系统支持至少 index、note、compare 三类任务
+- [x] 任务状态可查询，失败错误清晰，支持取消/重试语义
+- [x] 所有 API 响应携带 request_id，关键日志为 JSON 结构化格式
+- [x] 日志分析报告生成，包含接口调用、错误率和延迟统计
+- [x] API 错误响应不暴露 raw stack trace
+- [x] README / ARCHITECTURE / ASYNC_TASKS / LOGGING_GUIDE / PRODUCTION_READINESS 文档更新完成
+- [x] Phase 3 专项测试和全量测试通过
+- [x] 手动验证 FastAPI + Streamlit 关键路径
 
 ---
 

@@ -124,6 +124,16 @@ def answer_question(
         for r in results
     ]
 
+    logger.info(
+        "qa_completed",
+        extra={
+            "ra_paper_id": paper_id,
+            "ra_top_k": top_k,
+            "ra_sources_count": len(sources),
+            "ra_retrieval_ms": round(retrieval_seconds * 1000, 2),
+            "ra_llm_ms": round(llm_seconds * 1000, 2),
+        },
+    )
     _emit_qa_event(question=question, paper_id=paper_id, top_k=top_k,
                    answer=answer, retrieval_time=retrieval_seconds, llm_time=llm_seconds,
                    sources=sources)

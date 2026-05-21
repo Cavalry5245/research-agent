@@ -228,3 +228,47 @@ ExperimentRunner
 - **JSONL 文件持久化**: 沿用 `FileJobStore` 模式，Phase 3 才引入数据库
 - **Pluggable variant_fn**: 内置 `default_simulated_executor` 用于框架测试，真实执行器在使用方注入
 - **Reuse 评估算法**: `analyze_*.py` 不重复实现指标，直接复用 `app/evaluation/metrics.py` 和 `judges.py`
+
+## Production Readiness（Phase 3）
+
+```
+FastAPI API
+  │
+  ├─ RequestIDMiddleware
+  │    └─ X-Request-ID + api_request JSONL log
+  │
+  ├─ Error handlers
+  │    ├─ HTTPException → ErrorResponse(http_error)
+  │    └─ Exception → ErrorResponse(internal_server_error)
+  │
+  ├─ Background task endpoints
+  │    ├─ POST /tasks/note/{paper_id}
+  │    ├─ POST /tasks/compare
+  │    ├─ GET /tasks/{job_id}
+  │    ├─ GET /tasks/{job_id}/result
+  │    ├─ DELETE /tasks/{job_id}
+  │    └─ POST /tasks/{job_id}/retry
+  │
+  └─ JobStore
+       ├─ InMemoryJobStore
+       └─ FileJobStore (JSON persistence)
+```
+
+### 任务系统设计
+
+- `JobStatusResponse` 是通用任务状态模型，支持 `paper_index`、`note_generation`、`paper_comparison`、`batch_index`
+- `IndexStatusResponse` 继承通用模型并保留索引指标字段，保证旧 `/jobs` 接口兼容
+- 任务状态统一为 `queued` / `running` / `completed` / `failed` / `cancelled`
+- `result` 只保存轻量摘要和输出路径，完整产物仍写入 notes/vector store 等既有存储
+
+### 日志与排查
+
+- `app/logging_config.py` 输出 JSONL 日志
+- `app/middleware/tracing.py` 为所有响应添加 `X-Request-ID`
+- `app/analytics/log_analyzer.py` 从 JSONL 统计接口调用次数、错误率、P50/P95 延迟和服务事件
+- 错误响应包含 `request_id`，便于从用户反馈定位服务端日志
+
+### 工程化取舍
+
+- Phase 3 不引入 Celery/Redis：当前单用户本地 MVP 使用 `BackgroundTasks` 足够
+- Phase 3 不引入数据库：继续保留文件产物可读性，待 Agent memory / 多用户需求明确后再评估

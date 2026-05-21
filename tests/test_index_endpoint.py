@@ -349,7 +349,9 @@ def test_index_job_status_endpoint_returns_404_for_unknown_job_id():
     response = client.get("/jobs/job_does_not_exist")
 
     assert response.status_code == 404
-    assert response.json() == {"detail": "任务 job_does_not_exist 不存在"}
+    body = response.json()
+    assert body["message"] == "任务 job_does_not_exist 不存在"
+    assert body["status_code"] == 404
 
 
 def test_index_job_status_endpoint_returns_empty_list_when_no_jobs_exist():
@@ -1046,7 +1048,9 @@ def test_job_status_disappears_after_job_store_reset():
     missing = client.get(f"/jobs/{job_id}")
 
     assert missing.status_code == 404
-    assert missing.json() == {"detail": f"任务 {job_id} 不存在"}
+    body = missing.json()
+    assert body["message"] == f"任务 {job_id} 不存在"
+    assert body["status_code"] == 404
 
 
 def test_unknown_job_lookup_does_not_leak_jobs_from_previous_tests():
@@ -1067,7 +1071,9 @@ def test_unknown_job_lookup_does_not_leak_jobs_from_previous_tests():
     missing = client.get("/jobs/job_paper_ISO_ghost")
 
     assert missing.status_code == 404
-    assert missing.json() == {"detail": "任务 job_paper_ISO_ghost 不存在"}
+    body = missing.json()
+    assert body["message"] == "任务 job_paper_ISO_ghost 不存在"
+    assert body["status_code"] == 404
 
 
 def test_index_endpoint_returns_job_status_and_avoids_repeat_indexing():

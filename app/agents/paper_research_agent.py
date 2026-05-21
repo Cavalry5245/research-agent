@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any
 
 from langchain.agents import create_agent
@@ -93,7 +94,17 @@ class PaperResearchAgent:
         messages.append(HumanMessage(content=task))
 
         logger.info("Agent executing task: %s", task[:100])
+        started = time.perf_counter()
         result = self._graph.invoke({"messages": messages})
+        duration_ms = (time.perf_counter() - started) * 1000
+        logger.info(
+            "agent_execute_completed",
+            extra={
+                "ra_duration_ms": round(duration_ms, 2),
+                "ra_tools_count": self.tool_count,
+                "ra_messages_count": len(result.get("messages", [])),
+            },
+        )
 
         # Extract the final AI response
         final_msg = result["messages"][-1]

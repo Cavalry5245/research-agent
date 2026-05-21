@@ -58,6 +58,14 @@ def generate_note(
     markdown = llm_client.generate_text(prompt)
     llm_seconds = time.perf_counter() - llm_start
 
+    logger.info(
+        "note_generated",
+        extra={
+            "ra_paper_id": paper_id,
+            "ra_llm_ms": round(llm_seconds * 1000, 2),
+            "ra_content_length": len(markdown or ""),
+        },
+    )
     _emit_note_event(paper_id=paper_id, llm_time=llm_seconds, content_length=len(markdown or ""))
     return markdown
 

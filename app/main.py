@@ -3,10 +3,13 @@ import shutil
 import time
 from typing import Protocol
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Response, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from app.config import settings
+from app.logging_config import configure_logging, get_logger
+from app.middleware.error_handler import http_exception_handler, unhandled_exception_handler
+from app.middleware.tracing import RequestIDMiddleware
 from app.schemas import (
     AgentExecuteRequest,
     AgentExecuteResponse,
@@ -17,6 +20,8 @@ from app.schemas import (
     IndexJobStatusResponse,
     IndexStatusResponse,
     JobListResponse,
+    JobRetryResponse,
+    JobStatusResponse,
     LibraryIndexStatusResponse,
     NoteGenerateResponse,
     NoteReadResponse,
@@ -42,6 +47,7 @@ from app.services.paper_manager import delete_paper_assets
 from app.services.paper_qa import answer_question
 from app.services.paper_status import (
     build_index_job_status,
+    build_job_status,
     get_index_status,
     get_library_status,
 )
@@ -55,15 +61,21 @@ from app.services.pdf_parser import (
 )
 from app.services.vector_store import VectorStore
 
+configure_logging()
+logger = get_logger(__name__)
+
 app = FastAPI(title="ResearchAgent", version="0.1.0")
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
+app.add_middleware(RequestIDMiddleware)
 
 
 class JobStore(Protocol):
-    def upsert(self, job: IndexJobStatusResponse) -> IndexJobStatusResponse: ...
+    def upsert(self, job: JobStatusResponse) -> JobStatusResponse: ...
 
-    def get(self, job_id: str) -> IndexJobStatusResponse | None: ...
+    def get(self, job_id: str) -> JobStatusResponse | None: ...
 
-    def list(self) -> list[IndexJobStatusResponse]: ...
+    def list(self) -> list[JobStatusResponse]: ...
 
     def clear(self) -> None: ...
 
@@ -87,9 +99,38 @@ def _paper_not_found(paper_id: str):
 # ── Health ───────────────────────────────────────────────────────────────────
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health", response_model=HealthResponse, summary="Health check")
 async def health_check():
-    return HealthResponse(status="ok", project="ResearchAgent")
+    storage_dirs = [_resolve_upload_dir(), _resolve_note_dir(), _resolve_metadata_dir()]
+    storage_writable = True
+    for directory in storage_dirs:
+        try:
+            os.makedirs(directory, exist_ok=True)
+            probe = os.path.join(directory, ".healthcheck")
+            with open(probe, "w", encoding="utf-8") as f:
+                f.write("ok")
+            os.remove(probe)
+        except OSError:
+            storage_writable = False
+            break
+
+    try:
+        vector_store_available = _get_vector_store().metadata().get("backend") is not None
+    except Exception:
+        vector_store_available = False
+
+    status = "ok" if storage_writable and vector_store_available else "degraded"
+    return HealthResponse(
+        status=status,
+        project="ResearchAgent",
+        storage_writable=storage_writable,
+        vector_store_available=vector_store_available,
+        config={
+            "llm_configured": bool(settings.llm_api_key),
+            "embedding_model_configured": bool(settings.embedding_model),
+            "vector_store_configured": bool(settings.vector_store),
+        },
+    )
 
 
 # ── List papers ──────────────────────────────────────────────────────────────
@@ -344,9 +385,18 @@ def _run_index_job(job_id: str, paper_id: str, force: bool, created_at: str) -> 
             total_seconds=total_seconds,
         )
         _get_job_store().upsert(job)
+        logger.info(
+            "index_job_completed",
+            extra={"ra_job_id": job_id, "ra_paper_id": paper_id, "ra_duration_ms": round(total_seconds * 1000, 2)},
+        )
     except Exception as exc:
         failed_at = utc_now_iso()
         total_seconds = time.perf_counter() - total_started
+        logger.error(
+            "index_job_failed",
+            exc_info=exc,
+            extra={"ra_job_id": job_id, "ra_paper_id": paper_id},
+        )
         _get_job_store().upsert(
             build_index_job_status(
                 job_id=job_id,
@@ -411,21 +461,341 @@ async def index_paper(
     return queued_job
 
 
-# ── Delete paper ─────────────────────────────────────────────────────────────
+# ── Tasks and jobs ────────────────────────────────────────────────────────────
 
 
-@app.get("/jobs", response_model=JobListResponse)
+def _new_job_id(job_type: str, subject: str) -> str:
+    safe_subject = subject.replace("/", "_")
+    return f"job_{job_type}_{safe_subject}_{int(time.time() * 1000)}"
+
+
+def _is_cancelled(job_id: str) -> bool:
+    job = _get_job_store().get(job_id)
+    return job is not None and job.status == "cancelled"
+
+
+def _run_note_job(job_id: str, paper_id: str, created_at: str) -> None:
+    if _is_cancelled(job_id):
+        return
+    started_at = utc_now_iso()
+    _get_job_store().upsert(
+        build_job_status(
+            job_id=job_id,
+            job_type="note_generation",
+            paper_id=paper_id,
+            status="running",
+            created_at=created_at,
+            started_at=started_at,
+            updated_at=started_at,
+            progress=0.2,
+        )
+    )
+    try:
+        content = generate_note(paper_id)
+        if _is_cancelled(job_id):
+            return
+        note_path = save_markdown(paper_id, content, _resolve_note_dir())
+        completed_at = utc_now_iso()
+        _get_job_store().upsert(
+            build_job_status(
+                job_id=job_id,
+                job_type="note_generation",
+                paper_id=paper_id,
+                status="completed",
+                created_at=created_at,
+                started_at=started_at,
+                completed_at=completed_at,
+                updated_at=completed_at,
+                progress=1.0,
+                result={
+                    "paper_id": paper_id,
+                    "note_path": note_path,
+                    "content_preview": content[:500],
+                    "content_length": len(content),
+                },
+            )
+        )
+    except Exception as exc:
+        failed_at = utc_now_iso()
+        logger.error(
+            "note_job_failed",
+            exc_info=exc,
+            extra={"ra_job_id": job_id, "ra_paper_id": paper_id},
+        )
+        _get_job_store().upsert(
+            build_job_status(
+                job_id=job_id,
+                job_type="note_generation",
+                paper_id=paper_id,
+                status="failed",
+                created_at=created_at,
+                started_at=started_at,
+                updated_at=failed_at,
+                progress=0.2,
+                error=str(exc),
+            )
+        )
+
+
+def _run_compare_job(job_id: str, paper_ids: list[str], created_at: str) -> None:
+    if _is_cancelled(job_id):
+        return
+    started_at = utc_now_iso()
+    _get_job_store().upsert(
+        build_job_status(
+            job_id=job_id,
+            job_type="paper_comparison",
+            paper_ids=paper_ids,
+            status="running",
+            created_at=created_at,
+            started_at=started_at,
+            updated_at=started_at,
+            progress=0.2,
+        )
+    )
+    try:
+        comparison = compare_papers(
+            paper_ids,
+            _resolve_metadata_dir(),
+            llm_client=_get_llm_client(),
+        )
+        if _is_cancelled(job_id):
+            return
+        output_path = save_compare_result(comparison.markdown, _resolve_note_dir())
+        completed_at = utc_now_iso()
+        _get_job_store().upsert(
+            build_job_status(
+                job_id=job_id,
+                job_type="paper_comparison",
+                paper_ids=paper_ids,
+                status="completed",
+                created_at=created_at,
+                started_at=started_at,
+                completed_at=completed_at,
+                updated_at=completed_at,
+                progress=1.0,
+                result={
+                    "paper_ids": paper_ids,
+                    "output_path": output_path,
+                    "content_preview": comparison.markdown[:500],
+                    "content_length": len(comparison.markdown),
+                },
+            )
+        )
+    except Exception as exc:
+        failed_at = utc_now_iso()
+        logger.error(
+            "compare_job_failed",
+            exc_info=exc,
+            extra={"ra_job_id": job_id, "ra_paper_ids": paper_ids},
+        )
+        _get_job_store().upsert(
+            build_job_status(
+                job_id=job_id,
+                job_type="paper_comparison",
+                paper_ids=paper_ids,
+                status="failed",
+                created_at=created_at,
+                started_at=started_at,
+                updated_at=failed_at,
+                progress=0.2,
+                error=str(exc),
+            )
+        )
+
+
+def _dump_legacy_job(job: JobStatusResponse) -> dict:
+    payload = job.model_dump(mode="json")
+    if job.job_type == "paper_index":
+        payload.pop("paper_ids", None)
+        payload.pop("result", None)
+        payload.pop("retry_of", None)
+    return payload
+
+
+@app.get("/jobs")
 async def list_jobs_endpoint():
     jobs = _get_job_store().list()
-    return JobListResponse(count=len(jobs), jobs=jobs)
+    return {"count": len(jobs), "jobs": [_dump_legacy_job(job) for job in jobs]}
 
 
-@app.get("/jobs/{job_id}", response_model=IndexJobStatusResponse)
+@app.get("/jobs/{job_id}")
 async def job_status_endpoint(job_id: str):
     job = _get_job_store().get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"任务 {job_id} 不存在")
+    return _dump_legacy_job(job)
+
+
+@app.get(
+    "/tasks",
+    response_model=JobListResponse,
+    summary="List background tasks",
+    description="列出 index、note、compare 等后台任务的当前状态。",
+)
+async def list_tasks_endpoint():
+    jobs = _get_job_store().list()
+    return JobListResponse(count=len(jobs), jobs=jobs)
+
+
+@app.get(
+    "/tasks/{job_id}",
+    response_model=JobStatusResponse,
+    summary="Get background task status",
+    description="按 task_id 查询后台任务状态、进度、结果摘要和错误信息。",
+)
+async def task_status_endpoint(job_id: str):
+    job = _get_job_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"任务 {job_id} 不存在")
     return job
+
+
+@app.get(
+    "/tasks/{job_id}/result",
+    summary="Get background task result",
+    description="获取已完成任务的 result 字段；任务未完成时返回 409。",
+)
+async def task_result_endpoint(job_id: str):
+    job = _get_job_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"任务 {job_id} 不存在")
+    if job.status != "completed":
+        raise HTTPException(status_code=409, detail=f"任务 {job_id} 尚未完成")
+    return job.result or {}
+
+
+@app.delete(
+    "/tasks/{job_id}",
+    response_model=JobStatusResponse,
+    summary="Cancel background task",
+    description="取消 queued/running 后台任务；已完成、失败或已取消任务返回 409。",
+)
+async def cancel_task_endpoint(job_id: str):
+    job = _get_job_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"任务 {job_id} 不存在")
+    if job.status in {"completed", "failed", "cancelled"}:
+        raise HTTPException(status_code=409, detail=f"任务 {job_id} 已结束，无法取消")
+    now = utc_now_iso()
+    cancelled = build_job_status(
+        job_id=job.job_id,
+        job_type=job.job_type,
+        paper_id=job.paper_id,
+        paper_ids=job.paper_ids,
+        status="cancelled",
+        created_at=job.created_at.isoformat(),
+        started_at=(job.started_at or job.created_at).isoformat(),
+        completed_at=now,
+        updated_at=now,
+        progress=job.progress,
+        result=job.result,
+        error="任务已取消",
+        retry_of=job.retry_of,
+    )
+    _get_job_store().upsert(cancelled)
+    return cancelled
+
+
+@app.post(
+    "/tasks/{job_id}/retry",
+    response_model=JobRetryResponse,
+    status_code=202,
+    summary="Retry failed background task",
+    description="为 failed 的 note/compare 任务创建新的 retry 任务。",
+)
+async def retry_task_endpoint(job_id: str, background_tasks: BackgroundTasks):
+    job = _get_job_store().get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"任务 {job_id} 不存在")
+    if job.status != "failed":
+        raise HTTPException(status_code=409, detail=f"任务 {job_id} 不是失败状态，无法重试")
+
+    created_at = utc_now_iso()
+    if job.job_type == "note_generation" and job.paper_id:
+        retry_job_id = _new_job_id("note_generation", job.paper_id)
+        retry_job = build_job_status(
+            job_id=retry_job_id,
+            job_type="note_generation",
+            paper_id=job.paper_id,
+            status="queued",
+            created_at=created_at,
+            updated_at=created_at,
+            retry_of=job.job_id,
+        )
+        _get_job_store().upsert(retry_job)
+        background_tasks.add_task(_run_note_job, retry_job_id, job.paper_id, created_at)
+        return JobRetryResponse(original_job_id=job.job_id, retry_job=retry_job)
+
+    if job.job_type == "paper_comparison" and job.paper_ids:
+        retry_job_id = _new_job_id("paper_comparison", "_".join(job.paper_ids))
+        retry_job = build_job_status(
+            job_id=retry_job_id,
+            job_type="paper_comparison",
+            paper_ids=job.paper_ids,
+            status="queued",
+            created_at=created_at,
+            updated_at=created_at,
+            retry_of=job.job_id,
+        )
+        _get_job_store().upsert(retry_job)
+        background_tasks.add_task(_run_compare_job, retry_job_id, job.paper_ids, created_at)
+        return JobRetryResponse(original_job_id=job.job_id, retry_job=retry_job)
+
+    raise HTTPException(status_code=400, detail=f"任务 {job.job_type} 暂不支持重试")
+
+
+@app.post(
+    "/tasks/note/{paper_id}",
+    response_model=JobStatusResponse,
+    status_code=202,
+    summary="Submit note generation task",
+    description="提交论文笔记生成后台任务，返回可查询的 task_id。",
+)
+async def submit_note_task(paper_id: str, background_tasks: BackgroundTasks):
+    created_at = utc_now_iso()
+    job_id = _new_job_id("note_generation", paper_id)
+    queued_job = build_job_status(
+        job_id=job_id,
+        job_type="note_generation",
+        paper_id=paper_id,
+        status="queued",
+        created_at=created_at,
+        updated_at=created_at,
+    )
+    _get_job_store().upsert(queued_job)
+    background_tasks.add_task(_run_note_job, job_id, paper_id, created_at)
+    return queued_job
+
+
+@app.post(
+    "/tasks/compare",
+    response_model=JobStatusResponse,
+    status_code=202,
+    summary="Submit paper comparison task",
+    description="提交多论文对比后台任务，返回可查询的 task_id。",
+)
+async def submit_compare_task(req: CompareRequest, background_tasks: BackgroundTasks):
+    if len(req.paper_ids) < 2:
+        raise HTTPException(status_code=400, detail="请选择至少 2 篇论文进行对比")
+    if len(req.paper_ids) > 5:
+        raise HTTPException(status_code=400, detail="最多支持 5 篇论文对比")
+    created_at = utc_now_iso()
+    job_id = _new_job_id("paper_comparison", "_".join(req.paper_ids))
+    queued_job = build_job_status(
+        job_id=job_id,
+        job_type="paper_comparison",
+        paper_ids=req.paper_ids,
+        status="queued",
+        created_at=created_at,
+        updated_at=created_at,
+    )
+    _get_job_store().upsert(queued_job)
+    background_tasks.add_task(_run_compare_job, job_id, req.paper_ids, created_at)
+    return queued_job
+
+
+# ── Delete paper ─────────────────────────────────────────────────────────────
 
 
 @app.get("/papers/{paper_id}/index-status", response_model=PaperIndexDetailResponse)

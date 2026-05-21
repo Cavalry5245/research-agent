@@ -104,6 +104,23 @@ def parse_saved_files(saved_files: list[dict]) -> list[dict]:
     return parsed_results
 
 
+def format_task_status(job: dict) -> str:
+    labels = {
+        "queued": "排队中",
+        "running": "执行中",
+        "completed": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消",
+    }
+    status = labels.get(job.get("status", ""), job.get("status", "unknown"))
+    progress = int(float(job.get("progress", 0.0)) * 100)
+    job_type = job.get("job_type", "task")
+    error = job.get("error")
+    if error:
+        return f"{job_type}: {status} ({progress}%) — {error}"
+    return f"{job_type}: {status} ({progress}%)"
+
+
 def index_parsed_files(saved_files: list[dict]) -> list[dict]:
     indexed_results = []
     vector_store = get_vector_store()

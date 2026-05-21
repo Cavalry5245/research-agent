@@ -366,6 +366,14 @@ def compare_papers(
     result = _normalize_comparison_result(parsed_result, paper_ids, extracted_summaries)
 
     generation_seconds = time.perf_counter() - compare_start
+    logger.info(
+        "comparison_completed",
+        extra={
+            "ra_paper_ids": paper_ids,
+            "ra_generation_ms": round(generation_seconds * 1000, 2),
+            "ra_aspects_count": len(result.aspects),
+        },
+    )
     _emit_comparison_event(paper_ids=paper_ids, generation_time=generation_seconds, result=result)
 
     return result

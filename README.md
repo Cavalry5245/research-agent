@@ -24,6 +24,7 @@
 | 📥 Markdown 导出 | 笔记/对比结果保存为 .md 并支持下载 |
 | 🤖 **Agent 助手** | 自然语言驱动：自动拆解任务、调用工具链、工作流编排 |
 | 📊 **数据分析 & A/B 测试** | analytics 收集器、3 个实验场景、失败 case 分析、Jupyter Notebook 可视化 |
+| ⚙️ **工程化任务与日志** | 后台任务状态追踪、统一错误响应、request_id、JSONL 日志分析 |
 
 ## 技术栈
 
@@ -37,6 +38,7 @@
 | 向量检索 | 余弦相似度（接口兼容 Chroma） |
 | **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排）** |
 | **Analytics (Phase 2)** | **pandas + matplotlib + seaborn + scipy（指标 / 可视化 / 显著性检验）** |
+| **Production readiness (Phase 3)** | **FastAPI BackgroundTasks + FileJobStore + JSONL logging + request tracing** |
 | 评测 | `app/evaluation` schemas + seed dataset builder + retrieval / QA benchmark scripts |
 | 配置 | .env (pydantic-settings) |
 
@@ -163,7 +165,9 @@ Service Layer
   ├── paper_compare → LLM
   └── chunker / markdown_exporter
   ↓
-Storage: papers/ | notes/ | metadata/ | vector_db/
+Background Tasks + JobStore + JSONL Logs
+  ↓
+Storage: papers/ | notes/ | metadata/ | vector_db/ | logs/
 ```
 
 详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -185,6 +189,13 @@ Storage: papers/ | notes/ | metadata/ | vector_db/
 | `DELETE` | `/papers/{id}` | 删除论文及相关索引/笔记 |
 | `POST` | `/qa` | RAG 问答 |
 | `POST` | `/papers/compare` | 多论文对比 |
+| `GET` | `/tasks` | 列出后台任务 |
+| `POST` | `/tasks/note/{id}` | 提交笔记生成后台任务 |
+| `POST` | `/tasks/compare` | 提交多论文对比后台任务 |
+| `GET` | `/tasks/{job_id}` | 查询任务状态 |
+| `GET` | `/tasks/{job_id}/result` | 获取任务结果 |
+| `DELETE` | `/tasks/{job_id}` | 取消任务 |
+| `POST` | `/tasks/{job_id}/retry` | 重试失败任务 |
 
 ### cURL 示例
 
