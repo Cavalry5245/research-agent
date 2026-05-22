@@ -7,7 +7,7 @@ pydantic-settings
 pymupdf
 chromadb
 openai
-sentence-transformers
+sentence-transformers>=2.7.0
 pytest
 torch
 torchvision
@@ -25,3 +25,7 @@ seaborn>=0.12.0
 jupyter>=1.0.0
 scikit-learn>=1.3.0
 scipy>=1.11.0
+
+# Phase 4: 高级 RAG
+rank-bm25>=0.2.2
+jieba>=0.42.1
