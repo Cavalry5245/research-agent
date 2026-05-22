@@ -20,7 +20,8 @@
 | 📝 笔记生成 | LLM 生成 13 段结构化中文 Markdown 论文笔记 |
 | 🔍 RAG 问答 | 向量检索 + LLM，支持单篇/全库，附带依据片段 |
 | 📊 多论文对比 | 2–5 篇论文自动生成结构化 Markdown 对比表（含固定核心维度与关键差异） |
-| 🗄️ 知识库 | 文本切块 + sentence-transformers 嵌入 + 向量检索 |
+| 🗄️ 知识库 | 文本切块 + sentence-transformers 嵌入 + 向量检索；支持多 KB 隔离与增量索引 |
+| 🎯 高级 RAG | Cross-encoder Rerank（bge-reranker-v2-m3）+ BM25/Hybrid 检索 + 查询改写 / HyDE |
 | 📥 Markdown 导出 | 笔记/对比结果保存为 .md 并支持下载 |
 | 🤖 **Agent 助手** | 自然语言驱动：自动拆解任务、调用工具链、工作流编排 |
 | 📊 **数据分析 & A/B 测试** | analytics 收集器、3 个实验场景、失败 case 分析、Jupyter Notebook 可视化 |
@@ -34,7 +35,7 @@
 | 前端 | Streamlit |
 | PDF 解析 | PyMuPDF |
 | LLM | OpenAI-compatible API (DeepSeek / Qwen / Ollama) |
-| Embedding | sentence-transformers (bge-small-zh-v1.5) |
+| Embedding | sentence-transformers (bge-small-zh-v1.5) + 多模型切换 (bge-large / m3e / bge-m3) |
 | 向量检索 | 余弦相似度（接口兼容 Chroma） |
 | **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排）** |
 | **Analytics (Phase 2)** | **pandas + matplotlib + seaborn + scipy（指标 / 可视化 / 显著性检验）** |
@@ -291,7 +292,9 @@ research-agent/
 | Streamlit 前端 | 6 Tab 完整串联（含 Agent 助手） | ✅ |
 | **Agent 系统** | LangChain + LangGraph 工作流编排（6 工具 + 2 工作流） | ✅ |
 | **数据分析与效果评估** | Phase 2 analytics + experiments + 4 个 Jupyter Notebook + 失败分析 | ✅ |
-| 测试基线 | 202 → 318 passed | ✅ |
+| **工程化与生产就绪** | 异步任务、结构化日志、错误处理、健康检查、日志分析 | ✅ |
+| **高级 RAG（Phase 4）** | Cross-encoder Rerank + BM25/Hybrid + QueryRewrite/HyDE + 多 KB | ✅ |
+| 测试基线 | 202 → 401 passed | ✅ |
 
 ## 运行测试
 

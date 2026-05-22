@@ -1,0 +1,19 @@
+{
+  "experiment_id": "hybrid_comparison",
+  "description": "Compare vector-only (A) vs bm25-only (B) vs hybrid alpha=0.5 (C). Multiple-arm experiment uses A vs C primary comparison.",
+  "metric_keys": ["hit_at_5", "mrr", "retrieval_time"],
+  "higher_is_better": ["hit_at_5", "mrr"],
+  "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
+  "variants": [
+    {
+      "variant": "A",
+      "description": "Vector retrieval only (baseline)",
+      "parameters": {"retriever": "vector"}
+    },
+    {
+      "variant": "B",
+      "description": "Hybrid retrieval alpha=0.5 (recommended)",
+      "parameters": {"retriever": "hybrid", "alpha": 0.5}
+    }
+  ]
+}

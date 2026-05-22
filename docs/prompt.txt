@@ -1,4 +1,4 @@
-/goal 按照 .claude/tasks/current-tasks.md 只完成Phase 1的任务；
+/goal 按照 .claude/tasks/current-tasks.md 只完成Phase 4的任务；
 每完成一项必须更新 checkbox、记录修改文件、运行对应测试；
 最终必须满足：
 1. 所有任务 checkbox 都为 [x]

@@ -136,6 +136,17 @@ class VectorStore:
         logger.info("Deleted %d chunks for paper %s", deleted, paper_id)
         return deleted
 
+    def delete_chunks(self, chunk_ids: list[str]) -> int:
+        if not chunk_ids:
+            return 0
+        target = set(chunk_ids)
+        before = len(self._store)
+        self._store = [(cid, chunk, emb) for cid, chunk, emb in self._store if cid not in target]
+        deleted = before - len(self._store)
+        if deleted:
+            self._persist()
+        return deleted
+
     def has_paper(self, paper_id: str) -> bool:
         return any(chunk.paper_id == paper_id for _, chunk, _ in self._store)
 

@@ -301,3 +301,26 @@ class AgentExecuteRequest(BaseModel):
 class AgentExecuteResponse(BaseModel):
     task: str
     answer: str
+
+
+class KBCreateRequest(BaseModel):
+    kb_id: str
+    name: str
+    description: str = ""
+
+
+class KBResponse(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    paper_ids: list[str] = []
+    created_at: str | None = None
+
+
+class KBListResponse(BaseModel):
+    count: int
+    knowledge_bases: list[KBResponse]
+
+
+class KBAddPaperRequest(BaseModel):
+    paper_id: str

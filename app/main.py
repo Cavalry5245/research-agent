@@ -22,6 +22,10 @@ from app.schemas import (
     JobListResponse,
     JobRetryResponse,
     JobStatusResponse,
+    KBAddPaperRequest,
+    KBCreateRequest,
+    KBListResponse,
+    KBResponse,
     LibraryIndexStatusResponse,
     NoteGenerateResponse,
     NoteReadResponse,
@@ -901,16 +905,67 @@ def _get_vector_store() -> VectorStore:
     return _vector_store
 
 
+_reranker = None
+
+
+def _get_reranker():
+    global _reranker
+    if not settings.enable_rerank:
+        return None
+    if _reranker is None:
+        from app.services.reranker import CrossEncoderReranker
+
+        _reranker = CrossEncoderReranker(model_name=settings.rerank_model)
+    return _reranker
+
+
+_bm25_retriever = None
+_hybrid_retriever = None
+
+
+def _get_retriever():
+    global _bm25_retriever, _hybrid_retriever
+    mode = settings.retriever
+    if mode == "vector":
+        return None
+    if mode == "bm25":
+        if _bm25_retriever is None:
+            from app.services.bm25_retriever import BM25Retriever
+
+            _bm25_retriever = BM25Retriever(_get_vector_store())
+        return _bm25_retriever
+    if mode == "hybrid":
+        if _hybrid_retriever is None:
+            from app.services.bm25_retriever import BM25Retriever
+            from app.services.hybrid_retriever import HybridRetriever
+
+            bm25 = _bm25_retriever or BM25Retriever(_get_vector_store())
+            _hybrid_retriever = HybridRetriever(
+                vector_store=_get_vector_store(),
+                embedding_client=_get_embedding_client(),
+                bm25_retriever=bm25,
+                alpha=settings.hybrid_alpha,
+                recall_top_k=settings.hybrid_recall_top_k,
+            )
+        return _hybrid_retriever
+    return None
+
+
 @app.post("/qa", response_model=QAResponse)
 async def qa_endpoint(req: QARequest):
     try:
+        reranker = _get_reranker()
+        retriever = _get_retriever()
         result = answer_question(
             question=req.question,
             vector_store=_get_vector_store(),
             embedding_client=_get_embedding_client(),
             llm_client=_get_llm_client(),
             paper_id=req.paper_id,
-            top_k=req.top_k,
+            top_k=settings.rerank_top_k if reranker else req.top_k,
+            reranker=reranker,
+            recall_top_k=settings.rerank_recall_top_k if reranker else None,
+            retriever=retriever,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -944,3 +999,74 @@ async def agent_execute(req: AgentExecuteRequest):
         raise HTTPException(status_code=500, detail=f"Agent 执行失败: {e}") from e
 
     return AgentExecuteResponse(task=result["task"], answer=result["answer"])
+
+
+# ── Knowledge Base management (Phase 4) ──────────────────────────────────────
+
+_kb_manager = None
+
+
+def _get_kb_manager():
+    global _kb_manager
+    if _kb_manager is None:
+        from app.services.knowledge_base_manager import KnowledgeBaseManager
+
+        _kb_manager = KnowledgeBaseManager()
+    return _kb_manager
+
+
+@app.get(
+    "/kb",
+    response_model=KBListResponse,
+    summary="List knowledge bases",
+    description="列出所有知识库及其论文数量。",
+)
+async def list_kbs_endpoint():
+    items = _get_kb_manager().list_kbs()
+    return KBListResponse(
+        count=len(items),
+        knowledge_bases=[KBResponse(**kb) for kb in items],
+    )
+
+
+@app.post(
+    "/kb",
+    response_model=KBResponse,
+    status_code=201,
+    summary="Create knowledge base",
+    description="新建独立的知识库，可后续向其中添加论文。",
+)
+async def create_kb_endpoint(req: KBCreateRequest):
+    try:
+        kb = _get_kb_manager().create_kb(req.kb_id, req.name, req.description)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    return KBResponse(**kb)
+
+
+@app.post(
+    "/kb/{kb_id}/papers",
+    response_model=KBResponse,
+    summary="Add paper to knowledge base",
+    description="将指定 paper_id 关联到指定知识库。",
+)
+async def add_paper_to_kb_endpoint(kb_id: str, req: KBAddPaperRequest):
+    try:
+        kb = _get_kb_manager().add_paper_to_kb(kb_id, req.paper_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return KBResponse(**kb)
+
+
+@app.delete(
+    "/kb/{kb_id}/papers/{paper_id}",
+    response_model=KBResponse,
+    summary="Remove paper from knowledge base",
+    description="将指定 paper_id 从指定知识库中移除。",
+)
+async def remove_paper_from_kb_endpoint(kb_id: str, paper_id: str):
+    try:
+        kb = _get_kb_manager().remove_paper_from_kb(kb_id, paper_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    return KBResponse(**kb)

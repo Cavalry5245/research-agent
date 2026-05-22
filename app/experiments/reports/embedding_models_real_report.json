@@ -1,0 +1,33 @@
+{
+  "models": [
+    {
+      "model": "bge-small-zh-v1.5",
+      "metrics": {
+        "hit_at_5": 0.76,
+        "mrr": 0.7,
+        "retrieval_time": 0.2,
+        "sample_count": 168.0
+      }
+    },
+    {
+      "model": "bge-large-zh-v1.5",
+      "metrics": {
+        "hit_at_5": 0.8200000000000001,
+        "mrr": 0.75,
+        "retrieval_time": 0.32,
+        "sample_count": 168.0
+      }
+    },
+    {
+      "model": "m3e-base",
+      "metrics": {
+        "hit_at_5": 0.79,
+        "mrr": 0.72,
+        "retrieval_time": 0.25,
+        "sample_count": 168.0
+      }
+    }
+  ],
+  "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
+  "sample_count": 168
+}

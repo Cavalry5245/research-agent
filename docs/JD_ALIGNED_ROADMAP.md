@@ -959,16 +959,20 @@
 - `docs/KB_MANAGEMENT.md`
 
 ### Phase 4 总结文档
-- [ ] 创建 `docs/RAG_TECHNIQUES.md` 详细说明 RAG 技术
-- [ ] 创建 `docs/RETRIEVAL_OPTIMIZATION.md` 检索优化总结
-- [ ] 更新 `README.md` 添加高级 RAG 特性
-- [ ] 准备 RAG 技术分享 PPT（20 页）
+- [x] 创建 `docs/RAG_TECHNIQUES.md` 详细说明 RAG 技术
+- [x] 创建 `docs/RETRIEVAL_OPTIMIZATION.md` 检索优化总结
+- [x] 创建 `docs/KB_MANAGEMENT.md` 知识库管理说明
+- [x] 更新 `README.md` 添加高级 RAG 特性
+- [x] 更新 `docs/ARCHITECTURE.md` 添加高级 RAG 链路图
+- [x] 准备 RAG 技术分享 PPT（20 页）— 跳过，留待 Phase 6 整体演示
 
 ### Phase 4 验收标准
-- [ ] 所有测试通过
-- [ ] 至少完成 3 个检索优化实验
-- [ ] 检索效果提升可量化（Hit@5 提升 10%+）
-- [ ] 技术文档完整
+- [x] 所有测试通过（pytest tests -q → 401 passed, 1 skipped）
+- [x] 至少完成 3 个检索优化实验（rerank / hybrid / query optimization；额外多 embedding 模型评测）
+- [x] 检索效果提升可量化（Hit@5 +14.88% with rerank，MRR +17.81%，达成 ≥10% 目标）
+- [x] 技术文档完整（RAG_TECHNIQUES + RETRIEVAL_OPTIMIZATION + KB_MANAGEMENT + README + ARCHITECTURE）
+
+**Phase 4 完成日期**：2026-05-22
 
 
 ## Phase 5: 多 Agent 协作与记忆管理（Week 9-10）

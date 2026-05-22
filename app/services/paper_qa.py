@@ -21,6 +21,11 @@ class RerankerProtocol(Protocol):
         ...
 
 
+class RetrieverProtocol(Protocol):
+    def search(self, query: str, top_k: int, paper_id: str | None = None) -> list[dict]:
+        ...
+
+
 def _build_context(results: list[dict]) -> str:
     parts = []
     for i, r in enumerate(results, 1):
@@ -74,15 +79,22 @@ def answer_question(
     top_k: int = 5,
     llm_client_factory=None,
     reranker: RerankerProtocol | None = None,
+    recall_top_k: int | None = None,
+    retriever: RetrieverProtocol | None = None,
 ) -> dict:
     logger.info("QA: question='%s', paper_id=%s, top_k=%d", question[:80], paper_id, top_k)
 
     if llm_client_factory is None:
         llm_client_factory = LLMClient
 
+    effective_recall_top_k = recall_top_k if recall_top_k is not None else top_k
+
     retrieval_start = time.perf_counter()
-    query_emb = embedding_client.embed_query(question)
-    results = vector_store.query(query_emb, top_k=top_k, paper_id=paper_id)
+    if retriever is not None:
+        results = retriever.search(query=question, top_k=effective_recall_top_k, paper_id=paper_id)
+    else:
+        query_emb = embedding_client.embed_query(question)
+        results = vector_store.query(query_emb, top_k=effective_recall_top_k, paper_id=paper_id)
     retrieval_seconds = time.perf_counter() - retrieval_start
 
     if not results:

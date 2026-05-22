@@ -23,6 +23,17 @@ from app.services.vector_store import VectorStore
 logger = logging.getLogger(__name__)
 
 
+_shared_reranker_cache: dict = {}
+
+
+def _shared_cross_encoder_reranker(model_name: str):
+    if model_name not in _shared_reranker_cache:
+        from app.services.reranker import CrossEncoderReranker
+
+        _shared_reranker_cache[model_name] = CrossEncoderReranker(model_name=model_name)
+    return _shared_reranker_cache[model_name]
+
+
 class UploadPaperTool(BaseTool):
     name = "upload_paper"
     description = "上传并解析 PDF 论文文件，返回 paper_id"
@@ -186,9 +197,32 @@ class QATool(BaseTool):
             return ToolResult(success=False, error="缺少 question")
 
         try:
+            from app.config import settings
+
             llm_client = LLMClient()
             embedding_client = EmbeddingClient()
             vector_store = VectorStore()
+
+            reranker = None
+            if settings.enable_rerank:
+                from app.services.reranker import CrossEncoderReranker
+
+                reranker = _shared_cross_encoder_reranker(settings.rerank_model)
+
+            retriever = None
+            if settings.retriever == "bm25":
+                from app.services.bm25_retriever import BM25Retriever
+                retriever = BM25Retriever(vector_store)
+            elif settings.retriever == "hybrid":
+                from app.services.bm25_retriever import BM25Retriever
+                from app.services.hybrid_retriever import HybridRetriever
+                retriever = HybridRetriever(
+                    vector_store=vector_store,
+                    embedding_client=embedding_client,
+                    bm25_retriever=BM25Retriever(vector_store),
+                    alpha=settings.hybrid_alpha,
+                    recall_top_k=settings.hybrid_recall_top_k,
+                )
 
             result = answer_question(
                 question=question,
@@ -196,7 +230,10 @@ class QATool(BaseTool):
                 embedding_client=embedding_client,
                 llm_client=llm_client,
                 paper_id=paper_id,
-                top_k=top_k,
+                top_k=settings.rerank_top_k if reranker else top_k,
+                reranker=reranker,
+                recall_top_k=settings.rerank_recall_top_k if reranker else None,
+                retriever=retriever,
             )
 
             return ToolResult(success=True, data={

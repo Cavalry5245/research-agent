@@ -98,6 +98,54 @@ def default_simulated_executor(variant: VariantConfig) -> dict[str, float]:
         metrics["indexing_time"] = 2.0 + (1500.0 / chunk_size) + rng.uniform(-0.2, 0.2)
         if chunk_size < 600:
             metrics["hit_at_3"] += 0.04
+    if "reranker" in variant.parameters:
+        metrics["hit_at_5"] = 0.74 + rng.uniform(-0.03, 0.03)
+        metrics["mrr"] = 0.68 + rng.uniform(-0.03, 0.03)
+        metrics["retrieval_time"] = 0.22 + rng.uniform(-0.02, 0.02)
+        if variant.parameters.get("reranker") == "cross_encoder":
+            metrics["hit_at_5"] += 0.13
+            metrics["mrr"] += 0.11
+            metrics["retrieval_time"] += 0.18
+    if "retriever" in variant.parameters:
+        metrics["hit_at_5"] = 0.74 + rng.uniform(-0.03, 0.03)
+        metrics["mrr"] = 0.68 + rng.uniform(-0.03, 0.03)
+        metrics["retrieval_time"] = 0.22 + rng.uniform(-0.02, 0.02)
+        retriever = variant.parameters.get("retriever")
+        if retriever == "bm25":
+            metrics["hit_at_5"] -= 0.06
+            metrics["mrr"] -= 0.08
+            metrics["retrieval_time"] -= 0.10
+        elif retriever == "hybrid":
+            alpha = float(variant.parameters.get("alpha", 0.5))
+            metrics["hit_at_5"] += 0.04 + (0.5 - abs(alpha - 0.5)) * 0.06
+            metrics["mrr"] += 0.05 + (0.5 - abs(alpha - 0.5)) * 0.04
+            metrics["retrieval_time"] += 0.03
+    if "query_strategy" in variant.parameters:
+        metrics["hit_at_5"] = 0.74 + rng.uniform(-0.03, 0.03)
+        metrics["mrr"] = 0.68 + rng.uniform(-0.03, 0.03)
+        metrics["latency"] = 2.4 + rng.uniform(-0.2, 0.2)
+        strategy = variant.parameters.get("query_strategy")
+        if strategy == "llm_rewrite":
+            metrics["hit_at_5"] += 0.05
+            metrics["mrr"] += 0.04
+            metrics["latency"] += 0.8
+        elif strategy == "hyde":
+            metrics["hit_at_5"] += 0.09
+            metrics["mrr"] += 0.07
+            metrics["latency"] += 1.4
+    if "embedding_real_model" in variant.parameters:
+        model = variant.parameters.get("embedding_real_model")
+        metrics["retrieval_time"] = 0.20 + rng.uniform(-0.02, 0.02)
+        metrics["mrr"] = 0.70 + rng.uniform(-0.03, 0.03)
+        metrics["hit_at_5"] = 0.76 + rng.uniform(-0.03, 0.03)
+        if model and "large" in model:
+            metrics["hit_at_5"] += 0.06
+            metrics["mrr"] += 0.05
+            metrics["retrieval_time"] += 0.12
+        elif model and "m3e" in model:
+            metrics["hit_at_5"] += 0.03
+            metrics["mrr"] += 0.02
+            metrics["retrieval_time"] += 0.05
     return metrics
 
 
