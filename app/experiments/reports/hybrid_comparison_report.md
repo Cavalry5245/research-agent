@@ -6,17 +6,17 @@ Compare vector-only (A) vs bm25-only (B) vs hybrid alpha=0.5 (C). Multiple-arm e
 
 | Metric | Variant A | Variant B |
 |---|---|---|
-| hit_at_5 | 0.4048 | 0.4107 |
-| mrr | 0.2780 | 0.2700 |
-| retrieval_time | 0.2519 | 0.2417 |
+| hit_at_5 | 0.4702 | 0.4881 |
+| mrr | 0.3035 | 0.3096 |
+| retrieval_time | 0.0872 | 0.0772 |
 
 ## Deltas (B vs A) and Significance
 
 | Metric | A | B | Δ | Relative | p-value | Significant |
 |---|---|---|---|---|---|---|
-| hit_at_5 | 0.4048 | 0.4107 | +0.0060 | +1.47% | 0.7876 | ❌ |
-| mrr | 0.2780 | 0.2700 | -0.0079 | -2.86% | 0.2207 | ❌ |
-| retrieval_time | 0.2519 | 0.2417 | -0.0102 | -4.07% | 0.0386 | ✅ |
+| hit_at_5 | 0.4702 | 0.4881 | +0.0179 | +3.80% | 0.0796 | ❌ |
+| mrr | 0.3035 | 0.3096 | +0.0062 | +2.03% | 0.7828 | ❌ |
+| retrieval_time | 0.0872 | 0.0772 | -0.0100 | -11.45% | 0.0432 | ✅ |
 
 ## Winner
 

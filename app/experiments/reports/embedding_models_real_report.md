@@ -1,20 +1,20 @@
 # Embedding Models Real Evaluation
 
 Dataset: `app/evaluation/datasets/qa_eval_seed.jsonl` (168 samples)
-Corpus: `app/storage/vector_db/vector_store.json` (860 chunks)
+Corpus: `app/storage/vector_db/vector_store.json` (887 chunks)
 Mode: **live full** (real embeddings, paper-scoped retrieval, top_k=5)
 
 ## Per-Model Metrics
 
 | Model | hit@5 | MRR | paper_recall | retrieval_time (s/q) | cache_reused |
 |---|---|---|---|---|---|
-| bge-small-zh-v1.5 | 0.4048 | 0.2780 | 1.0000 | 0.1145 | True |
-| bge-large-zh-v1.5 | 0.4583 | 0.3008 | 1.0000 | 0.0580 | False |
-| m3e-base | 0.5238 | 0.3460 | 1.0000 | 0.0166 | False |
+| bge-small-zh-v1.5 | 0.4702 | 0.3035 | 1.0000 | 0.0775 | True |
+| bge-large-zh-v1.5 | 0.4881 | 0.2915 | 1.0000 | 0.0538 | False |
+| m3e-base | 0.5655 | 0.3632 | 1.0000 | 0.0163 | False |
 
 ## Recommendation
 
-**Highest hit@5**: `m3e-base` (hit@5=0.5238, MRR=0.3460)
+**Highest hit@5**: `m3e-base` (hit@5=0.5655, MRR=0.3632)
 
 ## Notes
 

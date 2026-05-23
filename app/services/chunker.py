@@ -1,4 +1,4 @@
-from app.schemas import Chunk, PaperParseResult
+from app.schemas import Chunk, PaperParseResult, Section
 
 DEFAULT_CHUNK_SIZE = 800
 DEFAULT_CHUNK_OVERLAP = 100
@@ -33,7 +33,15 @@ def chunk_paper(
     chunks: list[Chunk] = []
     seq = 0
 
-    for section in parsed.sections:
+    sections = list(parsed.sections)
+    abstract = (parsed.abstract or "").strip()
+    has_abstract_section = any(
+        (s.heading or "").strip().lower() == "abstract" for s in sections
+    )
+    if abstract and not has_abstract_section:
+        sections.insert(0, Section(heading="Abstract", content=abstract))
+
+    for section in sections:
         if not section.content or len(section.content.strip()) < MIN_CHUNK_CHARS:
             continue
 

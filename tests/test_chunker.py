@@ -157,6 +157,56 @@ def test_chunk_overlap_content():
     assert chunks[0].content[-10:] == chunks[1].content[:10]
 
 
+def test_chunk_emits_abstract_when_present():
+    # parsed.abstract is a separate top-level field that previously was never
+    # turned into chunks — fix should emit it as a section with heading "Abstract".
+    parsed = PaperParseResult(
+        paper_id="paper_abs_001",
+        title="Abstract Test",
+        abstract="This paper proposes a novel method for infrared small target detection. "
+                  "We construct a large-scale IRDST dataset of 142727 frames and benchmark "
+                  "existing methods. The new dataset alleviates data scarcity and class imbalance.",
+        sections=[Section(heading="Method", content="x" * 500)],
+        full_text="ignored",
+    )
+    chunks = chunk_paper(parsed)
+    abstract_chunks = [c for c in chunks if c.section == "Abstract"]
+    method_chunks = [c for c in chunks if c.section == "Method"]
+    assert len(abstract_chunks) >= 1
+    assert "IRDST" in abstract_chunks[0].content
+    assert len(method_chunks) == 1
+
+
+def test_chunk_skips_abstract_when_blank():
+    parsed = PaperParseResult(
+        paper_id="paper_abs_002",
+        title="No Abstract",
+        abstract="   ",
+        sections=[Section(heading="Method", content="x" * 500)],
+        full_text="x" * 500,
+    )
+    chunks = chunk_paper(parsed)
+    assert all(c.section != "Abstract" for c in chunks)
+
+
+def test_chunk_does_not_duplicate_abstract_already_in_sections():
+    # If pdf_parser ever does include Abstract in sections, do not double-emit.
+    parsed = PaperParseResult(
+        paper_id="paper_abs_003",
+        title="Already has abstract section",
+        abstract="dup-source abstract text long enough to be chunkable.",
+        sections=[
+            Section(heading="Abstract", content="from-sections abstract text long enough to be chunkable."),
+            Section(heading="Method", content="x" * 500),
+        ],
+        full_text="ignored",
+    )
+    chunks = chunk_paper(parsed)
+    abstract_chunks = [c for c in chunks if c.section.lower() == "abstract"]
+    # Either source is acceptable but never both — exactly one logical abstract chunk for short text
+    assert len(abstract_chunks) == 1
+
+
 if __name__ == "__main__":
     test_chunk_single_short_section()
     test_chunk_long_section_splits()
