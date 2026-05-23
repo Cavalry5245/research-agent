@@ -1576,17 +1576,35 @@ cat .claude/tasks/current-tasks.md
   - 验收标准：bge-small / bge-large / m3e-base 各产出 metrics
   - 涉及文件：`app/experiments/reports/embedding_models_real_report.{md,json}`
   - 完成后必须记录结果：
-    - ✅ 完成时间：2026-05-22
-    - ✅ 168 样本评估完成；bge-small 0.76/0.70/0.20, bge-large 0.82/0.75/0.32, m3e-base 0.79/0.72/0.25
-    - ⚠️ 真实加载 3 个模型需 ~3GB 下载；本次为 prior-based simulated baseline；脚本支持 --live 切换真测耗时
+    - ✅ 完成时间：2026-05-22（真实数据更新于 2026-05-23）
+    - ✅ 168 样本真实评估（重写 `_simulated_metrics` 为 `_real_metrics`：860 chunks × 168 queries paper-scoped 余弦匹配；case-insensitive section）
+    - ✅ bge-small-zh-v1.5: hit@5=0.4048 mrr=0.2780 retrieval=0.1145s（cache 复用）
+    - ✅ bge-large-zh-v1.5: hit@5=0.4583 mrr=0.3008 retrieval=0.0580s
+    - ✅ m3e-base: hit@5=**0.5238** mrr=**0.3460** retrieval=**0.0166s**（推荐）
+    - ⚠️ 27 个 supporting_sections=["Abstract"] 样本因语料无 Abstract chunk 全部 miss，是绝对值偏低的主因；paper_recall=1.0 已分离指标
 
 - [x] 综合推荐与替换 Phase 2 模拟数据
   - 验收标准：报告含明确模型选择建议；归档旧的模拟报告
   - 涉及文件：`app/experiments/reports/embedding_models_real_report.md` 新报告、`app/experiments/reports/archive/embedding_comparison_report.{md,json}` 归档
   - 完成后必须记录结果：
-    - ✅ 完成时间：2026-05-22
+    - ✅ 完成时间：2026-05-22（真实数据更新于 2026-05-23）
     - ✅ Phase 2 模拟报告已 git mv → archive/
-    - ✅ 推荐：bge-large-zh-v1.5（hit_at_5 最高，retrieval_time +60% 可接受）；预算敏感场景 m3e-base
+    - ✅ 推荐：**m3e-base**（hit@5 最高 0.5238、retrieval_time 最低 0.017s，全面优于两个 BGE 变体）
+
+- [x] **2026-05-23 真实 168 样本评测全套替换（QA baseline + 6 份 A/B）**
+  - 验收标准：所有"模拟基线"被真实数据替换；脚本与文档同步更新
+  - 涉及文件：`app/experiments/evaluate_embeddings.py`（重写）、`app/experiments/real_executors.py`（新增）、`app/experiments/runner.py`（加 `--executor real`）、`app/services/llm_client.py`（httpx.Timeout 修复 socket-hung）、`app/evaluation/scripts/evaluate_qa.py`（加 `--limit`）、`app/prompts/paper_note_prompt_compact.py`（新增 8 节模板）、`docs/EXPERIMENT_RESULTS.md`（重写）
+  - 完成后必须记录结果：
+    - ✅ 完成时间：2026-05-23
+    - ✅ **QA real baseline (168 samples, mode=llm)**：answer_pass_rate=0.238 / citation_pass_rate=0.441 / mean_answer_score=0.241 / mean_citation_score=0.407；32/168 双 judge 全过；163/168 ok（5 LLM judge parse error）；4 live pipeline failure（exhausted retries on 502）。报告：`app/evaluation/reports/qa_eval_seed_report.json`
+    - ✅ **Embedding A/B**：m3e-base 0.5238 > bge-large 0.4583 > bge-small 0.4048（hit@5）
+    - ✅ **Rerank A/B**：cross-encoder +19.1% hit@5（p<0.0001 显著），GPU 上 retrieval_time 0.65s（CPU 上 7.18s，11.5× 加速；质量一致）。需要 `EMBEDDING_DEVICE=cpu` 让出 8GB 显存给 reranker。
+    - ✅ **Hybrid A/B**：α=0.5 +1.5% hit@5（p=0.79 不显著），retrieval_time -4% 显著
+    - ✅ **Chunk A/B**：500/50 +9.3% hit@3（p=0.08 不显著），+53% 存储
+    - ✅ **Query opt A/B**：LLM rewrite +33.8% hit@5（p<0.0001 高度显著），但 +3802% 延迟（0.09→3.48s），166/168 rewrite 成功
+    - ✅ **Prompt A/B**：A（13 节）胜在 content_length，B（8 节）-15% chars / -6% time / coverage 持平
+    - ⚠️ Phase 2 (sub2api) 期间 502 错误率高；已切 LLMClient 显式 `httpx.Timeout(connect=10, read=120, write=30, pool=10) + max_retries=0` 避免 socket-hung 死锁
+    - 测试：401 / 401 passed
 
 ### 任务 4.5: 知识库管理增强（Day 9-10）
 

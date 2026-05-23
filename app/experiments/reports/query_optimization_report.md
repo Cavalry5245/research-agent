@@ -6,17 +6,17 @@ Compare original (A) vs LLM rewrite (B) vs HyDE (C) query strategies on retrieva
 
 | Metric | Variant A | Variant B |
 |---|---|---|
-| hit_at_5 | 0.7349 | 0.7642 |
-| latency | 2.5379 | 3.0985 |
-| mrr | 0.6673 | 0.7161 |
+| hit_at_5 | 0.4048 | 0.5417 |
+| latency | 0.0892 | 3.4811 |
+| mrr | 0.2780 | 0.3255 |
 
 ## Deltas (B vs A) and Significance
 
 | Metric | A | B | Δ | Relative | p-value | Significant |
 |---|---|---|---|---|---|---|
-| hit_at_5 | 0.7349 | 0.7642 | +0.0294 | +4.00% | 0.1101 | ❌ |
-| mrr | 0.6673 | 0.7161 | +0.0488 | +7.32% | 0.0076 | ✅ |
-| latency | 2.5379 | 3.0985 | +0.5606 | +22.09% | 0.0000 | ✅ |
+| hit_at_5 | 0.4048 | 0.5417 | +0.1369 | +33.82% | 0.0000 | ✅ |
+| mrr | 0.2780 | 0.3255 | +0.0475 | +17.09% | 0.0056 | ✅ |
+| latency | 0.0892 | 3.4811 | +3.3919 | +3801.64% | 0.0000 | ✅ |
 
 ## Winner
 

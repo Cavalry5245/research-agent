@@ -1,33 +1,55 @@
 {
+  "mode": "live full",
   "models": [
     {
       "model": "bge-small-zh-v1.5",
       "metrics": {
-        "hit_at_5": 0.76,
-        "mrr": 0.7,
-        "retrieval_time": 0.2,
-        "sample_count": 168.0
+        "hit_at_5": 0.40476190476190477,
+        "mrr": 0.2779761904761905,
+        "retrieval_time": 0.1145,
+        "paper_recall": 1.0,
+        "sample_count": 168.0,
+        "chunk_count": 860.0,
+        "chunk_embed_seconds": 0.0,
+        "query_embed_seconds": 19.18,
+        "similarity_seconds": 0.0544,
+        "cache_reused": true
       }
     },
     {
       "model": "bge-large-zh-v1.5",
       "metrics": {
-        "hit_at_5": 0.8200000000000001,
-        "mrr": 0.75,
-        "retrieval_time": 0.32,
-        "sample_count": 168.0
+        "hit_at_5": 0.4583333333333333,
+        "mrr": 0.3007936507936508,
+        "retrieval_time": 0.058,
+        "paper_recall": 1.0,
+        "sample_count": 168.0,
+        "chunk_count": 860.0,
+        "chunk_embed_seconds": 609.57,
+        "query_embed_seconds": 9.67,
+        "similarity_seconds": 0.0708,
+        "cache_reused": false
       }
     },
     {
       "model": "m3e-base",
       "metrics": {
-        "hit_at_5": 0.79,
-        "mrr": 0.72,
-        "retrieval_time": 0.25,
-        "sample_count": 168.0
+        "hit_at_5": 0.5238095238095238,
+        "mrr": 0.346031746031746,
+        "retrieval_time": 0.0166,
+        "paper_recall": 1.0,
+        "sample_count": 168.0,
+        "chunk_count": 860.0,
+        "chunk_embed_seconds": 154.68,
+        "query_embed_seconds": 2.77,
+        "similarity_seconds": 0.0217,
+        "cache_reused": false
       }
     }
   ],
   "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
-  "sample_count": 168
+  "vector_store": "app/storage/vector_db/vector_store.json",
+  "sample_count": 168,
+  "chunk_count": 860,
+  "top_k": 5
 }

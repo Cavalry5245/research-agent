@@ -245,8 +245,17 @@ def generate_report(comparison: ComparisonReport, output_path: Path | None = Non
     return body
 
 
-def run_full_experiment(config: ExperimentConfig, output_dir: Path = DEFAULT_REPORT_DIR) -> ComparisonReport:
-    runner = ExperimentRunner(config)
+def run_full_experiment(
+    config: ExperimentConfig,
+    output_dir: Path = DEFAULT_REPORT_DIR,
+    executor: str = "simulated",
+) -> ComparisonReport:
+    variant_fn: VariantFn | None = None
+    if executor == "real":
+        from app.experiments.real_executors import make_real_executor
+
+        variant_fn = make_real_executor(config.experiment_id)
+    runner = ExperimentRunner(config, variant_fn=variant_fn)
     variant_results = runner.run_experiment()
     deltas, significance, winner = compare_variants(variant_results, config.metric_keys, config.higher_is_better)
     report = ComparisonReport(
@@ -266,6 +275,7 @@ def run_full_experiment(config: ExperimentConfig, output_dir: Path = DEFAULT_REP
             {
                 "experiment_id": report.experiment_id,
                 "description": report.description,
+                "executor": executor,
                 "variants": [
                     {"variant": r.variant, "metrics": r.metrics, "samples": r.samples}
                     for r in report.variant_results
@@ -288,14 +298,16 @@ def main() -> None:
                         help="Scenario name (file in app/experiments/scenarios/<name>.json) or absolute path.")
     parser.add_argument("--scenario-dir", type=Path, default=DEFAULT_SCENARIO_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_REPORT_DIR)
+    parser.add_argument("--executor", choices=["simulated", "real"], default="simulated",
+                        help="Use the simulated mock variant_fn (default, preserves test isolation) or the real per-scenario executor.")
     args = parser.parse_args()
 
     scenario_path = Path(args.experiment)
     if not scenario_path.exists():
         scenario_path = args.scenario_dir / f"{args.experiment}.json"
     config = load_experiment_config(scenario_path)
-    report = run_full_experiment(config, output_dir=args.output_dir)
-    print(f"Experiment '{config.experiment_id}' winner: {report.winner}")
+    report = run_full_experiment(config, output_dir=args.output_dir, executor=args.executor)
+    print(f"Experiment '{config.experiment_id}' executor={args.executor} winner: {report.winner}")
     print(f"Reports written to: {args.output_dir}")
 
 

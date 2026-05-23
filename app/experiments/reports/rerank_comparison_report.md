@@ -6,17 +6,17 @@ Compare no-rerank (A) vs cross-encoder rerank with BAAI/bge-reranker-v2-m3 (B). 
 
 | Metric | Variant A | Variant B |
 |---|---|---|
-| hit_at_5 | 0.7349 | 0.8442 |
-| mrr | 0.6673 | 0.7861 |
-| retrieval_time | 0.2338 | 0.3898 |
+| hit_at_5 | 0.4048 | 0.4821 |
+| mrr | 0.2780 | 0.3162 |
+| retrieval_time | 0.1049 | 0.6543 |
 
 ## Deltas (B vs A) and Significance
 
 | Metric | A | B | Δ | Relative | p-value | Significant |
 |---|---|---|---|---|---|---|
-| hit_at_5 | 0.7349 | 0.8442 | +0.1094 | +14.88% | 0.0000 | ✅ |
-| mrr | 0.6673 | 0.7861 | +0.1188 | +17.81% | 0.0006 | ✅ |
-| retrieval_time | 0.2338 | 0.3898 | +0.1561 | +66.75% | 0.0000 | ✅ |
+| hit_at_5 | 0.4048 | 0.4821 | +0.0774 | +19.12% | 0.0000 | ✅ |
+| mrr | 0.2780 | 0.3162 | +0.0382 | +13.74% | 0.0240 | ✅ |
+| retrieval_time | 0.1049 | 0.6543 | +0.5494 | +523.76% | 0.0000 | ✅ |
 
 ## Winner
 

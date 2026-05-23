@@ -157,9 +157,12 @@ def evaluate_qa_dataset(
     mode: str = "rule_based",
     use_live_pipeline: bool = False,
     top_k: int = 5,
+    limit: int | None = None,
 ) -> dict[str, Any]:
     answer_judge, citation_judge = build_judges(mode=mode)
     samples = load_qa_samples(str(dataset_path))
+    if limit is not None and limit > 0:
+        samples = samples[:limit]
 
     live_clients: tuple[Any, Any, Any] | None = None
     if use_live_pipeline:
@@ -206,6 +209,7 @@ if __name__ == "__main__":
         help="Call the real paper_qa.answer_question pipeline instead of the deterministic stub.",
     )
     parser.add_argument("--top-k", type=int, default=5, help="top_k for live retrieval (only used with --use-live-pipeline)")
+    parser.add_argument("--limit", type=int, default=None, help="Cap to first N samples (smoke test).")
     args = parser.parse_args()
 
     report = evaluate_qa_dataset(
@@ -213,6 +217,7 @@ if __name__ == "__main__":
         mode=args.mode,
         use_live_pipeline=args.use_live_pipeline,
         top_k=args.top_k,
+        limit=args.limit,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
