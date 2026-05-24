@@ -116,31 +116,29 @@ Source: `app/experiments/reports/prompt_comparison_report.{json,md}`
 Method: 9 papers × 2 templates = 18 real `gpt-5.4` note generations.
 Decision: **Use full 13-section template as default** (more comprehensive notes, coverage matches expected sections). Use compact for time-sensitive batch generation.
 
-## QA Real Baseline (168 samples, `--use-live-pipeline --mode llm`)
+## QA Real Baseline (168 samples, `--use-live-pipeline --mode llm`, post-Abstract-fix corpus)
 
 Replaces the prior 109-sample stub-mode report (which echoed `expected_answer` and over-reported 96% pass rate).
 
-| Metric | Value |
-|---|---|
-| sample_count | 168 |
-| pipeline | live |
-| evaluation_mode | llm |
-| **answer_pass_rate** | **0.2381** |
-| **citation_pass_rate** | **0.4405** |
-| mean_answer_score | 0.2408 |
-| mean_citation_score | 0.4071 |
+| Metric | Pre-fix (860 chunks) | Post-fix (887 chunks) | Δ |
+|---|---|---|---|
+| sample_count | 168 | 168 | — |
+| pipeline | live | live | — |
+| evaluation_mode | llm | llm | — |
+| **answer_pass_rate** | 0.2381 | **0.2738** | +15.0% |
+| **citation_pass_rate** | 0.4405 | **0.4524** | +2.7% |
+| mean_answer_score | 0.2408 | **0.2728** | +13.3% |
+| mean_citation_score | 0.4071 | **0.4246** | +4.3% |
 
-Status breakdown:
-- 163/168 LLM answer judges returned valid JSON (`status=ok`); 5 parse errors recorded score=0.
-- 164/168 LLM citation judges returned valid JSON; 4 parse errors recorded score=0.
-- 4/168 live pipeline failures (3 retries exhausted on upstream 502); recorded `predicted_answer=""`.
-- 32/168 samples fully passed both judges; 40 passed answer judge; 74 passed citation judge.
+Status breakdown (post-fix run, 2026-05-24):
+- 161/168 LLM answer judges returned valid JSON (`status=ok`); 7 parse/API errors recorded score=0.
+- 166/168 LLM citation judges returned valid JSON; 2 errors recorded score=0.
+- 5/168 live pipeline failures (3 retries exhausted on upstream 502); recorded `predicted_answer=""`.
+- 33/168 samples fully passed both judges; 46 passed answer judge; 76 passed citation judge.
 
 Source: `app/evaluation/reports/qa_eval_seed_report.json`. Downstream analytics regenerated to `app/analytics/reports/qa_analysis.json`.
 
-**Interpretation**: The drop from the stub-mode 96.3% pass rate is the entire signal — stub mode echoed the reference answer so judges trivially passed. The real LLM-generated answer is judged against the same reference and pass rate honestly reflects answer-quality gap. Citation pass rate (44%) is higher because cited paper_id usually matches even when the cited section disagrees with `supporting_sections`.
-
-**Note**: this baseline was captured against the pre-fix 860-chunk corpus (no Abstract chunks). Re-running it against the post-fix 887-chunk corpus is expected to lift answer/citation pass rates further on the 27 Abstract-targeted samples; it has not been re-run yet.
+**Interpretation**: The Abstract-chunker fix lifted answer pass rate by +15% relative because the 27 Abstract-targeted samples can now retrieve the right section instead of citing arbitrary `Method` chunks. Citation pass rate moves less (+2.7%) because cited `paper_id` usually matched even pre-fix — section matching was already a softer signal in the citation judge. The drop from the stub-mode 96.3% pass rate is still the entire signal vs the old echo baseline.
 
 ## Aggregate Recommendation (from cross-experiment evidence)
 

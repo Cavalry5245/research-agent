@@ -3,26 +3,26 @@
   "summary": {
     "sample_count": 168,
     "evaluation_mode": "llm",
-    "answer_pass_rate": 0.23809523809523808,
-    "citation_pass_rate": 0.44047619047619047,
-    "mean_answer_score": 0.24077380952380953,
-    "mean_citation_score": 0.40708333333333335
+    "answer_pass_rate": 0.27380952380952384,
+    "citation_pass_rate": 0.4523809523809524,
+    "mean_answer_score": 0.27279761904761907,
+    "mean_citation_score": 0.42464285714285716
   },
   "answer_length_distribution": {
     "count": 168,
-    "mean": 1357.232142857143,
-    "median": 1168.5,
-    "p95": 2869,
+    "mean": 1335.0535714285713,
+    "median": 1189.5,
+    "p95": 2834,
     "min": 0,
-    "max": 4707
+    "max": 4649
   },
   "citation_accuracy": {
     "sample_count": 168,
-    "answer_pass_rate": 0.23809523809523808,
-    "citation_pass_rate": 0.44047619047619047,
-    "mean_answer_score": 0.24077380952380953,
-    "mean_citation_score": 0.40708333333333335,
-    "answer_score_std": 0.3370637513640472
+    "answer_pass_rate": 0.27380952380952384,
+    "citation_pass_rate": 0.4523809523809524,
+    "mean_answer_score": 0.27279761904761907,
+    "mean_citation_score": 0.42464285714285716,
+    "answer_score_std": 0.35490223937762805
   },
   "top_questions": [
     [
@@ -68,22 +68,22 @@
   ],
   "live_event_time_breakdown": {
     "retrieval_time": {
-      "count": 356,
-      "mean": 0.18940145442140643,
-      "p95": 0.018395619990769774,
-      "median": 0.006359293998684734
+      "count": 540,
+      "mean": 0.15904207765491232,
+      "p95": 0.03309128503315151,
+      "median": 0.007821959006832913
     },
     "llm_time": {
-      "count": 356,
-      "mean": 12.109346476978747,
-      "p95": 32.58554020797601,
-      "median": 11.073364529504033
+      "count": 540,
+      "mean": 13.697469323683752,
+      "p95": 36.77139230701141,
+      "median": 11.721460212487727
     },
     "total_time": {
-      "count": 356,
-      "mean": 12.298747931400152,
-      "p95": 33.70152861601673,
-      "median": 11.08486306249688
+      "count": 540,
+      "mean": 13.856511401338665,
+      "p95": 37.5994701939635,
+      "median": 11.733399830496637
     }
   }
 }
