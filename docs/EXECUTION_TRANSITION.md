@@ -52,7 +52,7 @@
 ### 归档处理
 - 旧计划文档已移至 `docs/archive/`
 - 添加了归档标注，说明替代文档
-- 保留 EXECUTION_STATUS.md 和 CRON_WORK_LOG.md 作为历史记录
+- 旧 `EXECUTION_STATUS.md` 已删除（内容为历史执行日志，不再维护）
 
 ## 新路线图的调整和强化
 
@@ -79,9 +79,9 @@
 - **Day 9-10**: Streamlit Agent Tab
 
 #### Phase 5 强化（多 Agent 协作）
-- 提前在 Week 8 确定多 Agent 框架选型（AutoGen vs CrewAI）
-- 增加 Agent 协作场景（从 3 个增加到 5 个）
-- 增加 Agent 决策可视化和调试工具
+- 框架选型已确定：LangGraph Supervisor 模式（与 Phase 1 LangChain 同生态）
+- 3 个 Agent 协作场景已实现（论文分析 / 多论文对比 / 交互式研究）
+- Agent 决策可视化和调试工具已实现（Streamlit 监控页 + /api/traces）
 
 ### 风险控制措施
 
@@ -143,6 +143,15 @@
 3. 所有历史记录都保留，可随时恢复
 
 但基于当前评估，新路线图是可行的，建议坚持执行。
+
+## Phase 命名说明
+
+本项目历史上存在两套 Phase 编号体系，为避免混淆，统一说明如下：
+
+- **主线 Phase 5**（`docs/JD_ALIGNED_ROADMAP.md`）= **多 Agent 协作与记忆管理**（LangGraph Supervisor + Specialist Agents + SQLite Memory + Tracing）。这是当前活跃的定义。
+- **旧 Phase 5**（已删除的 `docs/EXECUTION_STATUS.md` / `HERMES_EXECUTION_PLAN.md`）= CI / Docker / 交付增强。该定义仅属于归档历史执行计划，不再使用。
+
+如在其他文档中看到"Phase 5"，一律以 `JD_ALIGNED_ROADMAP.md` 为准。
 
 ## 相关文档
 

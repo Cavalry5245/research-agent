@@ -1041,17 +1041,17 @@
    ```
 
 **验收标准**:
-- [ ] 4 个专业化 Agent 实现完成
-- [ ] 每个 Agent 有明确的职责边界
-- [ ] 测试: `pytest tests/test_specialized_agents.py -v`
+- [x] 4 个专业化 Agent 实现完成
+- [x] 每个 Agent 有明确的职责边界
+- [x] 测试: `pytest tests/test_specialized_agents.py -v`
 
 **产出文件**:
-- `app/agents/base_agent.py`
-- `app/agents/specialized/extractor_agent.py`
-- `app/agents/specialized/comparator_agent.py`
-- `app/agents/specialized/qa_agent.py`
-- `app/agents/specialized/summarizer_agent.py`
-- `tests/test_specialized_agents.py`
+- `app/agents/specialists/__init__.py` (BaseSpecialist + AgentResult)
+- `app/agents/specialists/extractor_agent.py`
+- `app/agents/specialists/comparator_agent.py`
+- `app/agents/specialists/qa_agent.py`
+- `app/agents/specialists/summarizer_agent.py`
+- `tests/test_specialist_agents.py`
 
 #### 5.2 多 Agent 协作框架（Day 4-6）
 **目标**: 实现 Agent 间通信和协作
@@ -1114,10 +1114,10 @@ def build_supervisor_graph() -> StateGraph:
    ```
 
 **验收标准**:
-- [ ] 多 Agent 协作框架集成完成
-- [ ] 3 个协作场景可运行
-- [ ] Agent 间通信正常
-- [ ] 测试: `pytest tests/test_multi_agent.py -v`
+- [x] 多 Agent 协作框架集成完成
+- [x] 3 个协作场景可运行
+- [ ] Agent 间通信正常（未实现独立 MessageBus，路由通过 StateGraph 状态传递）
+- [x] 测试: `pytest tests/test_multi_agent.py -v`
 
 **产出文件**:
 - `app/agents/communication.py`
@@ -1194,10 +1194,10 @@ def build_supervisor_graph() -> StateGraph:
    ```
 
 **验收标准**:
-- [ ] 三种记忆类型实现完成
-- [ ] Agent 能利用记忆改善回答
-- [ ] 记忆可持久化
-- [ ] 测试: `pytest tests/test_memory.py -v`
+- [x] 三种记忆类型实现完成
+- [ ] Agent 能利用记忆改善回答（记忆已集成但未验证回答质量提升）
+- [x] 记忆可持久化
+- [x] 测试: `pytest tests/test_memory.py -v`
 
 **产出文件**:
 - `app/agents/memory/short_term.py`
@@ -1248,28 +1248,28 @@ def build_supervisor_graph() -> StateGraph:
 4. 添加 Streamlit Tab: "🔍 Agent 监控"
 
 **验收标准**:
-- [ ] Agent 执行可追踪
-- [ ] 决策过程可查看
-- [ ] 可视化界面可用
-- [ ] 测试: `pytest tests/test_agent_tracing.py -v`
+- [x] Agent 执行可追踪
+- [x] 决策过程可查看
+- [x] 可视化界面可用（Streamlit Agent 监控页）
+- [x] 测试: `pytest tests/test_agent_tracing.py -v`
 
 **产出文件**:
 - `app/agents/tracing.py`
 - `app/agents/decision_logger.py`
-- `ui/components/agent_monitor.py`
-- `tests/test_agent_tracing.py`
+- `ui/pages/agent_monitor.py`
+- `tests/test_tracing.py`
 
 ### Phase 5 总结文档
-- [ ] 创建 `docs/AGENT_COLLABORATION.md` 详细说明协作机制
-- [ ] 创建 `docs/MEMORY_SYSTEM.md` 记忆系统设计
-- [ ] 更新 `README.md` 添加多 Agent 特性
-- [ ] 准备 Agent 系统 Demo 视频（10 分钟）
+- [x] 创建 `docs/MULTI_AGENT_DESIGN.md` 详细说明协作机制
+- [x] 创建 `docs/MEMORY_SYSTEM.md` 记忆系统设计
+- [x] 更新 `README.md` 添加多 Agent 特性
+- [ ] 准备 Agent 系统 Demo 视频（10 分钟）— 未录制
 
 ### Phase 5 验收标准
-- [ ] 所有测试通过
-- [ ] 多 Agent 协作场景可演示
-- [ ] 记忆系统正常工作
-- [ ] Agent 行为可追踪和调试
+- [x] 所有测试通过（493 passed in 30s — 含 44 个 supervisor/tracing/api_traces/integration 测试）
+- [x] 多 Agent 协作场景可演示（3 个 scenarios + Streamlit supervisor 模式）
+- [x] 记忆系统正常工作（SQLite 三层记忆，含持久化）
+- [x] Agent 行为可追踪和调试（`run_traced` + `/api/traces` + Streamlit Agent 监控页）
 
 
 ## Phase 6: 项目收尾与展示准备（Week 11-12）
@@ -1526,8 +1526,7 @@ structlog>=23.1.0
 # Phase 4: 高级 RAG
 rank-bm25>=0.2.2
 
-# Phase 5: 多 Agent
-autogen-agentchat>=0.2.0  # 或 crewai>=0.1.0
+# Phase 5: 多 Agent（实际选型：LangGraph Supervisor，不依赖 AutoGen/CrewAI）
 
 # 代码质量
 black>=23.0.0
@@ -1697,10 +1696,10 @@ research-agent/
 - [ ] 检索效果提升可量化
 
 ### Week 9-10 检查点
-- [ ] 4 个专业化 Agent 实现
-- [ ] 多 Agent 协作场景可演示
-- [ ] 记忆系统正常工作
-- [ ] Agent 监控界面可用
+- [x] 4 个专业化 Agent 实现
+- [x] 多 Agent 协作场景可演示
+- [x] 记忆系统正常工作
+- [x] Agent 监控界面可用
 
 ### Week 11-12 检查点
 - [ ] 所有文档完成
@@ -1718,7 +1717,7 @@ research-agent/
 |------|------|----------|
 | LangChain/LangGraph 学习曲线陡峭 | Phase 1 延期 | 提前学习官方文档，准备降级方案（自实现简化版） |
 | Celery + Redis 环境配置复杂 | Phase 3 延期 | 准备 Docker 一键部署方案 |
-| 多 Agent 框架选型困难 | Phase 5 延期 | 提前调研 AutoGen vs CrewAI，选择文档更完善的 |
+| 多 Agent 框架选型困难 | Phase 5 延期 | 已选定 LangGraph Supervisor 模式（与 Phase 1 LangChain 同生态） |
 | 实验数据不足 | Phase 2/4 效果不明显 | 准备合成数据集，或使用公开数据集 |
 
 ### 时间风险
