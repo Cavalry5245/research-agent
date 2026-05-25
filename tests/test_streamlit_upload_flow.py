@@ -7,6 +7,7 @@ import fitz
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.services.pdf_parser import generate_paper_id, parse_pdf, save_parse_result
+from ui.streamlit_app import format_task_status
 
 
 def _merge_pending_uploads(existing: list[dict], new_items: list[dict]) -> list[dict]:
@@ -133,3 +134,24 @@ def test_merge_pending_uploads_appends_instead_of_overwriting():
     merged = _merge_pending_uploads(existing, new_items)
 
     assert [item["paper_id"] for item in merged] == ["paper_1", "paper_2"]
+
+
+def test_format_task_status_shows_progress_and_clear_error():
+    message = format_task_status(
+        {
+            "job_type": "note_generation",
+            "status": "failed",
+            "progress": 0.2,
+            "error": "LLM unavailable",
+        }
+    )
+
+    assert message == "note_generation: 失败 (20%) — LLM unavailable"
+
+
+def test_format_task_status_shows_completed_state():
+    message = format_task_status(
+        {"job_type": "paper_comparison", "status": "completed", "progress": 1.0}
+    )
+
+    assert message == "paper_comparison: 已完成 (100%)"

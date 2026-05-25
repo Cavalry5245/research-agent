@@ -14,8 +14,14 @@ app/storage/papers/*
 app/storage/notes/*
 app/storage/vector_db/*
 app/storage/metadata/*
+app/storage/analytics/*
+app/storage/logs/*
 
 !app/storage/papers/.gitkeep
 !app/storage/notes/.gitkeep
 !app/storage/vector_db/.gitkeep
 !app/storage/metadata/.gitkeep
+!app/storage/analytics/.gitkeep
+!app/storage/logs/.gitkeep
+
+app/analytics/reports/log_analysis.md

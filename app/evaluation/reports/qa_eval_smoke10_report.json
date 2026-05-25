@@ -1,0 +1,907 @@
+{
+  "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
+  "pipeline": "live",
+  "summary": {
+    "sample_count": 10,
+    "evaluation_mode": "llm",
+    "answer_pass_rate": 0.1,
+    "citation_pass_rate": 0.3,
+    "mean_answer_score": 0.22,
+    "mean_citation_score": 0.37
+  },
+  "results": [
+    {
+      "sample_id": "paper_20260509_004-abstract",
+      "question": "What does the paper 'Receptive-Field and Direction Induced Attention' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "根据给定论文片段，这篇论文 **主要研究的是红外小目标检测（infrared small target detection）**，并且 **提出了一种“Receptive-Field and Direction Induced Attention”相关的深度学习注意力方法/网络**，用于提升检测性能。\n\n### 可以明确看出的核心内容\n1. **研究任务**  \n   论文针对的是 **红外小目标检测任务**。片段中明确指出：\n   - “Infrared small target detection task is usually seen as a segmentation problem for tiny size of targets...”\n   - 关键词中也包含 “attention mechanism, deep learning (DL), infrared small target”。\n\n2. **主要方法方向**  \n   论文重点在于 **引入注意力机制** 来增强网络对重要区域的关注，从而改善小目标检测效果。  \n   片段说明了注意力机制的一般思想：\n   - 从输入特征图中学习权重；\n   - 将权重作用于特征，使网络更关注重要部分；\n   - 使用 query/key/value 的相似性计算来生成注意力权重。\n\n3. **论文主张/结论方向**  \n   片段表明该方法在实验中表现有效：\n   - “with comparison methods and ablation study demonstrate effective detection performance of our model.”\n\n4. **实验评估**  \n   论文使用了 **六个指标** 来综合评估检测能力，其中片段明确给出了一部分：\n   - BSF（background suppression factor，背景抑制因子）\n   - signal-to-clutter 相关增益指标（片段中显示为 “gain of signal-to-clutter ...”，但后半截未完整出现）\n\n### 目前不能完全确定的部分\n由于给定片段不包含完整的方法描述，**无法准确说明“Receptive-Field and Direction Induced Attention”具体是如何建模感受野（receptive field）和方向（direction）信息的**，也无法确认其网络结构细节、模块组成或数学定义。  \n因此，若问“它具体提出了什么结构/模块”，**根据当前论文片段无法判断**。\n\n### 简要总结\n这篇论文主要：\n- 面向 **红外小目标检测** 问题；\n- 提出一种基于 **注意力机制** 的深度学习方法/网络，名称为 **Receptive-Field and Direction Induced Attention**；\n- 目标是通过更有效地关注关键特征区域，提高小目标检测性能；\n- 并通过 **对比实验和消融实验** 验证了方法有效性。\n\n**依据片段编号：**[片段 2] [片段 3] [片段 4] [片段 1]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7221656356598116
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0011",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7188353191896573
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0016",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.709988310873746
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0001",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.706909701369435
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7054016136689036
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.4,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案抓住了红外小目标检测这一主题，但未覆盖参考答案强调的核心贡献——构建大规模IRDST数据集以缓解数据稀缺与类别不平衡问题，且将论文主旨过度归结为注意力方法。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "构建了大规模红外小目标检测数据集 IRDST",
+            "IRDST 包含 142727 帧",
+            "提出该工作的动机之一是缓解数据稀缺问题",
+            "指出红外小目标检测面临强类别不平衡问题"
+          ],
+          "incorrect_points": [
+            "将论文主要贡献表述为提出一种注意力机制/网络，而参考答案主要强调的是数据集构建与缓解数据稀缺问题"
+          ],
+          "raw_response_chars": 314
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.3,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用论文 ID 正确，但所引 method/results 章节未对齐题目所需的 Abstract，且多条 results 引用难以直接支撑对论文“主要提出/研究内容”的概括。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004 section=results",
+            "paper_20260509_004 section=results",
+            "paper_20260509_004 section=results",
+            "paper_20260509_004 section=results"
+          ],
+          "missing_evidence": [
+            "论文主要研究红外小目标检测并提出 Receptive-Field and Direction Induced Attention 方法这一核心概括应由 Abstract 直接支撑",
+            "答案中关于对比实验和消融实验验证有效性的总结缺少与 Abstract 对应的直接引用",
+            "答案中关于使用六个指标评估检测能力的说法缺少题目期望来源章节的支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-abstract-paraphrased",
+      "question": "In one paragraph, what is the central contribution of 'Receptive-Field and Direction Induced Attention'?",
+      "mode": "llm",
+      "predicted_answer": "The central contribution of **Receptive-Field and Direction Induced Attention** is the proposal of **RDIAN**, a lightweight infrared small target detection network that addresses the severe target–background imbalance by combining **multireceptive-field feature extraction** with a **direction-induced attention mechanism**. Specifically, the paper introduces an **MRFE module** to extract diverse local features at different receptive-field scales, and a **multidirectionality-based attention module (MDTE)** that computes pixel-level attention weights from grayscale differences between a center pixel and its neighbors in **eight directions**. This design is motivated by the observation that small infrared targets tend to exhibit **Gaussian-like bright spots** and **consistent gray-level differences in all directions**, whereas background regions change more slowly and show lower multidirectionality. The resulting directional attention map is used to reweight low-level features spatially, thereby enhancing target regions and improving the fusion of detailed low-level information with high-level semantic features for **fast and accurate detection**.  \n\n**依据片段编号：**[片段 2]、[片段 3]、[片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0037",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7267604136574909
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7126521423728298
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0007",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7030220546013481
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0016",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7010905975255275
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0040",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.6887544797223458
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案详细概述了RDIAN方法本身，但未覆盖参考答案强调的核心贡献——构建大规模红外小目标数据集IRDST以缓解数据稀缺问题，因此与参考答案核心要点不对齐。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "构建了大规模红外小目标数据集 IRDST",
+            "IRDST 包含 142727 帧",
+            "该贡献旨在缓解红外小目标检测中的数据稀缺问题",
+            "参考答案将数据集构建作为中心贡献之一/核心内容"
+          ],
+          "incorrect_points": [
+            "将论文的中心贡献完全归结为RDIAN网络与注意力机制，而未体现参考答案所述的数据集贡献"
+          ],
+          "raw_response_chars": 311
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.7,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "引用的论文 ID 正确，且 method/INTRODUCTION 基本能支撑对 RDIAN、MRFE 和八方向注意力机制的描述，但未按期望优先引用最直接概括中心贡献的 Abstract，results 引用也较弱。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004 | section=results"
+          ],
+          "missing_evidence": [
+            "对“central contribution”的整体性总结更适合由 Abstract 直接支撑",
+            "“fast and accurate detection”这一性能性概括缺少来自 Abstract 的直接证据支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-1-v1",
+      "question": "According to the 'results' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "根据当前提供的论文片段，**无法直接读取该论文 “results” 小节的完整内容**，因此不能完整判断该小节“highlighted”的全部关键信息。\n\n不过，从已给片段中可以确认，结果相关内容至少强调了以下信息：\n\n### 1. 结果展示包含了不同算法的检测效果对比\n片段中提到：\n- 有 **Representative images and 3-D gray level distributions of detection results by different algorithms**\n- 并列举了不同方法的结果展示，例如 **MPCM** 等方法的结果图\n\n这说明结果部分突出展示了：\n- **定性可视化结果**\n- **不同算法之间的检测效果比较**\n- **二维图像与三维灰度分布的联合展示**\n\n### 2. 结果评估使用了多种指标进行综合评价\n片段中明确写到：\n- “To evaluate comprehensively, we use **six metrics** to measure different ability of the detection methods”\n- 并至少列出了：\n  - **background suppression factor (BSF)**\n  - **gain of signal-to-clutter ...**（应为 GSCR，但当前片段不完整）\n\n这表明结果部分强调的是：\n- **采用多指标综合评测**\n- 重点关注检测方法的不同能力，如：\n  - **背景抑制能力**\n  - **目标与杂波区分能力**\n\n### 3. 结果部分 likely 涉及实验比较与定量分析\n从论文结构说明可知：\n- “In Section V, the experimental ...”\n\n结合结果图和指标描述，可以较稳妥地判断结果部分强调：\n- **实验结果分析**\n- **与其他方法的对比**\n- **定性与定量两方面的结果展示**\n\n---\n\n### 结论\n根据当前论文片段，**results 部分重点突出的是：不同算法检测结果的可视化对比（包括代表性图像和 3-D 灰度分布），以及通过六种评价指标对检测性能进行综合分析，特别关注背景抑制和信杂波区分等能力。**\n\n但如果要进一步回答“results section 具体还强调了哪些结论、最优方法表现、具体数值提升”等内容，**根据当前论文片段无法判断**。\n\n**依据片段编号：**[片段 3]、[片段 4]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0033",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7369108519669982
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0007",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7266690562025931
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7216798742378714
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0010",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7208430002546393
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7198320908368844
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.1,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未对齐参考答案中的关键信息，转而基于不完整片段进行推测，只部分提到“比较方法”这一点。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "消融实验（ablation study）证明模型具有有效的检测性能",
+            "数据集和代码将发布在 http://xzbai.buaa.edu.cn/datasets.html",
+            "Index Terms：Attention mechanism, deep learning (DL), infrared small target"
+          ],
+          "incorrect_points": [
+            "声称无法直接读取 results 小节完整内容并据此展开推测，未回答参考答案所强调的具体信息",
+            "加入了六种指标、3-D 灰度分布、BSF/GSCR 等内容，这些并非参考答案所问的关键高亮信息"
+          ],
+          "raw_response_chars": 403
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用全部来自 method 和 INTRODUCTION，而问题明确要求 results 部分，现有引用无法支撑答案中关于结果展示与评估指标的论述。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004 section=method",
+            "paper_20260509_004 section=INTRODUCTION",
+            "paper_20260509_004 section=method",
+            "paper_20260509_004 section=INTRODUCTION",
+            "paper_20260509_004 section=method"
+          ],
+          "missing_evidence": [
+            "results 部分突出展示了不同算法检测效果的可视化对比（代表性图像和3-D灰度分布）",
+            "results 部分使用六种指标进行综合评价",
+            "results 部分至少强调了背景抑制能力和目标与杂波区分能力",
+            "results 部分涉及实验比较与定量分析"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-1-v2",
+      "question": "Summarize the main points from the 'results' section of 'Receptive-Field and Direction Induced Attention'.",
+      "mode": "llm",
+      "predicted_answer": "根据当前给定的“results”片段，**无法提取该论文结果部分的实验结果、定量指标、对比方法表现或结论性发现**，因为检索到的“results”内容实际主要是在介绍**相关工作与背景方法**，并未出现明确的实验结果描述、表格数据、指标数值或性能总结。\n\n## 从当前“results”片段可以确认的主要内容\n\n### 1. 结果部分片段中提到了若干已有方法类别\n片段中列举了红外小目标检测领域的一些代表性思路，包括：\n\n- **基于目标-杂波比（TCR）的代价函数设计**  \n  用于区分目标和杂波。\n- **TBC-Net**\n  - 基于 CNN\n  - 通过将分类任务作为语义约束来缓解类别不平衡问题。\n- **基于任务特性的特征融合改进方法**\n  - 例如 **ACM（asymmetric contextual modulation）模块**。\n- **将模型驱动先验引入数据驱动模型的方法**\n  - 例如 **ALCNet（attentional local contrast network）**。\n- **将红外小目标检测建模为图像翻译问题的方法**\n  - 通过 **生成对抗网络（GAN）** 求解。\n\n这些内容更像是对比方法或研究背景综述，而不是该论文自身“results”部分的实验发现。\n\n### 2. 结果片段还总结了传统对比度测量类方法\n片段提到：\n\n- **MPCM**\n  - 在不同尺寸图像块上计算局部对比度。\n- **DECM**\n  - 使用 facet model 计算不同方向导数；\n  - 通过改进熵来增强目标。\n- **MODD**\n  - 使用一阶和二阶方向导数进行增强滤波以提取目标。\n\n### 3. 对这些传统方法的局限性给出了概括性评价\n片段明确指出，这些方法：\n\n- 通常依赖于**关于目标的若干假设**；\n- 需要一些**人工设定参数**；\n- 因而在**多样目标**和**复杂背景**下，**泛化能力可能不足**。\n\n这可以视为该部分中相对明确的“结论性表述”，但它仍然是在评价已有方法，而不是该论文实验结果本身。\n\n## 无法判断的内容\n\n根据当前论文片段，**无法判断**以下通常属于“results”总结核心的信息：\n\n- 作者提出方法在何种数据集上进行了实验；\n- 使用了哪些评价指标；\n- 与哪些基线方法进行了定量比较；\n- 是否取得最优结果；\n- 消融实验结论；\n- 可视化结果的主要观察；\n- 运行效率、参数量或鲁棒性结果。\n\n## 简要总结\n如果严格基于当前提供的“results”片段，则该部分的主要信息是：  \n**作者在结果部分引入并回顾了红外小目标检测中的若干已有方法，尤其是对比度测量类方法、CNN 方法、特征融合方法、引入先验的方法以及 GAN 方法，并指出传统对比度测量方法往往依赖目标假设和参数设定，在复杂背景中的泛化能力有限。**  \n但**关于本文方法“Receptive-Field and Direction Induced Attention”自身的实验结果与性能结论，当前片段无法支持总结。**\n\n依据片段编号：**[3], [4]**",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7281834471140277
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0033",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7240841312577868
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7134827117173147
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0015",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.712553427257419
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0037",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7104019531619914
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未概括参考答案中的结果要点，反而声称无法提取结果并转述了无关的背景方法。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "与对比方法和消融实验的比较表明该模型具有有效的检测性能",
+            "数据集和代码将提供在 http://xzbai.buaa.edu.cn/datasets.html",
+            "关键词包括 Attention mechanism、deep learning (DL)、infrared small target"
+          ],
+          "incorrect_points": [
+            "声称当前片段无法提取论文结果部分的实验结果和结论",
+            "大量描述相关工作与传统方法内容，偏离参考答案所述结果总结"
+          ],
+          "raw_response_chars": 341
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.6,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "有两条来自正确论文且正确章节 results 的引用可部分支撑答案，但其余多条 method 引用与用户要求总结 results 不符，且答案对“当前片段无法总结实验结果”的判断缺少直接证据定位。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004|section=method",
+            "paper_20260509_004|section=method",
+            "paper_20260509_004|section=method"
+          ],
+          "missing_evidence": [
+            "“当前给定的results片段实际主要是在介绍相关工作与背景方法，并未出现明确的实验结果描述、表格数据、指标数值或性能总结”这一总体判断需要 results 段落中的直接证据支撑",
+            "对传统方法局限性如“依赖目标假设、需要人工参数、在复杂背景下泛化不足”的概括需要对应 results 段落中的明确表述支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-1-v3",
+      "question": "What does 'Receptive-Field and Direction Induced Attention' describe in its 'results' section?",
+      "mode": "llm",
+      "predicted_answer": "根据给定的 **results** 片段，**“Receptive-Field and Direction Induced Attention” 的 results 部分主要是在介绍该工作的研究背景与相关方法对比脉络**，重点涉及：\n\n## 1. 红外小目标检测中的已有方法类别\nresults 片段提到了一些已有代表性方法，包括：\n\n- **基于目标-杂波度量（TCR）设计代价函数**的方法，用于区分目标和杂波。\n- **基于 CNN 的 TBC-Net**，用于通过分类任务作为语义约束来解决类别不平衡问题。\n- **多层特征融合改进方法**，如 **ACM 模块**，依据任务特性进行特征层间融合优化。\n- **模型驱动先验与数据驱动模型结合**的方法，如 **ALCNet**。\n- **将红外小目标检测建模为图像翻译问题**，并使用生成对抗网络求解的方法。\n\n## 2. 对比度度量类方法的讨论\nresults 片段还特别强调了：\n\n- **对比度度量（contrast measures）**在红外小目标检测中被广泛使用；\n- 这类方法受到 **人类视觉系统（HVS）** 和经典特征的启发；\n- 具体列举了若干基于局部区域/多尺度/方向导数的改进方法，例如：\n  - 小区域找目标的方法；\n  - **MPCM**：在不同尺寸 patch 上计算局部对比度；\n  - **DECM**：利用不同方向导数和改进熵增强目标；\n  - **MODD**：利用一阶和二阶方向导数进行增强滤波。\n\n## 3. 这些已有方法的局限性\nresults 片段明确指出，这些方法的共同问题是：\n\n- **通常依赖对目标的某些假设**；\n- **需要手工设置一些参数**；\n- 因而在 **不同目标形态和复杂背景下泛化能力不足**。\n\n## 4. 关于“Direction Induced Attention”的 results 描述\n虽然论文标题中包含 **Receptive-Field and Direction Induced Attention**，但**当前给出的 results 片段并没有直接报告该方法的实验结果、定量指标、消融结论或性能提升数值**。从现有片段只能看出：\n\n- results 部分在铺陈 **相关检测方法的发展脉络**；\n- 强调 **传统对比度/方向导数类方法的不足**；\n- 并引出 **attention mechanism** 相关讨论。\n\n因此，若问该 results 部分“描述了什么”，可以概括为：\n\n> 它主要描述了红外小目标检测中已有的对比度度量、CNN、特征融合、模型驱动与数据驱动结合、GAN 等方法，并指出传统对比度/方向导数方法依赖先验假设和参数设置、泛化性不足，从而为本文提出的注意力机制方法做铺垫。\n\n## 5. 无法从当前片段判断的内容\n根据当前论文片段，**无法判断**以下更具体的结果信息：\n\n- 该方法在什么数据集上优于哪些基线；\n- 使用了哪些评价指标；\n- 性能提升的具体数值；\n- “receptive-field induced attention” 与 “direction induced attention” 在实验中的各自贡献。\n\n**根据当前论文片段无法判断**这些内容。\n\n**依据片段编号：**[片段 1]、[片段 4]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7193195512784006
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7170466743382271
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0037",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7170059981105078
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0015",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7069846154391449
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0038",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7024833281683767
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未对齐参考答案，反而编造了大量与results无关的背景和方法综述内容。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "对比方法和消融研究证明了模型具有有效的检测性能",
+            "数据集和代码将发布在 http://xzbai.buaa.edu.cn/datasets.html",
+            "Index Terms 包括 Attention mechanism、deep learning (DL)、infrared small target"
+          ],
+          "incorrect_points": [
+            "将results部分描述为研究背景与相关方法对比脉络",
+            "编造了TCR、TBC-Net、ACM、ALCNet、GAN等具体内容",
+            "声称当前片段没有直接报告实验结果、定量指标或消融结论，与参考答案矛盾"
+          ],
+          "raw_response_chars": 392
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.45,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "仅有 results 引用在论文与章节上符合要求，但答案大量概括的是相关工作与局限性，且混入多条 method 引用，未能准确支撑对 results 内容的表述。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004|method",
+            "paper_20260509_004|method",
+            "paper_20260509_004|method"
+          ],
+          "missing_evidence": [
+            "答案声称 results 片段主要介绍研究背景与相关方法对比脉络，需要 results 章节中对应内容的直接支撑",
+            "答案列举 TCR、TBC-Net、ACM、ALCNet、GAN 等已有方法类别，需要 results 章节明确提及这些方法的证据",
+            "答案称传统对比度/方向导数方法依赖先验假设、需要手工参数、泛化不足，需要 results 章节对应论述的支撑",
+            "答案称当前 results 片段没有直接报告实验结果、定量指标、消融结论或性能提升数值，这一否定性判断缺少明确引用支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-2-v1",
+      "question": "According to the 'INTRODUCTION' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "According to the available **INTRODUCTION** fragments, the section highlights the following key information:\n\n1. **A new dataset/resource is emphasized**\n   - The paper mentions **IRDST**, which has advantages in **data amount and label quality** compared with prior works \\([1], [2]\\), and can be used for **infrared small target detection** with different purposes.\n\n2. **The main problem addressed**\n   - The authors aim to solve the **imbalance between targets and backgrounds** in infrared small target detection.\n\n3. **The proposed model**\n   - They propose **RDIAN (Receptive-Field and Direction-Induced Attention Network)**.\n   - It is described as a **lightweight model** that achieves **fast and accurate detection**.\n\n4. **Core methodological ideas highlighted in the introduction**\n   - **MRFE module**: a **multireceptive-field feature extraction** module with **parallel multireceptive fields**, designed to **enrich features** based on the diversity of local regions at different sizes.\n   - **Attention-based feature fusion**: the model uses an **attention mechanism** to better fuse:\n     - **low-level feature maps**, which contain more **detail information**,\n     - and **high-level feature maps**, which contain more **semantic information**.\n   - The introduction also indicates another design motivation **inspired by multidirectionality**, but the provided fragment is truncated, so the exact details cannot be fully determined.\n\n5. **Paper organization**\n   - The introduction also briefly states the paper structure, including:\n     - introduction of the **IRDST dataset**,\n     - proposal of the **RDIAN model**,\n     - and the **experimental** section.\n\n**无法进一步确定的部分：**\n- 关于“inspired by the multidirectio...”后续具体内容，**根据当前论文片段无法判断**。\n\n**依据片段编号：**[片段 2], [片段 3]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0033",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7448453329002491
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0007",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7375777337963548
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0010",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7315491378125022
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7290509976982906
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7219425353493721
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.4,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案部分提到红外小目标检测和数据集，但未抓住参考答案强调的核心背景与三大检测困难，并加入了较多超出该答案重点的内容。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "红外小目标检测对国防、军事等应用很重要",
+            "远距离目标难以准确快速检测",
+            "检测困难的三个关键原因：缺乏高质量公开数据集、目标信息少、背景复杂"
+          ],
+          "incorrect_points": [
+            "将引言重点概括为IRDST数据集、RDIAN模型和MRFE模块等，偏离参考答案所强调的应用背景与三大困难",
+            "声称主要问题是目标与背景不平衡，这不是参考答案中的核心表述"
+          ],
+          "raw_response_chars": 313
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.6,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "有两条引用正确指向 INTRODUCTION 且能支撑答案的大部分内容，但同时混入多条 method 引用，不符合问题所需来源章节，且对部分具体表述的支撑仍不充分。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004 | section=method",
+            "paper_20260509_004 | section=method",
+            "paper_20260509_004 | section=method"
+          ],
+          "missing_evidence": [
+            "“IRDST 可用于 infrared small target detection with different purposes”的具体表述需要明确的 INTRODUCTION 证据",
+            "“轻量化模型并实现 fast and accurate detection”的完整表述需要明确的 INTRODUCTION 证据",
+            "“受 multidirectionality 启发的另一设计动机”这一点需要更直接的 INTRODUCTION 证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-2-v2",
+      "question": "Summarize the main points from the 'INTRODUCTION' section of 'Receptive-Field and Direction Induced Attention'.",
+      "mode": "llm",
+      "predicted_answer": "根据当前提供的论文片段，**无法直接完整总结该论文 “INTRODUCTION” 章节**，因为检索结果中没有明确标注为 **INTRODUCTION** 的片段；现有内容主要来自 **method** 和 **results**，且包含部分背景性表述。  \n不过，依据这些片段中可见的背景介绍与问题动机，可以整理出与引言相关的主要点如下。\n\n---\n\n## 可从当前片段推断出的“引言核心内容”\n\n### 1. 研究任务：红外小目标检测\n论文关注的是**红外小目标检测**问题。现有片段提到该领域已有多类方法，包括：\n\n- 基于 **target-to-clutter ratio (TCR)** 的代价函数设计；\n- 基于 CNN 的方法，如 **TBC-Net**，用于缓解类别不平衡；\n- 改进多层特征融合的方法，如 **ACM modules**；\n- 将模型驱动先验引入数据驱动模型的方法，如 **ALCNet**；\n- 将红外小目标检测建模为**图像翻译问题**并用生成对抗网络求解。\n\n这说明引言部分很可能先概述了红外小目标检测的研究背景与已有代表性路线。\n\n### 2. 注意力机制是相关的重要技术背景\n片段中说明：\n\n- 注意力机制最初受**人类视觉系统**启发；\n- 后续被广泛引入计算机视觉；\n- 其基本作用是：从输入特征中学习权重，对重要区域赋予更高关注度；\n- 权重通常通过 **query、key、value** 的相似性计算并归一化得到。\n\n这表明论文引言可能将**注意力机制**作为方法设计的重要背景，并说明其适合用于突出目标区域、抑制背景干扰。\n\n### 3. 论文的关键动机：红外小目标具有方向一致的局部灰度差异\n从方法片段可提炼出论文的重要观察，这通常也会在引言中作为问题动机出现：\n\n- 小目标通常表现为**亮斑**，且近似 **Gaussian-like distribution**；\n- 小目标灰度值在各个方向上通常呈现较均匀扩散；\n- 在同时包含目标与背景的局部区域中，**中心像素与边界像素之间的灰度差异在多个方向上都存在**，作者将其概括为 **multidirectionality（多方向性）**；\n- 相比之下，背景（如天空、建筑、树木）在局部区域内往往表现为**连续、缓慢的灰度变化**，多方向性较低。\n\n因此，论文的一个核心出发点是：  \n**利用目标相对于背景在多方向灰度差异上的显著性，为注意力机制提供更适合小目标检测的权重。**\n\n### 4. 论文提出的方法思想：利用方向信息构造像素级注意力\n片段明确指出：\n\n- 作者“受注意力机制与对比度测量方法启发”，希望提供**pixel-level attention** 来增强特征图中的目标信息；\n- 关键在于“得到合适的权重”；\n- 作者使用**目标灰度差异的方向性（directionality）**来获得注意力权重。\n\n这说明引言的主要创新主线之一应是：  \n**将基于局部灰度方向特征的先验，与注意力机制结合，用于提升红外小目标表征能力。**\n\n### 5. 论文还强调不同层级特征的互补性\n从特征融合相关片段可见，作者认为：\n\n- **低层特征**主要对应目标边缘，包含更多**局部信息**；\n- **高层特征**具有更大的感受野，更对应目标位置，但也包含更多**背景信息**；\n- 因此需要将低层与高层特征进行融合，以更好地聚焦目标。\n\n这表明论文引言中可能还会强调另一项动机：  \n**结合感受野差异进行跨层特征融合，以兼顾局部细节和目标定位信息。**\n\n---\n\n## 基于当前片段可概括的引言主旨\n综合来看，当前片段支持的“INTRODUCTION”主旨可以概括为：\n\n1. 论文面向**红外小目标检测**任务。  \n2. 该领域已有基于对比度、CNN、多层特征融合、先验引导和 GAN 的多种方法。  \n3. 注意力机制能够突出重要区域，是一个重要技术基础。  \n4. 红外小目标在局部区域中具有区别于背景的**多方向灰度差异特征**。  \n5. 基于这一性质，论文尝试将**方向性/多方向性信息**用于构造像素级注意力。  \n6. 同时，论文还关注**低层局部细节**与**高层大感受野信息**的互补融合，以提升对目标的关注能力。\n\n---\n\n## 局限性说明\n由于当前没有直接提供 **INTRODUCTION** 章节原文，尤其缺少作者对**研究挑战、贡献总结、方法命名与完整创新点**的集中表述，因此：\n\n**根据当前论文片段无法判断** 引言中是否还包含：\n- 明确列出的论文贡献点；\n- 与现有方法的系统性比较结论；\n- 对“Receptive-Field and Direction Induced Attention”整体框架的完整引言级摘要。\n\n---\n\n**依据片段编号：1, 2, 3, 4, 5**",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0033",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7333312872104824
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7298847266948864
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7233375015643024
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0016",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.719593935155759
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0037",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.716850910254341
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未抓住参考答案中引言的核心：红外小目标检测的重要性及其三大主要困难，且加入了大量基于其他章节的推断性内容。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "红外小目标检测对国防、军事等应用很重要",
+            "远距离目标难以准确快速检测",
+            "三大困难：缺乏公开高质量数据集",
+            "三大困难：目标本身信息少",
+            "三大困难：背景复杂"
+          ],
+          "incorrect_points": [
+            "声称无法直接完整总结引言，但仍大量根据方法和结果章节推断引言内容",
+            "引入了参考答案未体现的重点，如注意力机制背景、query/key/value、跨层特征融合等，偏离参考答案核心"
+          ],
+          "raw_response_chars": 327
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用的论文 ID 正确，但全部来自 method/results 而非期望的 INTRODUCTION，且答案中多处对引言内容的推断缺乏直接证据支撑。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004|method",
+            "paper_20260509_004|method",
+            "paper_20260509_004|results",
+            "paper_20260509_004|results",
+            "paper_20260509_004|method"
+          ],
+          "missing_evidence": [
+            "对 INTRODUCTION 章节主旨的直接总结性表述",
+            "引言中对红外小目标检测研究背景与挑战的原文证据",
+            "引言中对注意力机制作为技术背景的直接论述",
+            "引言中关于论文贡献点或方法创新点的集中概括",
+            "引言中关于跨层特征融合与感受野动机的直接说明"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-2-v3",
+      "question": "What does 'Receptive-Field and Direction Induced Attention' describe in its 'INTRODUCTION' section?",
+      "mode": "llm",
+      "predicted_answer": "根据当前给定片段，**无法直接完整判断该论文在 “INTRODUCTION” 部分对 “Receptive-Field and Direction Induced Attention” 的具体描述内容**，因为检索到的 INTRODUCTION 片段只有论文结构性表述，缺少实质性介绍文本。\n\n不过，结合当前可见片段，可以谨慎归纳出以下信息：\n\n### 1. 从 INTRODUCTION 片段本身可确认的信息\n检索到的 INTRODUCTION 内容仅显示了论文后续章节安排，例如：\n- Section IV 提出 **RDIAN model**\n- Section V 进行实验\n\n这说明论文的引言部分至少提到了其方法名称 **RDIAN**，但**没有提供该方法在引言中的具体定义、动机或技术描述**。  \n因此，若问题要求严格回答“INTRODUCTION 具体描述了什么”，**根据当前论文片段无法判断**。\n\n### 2. 从其他片段可间接看出的相关方法含义（不能等同于 INTRODUCTION 原文）\n虽然不是 INTRODUCTION 片段，但 method/results 片段表明该工作大致涉及：\n\n- **方向诱导注意力（Direction Induced Attention）**：\n  - 受注意力机制和对比度度量方法启发；\n  - 试图提供**像素级注意力**以增强特征图中的目标信息；\n  - 利用小目标在各方向上的**灰度差异方向性/多方向性（multidirectionality）**来生成注意力权重。\n- **面向红外小目标检测**：\n  - 小目标通常表现为**类高斯分布的亮点**；\n  - 目标相对于背景在多个方向上都存在明显灰度差；\n  - 背景（如天空、建筑、树木）通常灰度变化更连续、局部多方向性较低。\n\n但这些内容来自 **method/results**，**不能严格视为 INTRODUCTION 中的描述**。\n\n### 结论\n如果严格限定在“INTRODUCTION section”：\n- 该部分在当前可见片段中**只显示了章节组织信息**；\n- 只能确认论文提出了 **RDIAN model**；\n- **根据当前论文片段无法判断** INTRODUCTION 对 “Receptive-Field and Direction Induced Attention” 做了怎样的具体描述。\n\n依据片段编号：**[片段 4], [片段 3], [片段 2], [片段 5]**",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7238623583253928
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0037",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7232800693751383
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7156089336033653
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0010",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7128838943300851
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0016",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7093761643572336
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案选择了无法判断并转而讨论片段不足，未回答参考答案中引言实际描述的红外小目标检测背景与三大困难。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "红外小目标检测是一项重要技术，应用于国防、军事等领域",
+            "难以准确快速检测远距离目标",
+            "三大原因：缺乏公开高质量数据集",
+            "三大原因：目标信息少",
+            "三大原因：背景复杂"
+          ],
+          "incorrect_points": [
+            "声称根据当前片段无法判断INTRODUCTION的具体描述，与参考答案可明确给出的引言内容不符",
+            "将回答重点放在RDIAN方法和章节结构，而非引言中描述的任务背景与困难"
+          ],
+          "raw_response_chars": 321
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.3,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "答案强调无法从 INTRODUCTION 判断具体描述，但引用中只有 1 条来自期望的 INTRODUCTION，其余多为 method/results，且这些被用来支撑对引言之外内容的推测，整体与问题要求的引言定位偏离较大。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004|results",
+            "paper_20260509_004|method",
+            "paper_20260509_004|method",
+            "paper_20260509_004|results"
+          ],
+          "missing_evidence": [
+            "“INTRODUCTION 片段仅显示章节组织信息、Section IV 提出 RDIAN model、Section V 进行实验”这一判断需要明确由 INTRODUCTION 引文支撑",
+            "“引言中没有提供该方法的具体定义、动机或技术描述”这一否定性结论需要更直接的 INTRODUCTION 证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-3-v1",
+      "question": "According to the 'results' section of 'Receptive-Field and Direction Induced Attention', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "根据当前提供的论文片段，**无法直接从“results”章节提取其“highlighted key information”**，因为检索结果中**没有给出 results/experimental results 的完整正文内容**，只出现了少量与实验设置和图示相关的零散片段。\n\n不过，从现有片段中可以确认，论文结果部分**至少重点展示了以下信息类型**：\n\n1. **检测方法的综合评价指标**\n   - 论文说明使用了 **6个评价指标** 来全面评估检测方法的不同能力。\n   - 目前片段中明确出现的指标包括：\n     - **BSF**（background suppression factor，背景抑制因子）\n     - **GSCR**（gain of signal-to-clutter ratio，信杂比增益）\n   - 但其余指标在当前片段中未完整展示，因此**无法完整列出全部六项指标**。\n\n2. **不同算法检测结果的可视化比较**\n   - 结果部分包含了**代表性图像及其三维灰度分布**的对比展示。\n   - 图 8 似乎用于比较不同算法在样例图像上的检测表现：\n     - `(a1)-(a6), (b1)-(b6)`：输入图像及其灰度分布\n     - `(c1)-(c6)`：MPCM 的结果\n     - 其余方法的结果也有展示，但当前片段未完整给出全部方法名称\n\n3. **与其他方法的对比实验**\n   - 片段表明论文将其方法与**无监督方法**等进行了比较，且这些对比方法采用默认开源设置或文献设置，汇总在 **Table III** 中。\n   - 这说明结果部分重点之一是**不同检测算法之间的定量和定性对比**。\n\n4. **结果部分可能强调检测能力的多个维度**\n   - 由于作者明确指出六个指标用于衡量“different ability of the detection methods”，因此结果部分强调的应不仅是单一准确率，而是包括：\n     - 背景抑制能力\n     - 目标增强能力\n     - 以及其他尚未在片段中显示的检测性能维度  \n   - 但具体维度名称，**根据当前论文片段无法判断**。\n\n**结论**  \n根据现有片段，results 部分重点突出的是：  \n- **多指标的定量评估**，  \n- **不同算法检测结果的可视化对比**，  \n- **与基线/已有方法的实验比较**。  \n\n但如果要回答“具体 highlighted 的关键结论或结果发现是什么”，**根据当前论文片段无法判断**。\n\n依据片段编号：**[片段 3], [片段 4]**",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0033",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7369108519669982
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0007",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7266690562025931
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0048",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7216798742378714
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "INTRODUCTION",
+          "chunk_id": "paper_20260509_004_chunk_0010",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7208430002546393
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7198320908368844
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未对齐参考答案核心内容，参考答案指出结果部分给出了与比较方法和消融研究相关的信息，而模型答案转而泛化讨论实验指标与可视化比较，且未覆盖消融研究这一关键点。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "结果部分给出了与比较方法的比较",
+            "结果部分给出了消融研究"
+          ],
+          "incorrect_points": [
+            "声称无法直接从results章节提取关键信息，与参考答案可提取的信息不一致",
+            "引入了6个评价指标、BSF、GSCR、图8、Table III等细节，未对应参考答案核心内容"
+          ],
+          "raw_response_chars": 293
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.1,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "答案讨论的是论文 results 部分的关键信息，但所给引用全部来自 method 和 introduction，未能正确支撑结果性结论。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004 section=method",
+            "paper_20260509_004 section=INTRODUCTION",
+            "paper_20260509_004 section=method",
+            "paper_20260509_004 section=INTRODUCTION",
+            "paper_20260509_004 section=method"
+          ],
+          "missing_evidence": [
+            "results 部分强调使用 6 个评价指标进行综合评估",
+            "results 部分明确出现 BSF 和 GSCR 指标",
+            "Figure 8 展示代表性图像及三维灰度分布的可视化比较",
+            "results 部分包含与其他无监督方法的对比实验并汇总于 Table III",
+            "results 部分重点是多指标定量评估、可视化对比和基线方法比较"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260509_004-section-3-v2",
+      "question": "Summarize the main points from the 'results' section of 'Receptive-Field and Direction Induced Attention'.",
+      "mode": "llm",
+      "predicted_answer": "根据当前提供的论文片段，**“results”部分并未给出完整的实验结果、定量指标或结论性表述**。现有“results”片段主要是在介绍**相关方法背景与对比对象**，而不是具体报告该论文模型的性能结果。\n\n## 可从“results”片段概括的主要内容\n\n### 1. 结果部分首先回顾了红外小目标检测中的已有方法\n片段中提到多类代表性方法，包括：\n\n- **基于目标-杂波度量（TCR）设计代价函数**的方法，用于区分目标与杂波。\n- **TBC-Net**：基于 CNN，通过将分类任务作为语义约束来缓解类别不平衡问题。\n- **基于特征融合改进**的方法，例如  \n  - **ACM（asymmetric contextual modulation）**：根据任务特点改进不同层级特征的融合。\n- **将模型驱动先验引入数据驱动模型**的方法，例如  \n  - **ALCNet（attentional local contrast network）**\n- **将红外小目标检测建模为图像翻译问题**的方法，使用**生成对抗网络（GAN）**求解。\n\n### 2. 结果部分还总结了传统对比度度量类方法\n文中指出，对比度度量方法在红外小目标检测中被广泛使用，并列举了若干代表方法：\n\n- **MPCM（multiscale patch-based contrast measure）**：在不同尺寸的 patch 上计算局部对比度。\n- **DECM（derivative entropy-based contrast）**：基于 facet model 计算不同方向导数，并用改进熵增强目标。\n- **MODD（multiorder directional derivatives）**：联合一阶与二阶方向导数进行增强滤波，以提取目标。\n\n### 3. 对已有传统方法的局限性进行了评价\n结果片段明确指出，这些传统方法通常：\n\n- 依赖于**目标的若干先验假设**；\n- 需要设定一些**参数**；\n- 因而在**目标形态多变**或**背景复杂**时，**泛化能力不足**。\n\n## 无法从当前片段得出的内容\n\n根据当前论文片段，**无法判断**以下通常属于“results”部分核心内容的信息：\n\n- 本文方法在各数据集上的**具体检测性能**\n- 与基线方法相比的**定量提升幅度**\n- 使用了哪些**评价指标**（如 Precision、Recall、IoU、Pd、Fa 等）\n- 是否有**消融实验**\n- 论文作者总结的**最终实验结论**\n\n因此，如果问题要求概括“results”部分的**实验发现**，那么应说明：  \n**根据当前论文片段无法判断该部分的完整实验结果，只能概括其对相关方法与局限性的回顾。**\n\n**依据片段编号：**[3], [4]",
+      "citations": [
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0036",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7281834471140277
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0033",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7240841312577868
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0013",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7134827117173147
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "results",
+          "chunk_id": "paper_20260509_004_chunk_0015",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.712553427257419
+        },
+        {
+          "paper_id": "paper_20260509_004",
+          "section": "method",
+          "chunk_id": "paper_20260509_004_chunk_0037",
+          "title": "Receptive-Field and Direction Induced Attention",
+          "score": 0.7104019531619914
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.9,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案抓住了参考答案所体现的核心：当前片段并非真正的实验结果总结，而主要是相关工作/对比方法介绍，并明确指出无法从片段中获得完整results结论。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "参考答案中提到“包含comparison methods和ablation study”的信息未被直接概括出来",
+            "参考答案中提到“Section VI concludes the research”未被提及"
+          ],
+          "incorrect_points": [
+            "将片段内容具体扩展为TCR、TBC-Net、ACM、ALCNet、GAN、MPCM、DECM、MODD等方法，虽可能相关，但这些细节并未出现在参考答案中，属于超出参考依据的补充"
+          ],
+          "raw_response_chars": 362
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.45,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "有两条 results 引用指向期望论文且可能部分相关，但答案大量内容依赖未给出的具体证据，且混入多条 method 引用，整体只能算部分支撑。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260509_004|method|1",
+            "paper_20260509_004|method|2",
+            "paper_20260509_004|method|5"
+          ],
+          "missing_evidence": [
+            "“results”片段主要是在介绍相关方法背景与对比对象，而不是具体报告该论文模型性能结果",
+            "结果部分列举了 TCR、TBC-Net、ACM、ALCNet、GAN 等方法及其作用",
+            "结果部分总结了 MPCM、DECM、MODD 等传统对比度度量方法",
+            "这些传统方法依赖先验假设和参数设置，在目标形态多变或背景复杂时泛化能力不足",
+            "当前片段无法判断具体检测性能、提升幅度、评价指标、消融实验和最终实验结论"
+          ],
+          "citation_count": 5
+        }
+      }
+    }
+  ]
+}

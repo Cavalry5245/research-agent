@@ -128,6 +128,129 @@ def test_build_judges_rejects_unknown_mode():
         build_judges(mode="unknown")
 
 
+def test_build_judges_supports_llm_mode():
+    from app.evaluation.judges import LLMAnswerJudge, LLMCitationJudge, build_judges
+
+    answer_judge, citation_judge = build_judges(mode="llm")
+    assert isinstance(answer_judge, LLMAnswerJudge)
+    assert isinstance(citation_judge, LLMCitationJudge)
+
+
+def test_llm_answer_judge_parses_clean_json(base_sample: QAEvalSample):
+    from app.evaluation.judges import LLMAnswerJudge
+
+    canned = '{"score": 0.85, "passed": true, "reason": "Covers main contribution", "missing_points": [], "incorrect_points": []}'
+    judge = LLMAnswerJudge(llm_call=lambda prompt: canned)
+    result = judge.evaluate(base_sample, predicted_answer="A retrieval augmentation method with citations.")
+    assert result.mode == "llm"
+    assert result.score == 0.85
+    assert result.passed is True
+    assert result.metadata["status"] == "ok"
+    assert "Covers main contribution" in result.reasons[0]
+
+
+def test_llm_answer_judge_handles_markdown_fenced_json(base_sample: QAEvalSample):
+    from app.evaluation.judges import LLMAnswerJudge
+
+    canned = '```json\n{"score": 0.2, "passed": false, "reason": "Missed key points", "missing_points": ["x"]}\n```'
+    judge = LLMAnswerJudge(llm_call=lambda prompt: canned)
+    result = judge.evaluate(base_sample, predicted_answer="off-topic")
+    assert result.score == 0.2
+    assert result.passed is False
+    assert result.metadata["missing_points"] == ["x"]
+
+
+def test_llm_answer_judge_falls_back_when_json_unparseable(base_sample: QAEvalSample):
+    from app.evaluation.judges import LLMAnswerJudge
+
+    judge = LLMAnswerJudge(llm_call=lambda prompt: "this is not json at all")
+    result = judge.evaluate(base_sample, predicted_answer="x")
+    assert result.score == 0.0
+    assert result.passed is False
+    assert result.metadata["status"] == "parse_error"
+
+
+def test_llm_answer_judge_clamps_out_of_range_scores(base_sample: QAEvalSample):
+    from app.evaluation.judges import LLMAnswerJudge
+
+    judge_high = LLMAnswerJudge(llm_call=lambda p: '{"score": 1.7}')
+    assert judge_high.evaluate(base_sample, "x").score == 1.0
+    judge_low = LLMAnswerJudge(llm_call=lambda p: '{"score": -0.3}')
+    assert judge_low.evaluate(base_sample, "x").score == 0.0
+
+
+def test_llm_answer_judge_derives_passed_from_threshold_when_missing(base_sample: QAEvalSample):
+    from app.evaluation.judges import LLMAnswerJudge
+
+    judge = LLMAnswerJudge(pass_threshold=0.5, llm_call=lambda p: '{"score": 0.6, "reason": "ok"}')
+    assert judge.evaluate(base_sample, "x").passed is True
+
+    judge2 = LLMAnswerJudge(pass_threshold=0.5, llm_call=lambda p: '{"score": 0.4, "reason": "weak"}')
+    assert judge2.evaluate(base_sample, "x").passed is False
+
+
+def test_llm_answer_judge_records_llm_error(base_sample: QAEvalSample):
+    from app.evaluation.judges import LLMAnswerJudge
+
+    def boom(prompt):
+        raise RuntimeError("upstream 502")
+
+    judge = LLMAnswerJudge(llm_call=boom)
+    result = judge.evaluate(base_sample, predicted_answer="x")
+    assert result.score == 0.0
+    assert result.passed is False
+    assert result.metadata["status"] == "llm_error"
+    assert "502" in result.metadata["error"]
+
+
+def test_llm_citation_judge_parses_full_payload(base_sample: QAEvalSample):
+    from app.evaluation.judges import LLMCitationJudge
+
+    canned = '{"score": 0.75, "passed": true, "reason": "Citations are relevant", "irrelevant_citations": [], "missing_evidence": ["E1"]}'
+    judge = LLMCitationJudge(llm_call=lambda prompt: canned)
+    citations = [{"paper_id": "paper-1", "section": "Abstract", "score": 0.9}]
+    result = judge.evaluate(base_sample, citations=citations, predicted_answer="The paper proposes ...")
+    assert result.score == 0.75
+    assert result.passed is True
+    assert result.metadata["citation_count"] == 1
+    assert result.metadata["missing_evidence"] == ["E1"]
+
+
+def test_llm_citation_judge_handles_empty_citations(base_sample: QAEvalSample):
+    from app.evaluation.judges import LLMCitationJudge
+
+    received: dict = {}
+
+    def capture(prompt: str) -> str:
+        received["prompt"] = prompt
+        return '{"score": 0.0, "passed": false, "reason": "No citations provided"}'
+
+    judge = LLMCitationJudge(llm_call=capture)
+    result = judge.evaluate(base_sample, citations=[], predicted_answer="A")
+    assert result.score == 0.0
+    assert "(无引用)" in received["prompt"]
+
+
+def test_judge_prompt_builders_produce_expected_keys():
+    from app.evaluation.prompts import build_answer_judge_prompt, build_citation_judge_prompt
+
+    ans_prompt = build_answer_judge_prompt(
+        question="Q?", expected_answer="E", predicted_answer="P"
+    )
+    assert "【问题】" in ans_prompt and "【参考答案】" in ans_prompt and "【模型答案】" in ans_prompt
+    assert "score" in ans_prompt and "passed" in ans_prompt
+
+    cite_prompt = build_citation_judge_prompt(
+        question="Q?",
+        predicted_answer="A",
+        citations=[{"paper_id": "p1", "section": "Abstract", "score": 0.8}],
+        expected_sections=["Abstract", "Method"],
+        expected_paper_id="p1",
+    )
+    assert "p1" in cite_prompt
+    assert "Abstract, Method" in cite_prompt
+
+
 def test_evaluate_qa_script_emits_offline_report(tmp_path: Path):
     report_path = tmp_path / "qa_eval_report.json"
 

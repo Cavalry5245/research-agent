@@ -1,0 +1,79 @@
+{
+  "total_failures": 10,
+  "top_failure_modes": [
+    [
+      "qa_low_score",
+      8
+    ],
+    [
+      "qa_bad_citation",
+      1
+    ],
+    [
+      "qa_empty_answer",
+      1
+    ]
+  ],
+  "retrieval": {
+    "total": 0,
+    "sub_type_counts": {},
+    "by_paper": {},
+    "top_query_words": []
+  },
+  "qa": {
+    "total": 10,
+    "sub_type_counts": {
+      "qa_bad_citation": 1,
+      "qa_low_score": 8,
+      "qa_empty_answer": 1
+    },
+    "empty_answer_count": 2,
+    "long_answer_count": 0,
+    "top_failing_samples": [
+      [
+        "paper_20260509_004-abstract",
+        1
+      ],
+      [
+        "paper_20260509_004-section-1-v1",
+        1
+      ],
+      [
+        "paper_20260511_002-abstract",
+        1
+      ],
+      [
+        "paper_20260511_002-section-1-v1",
+        1
+      ],
+      [
+        "paper_20260511_004-abstract",
+        1
+      ],
+      [
+        "paper_20260511_004-section-1-v1",
+        1
+      ],
+      [
+        "paper_20260511_005-abstract",
+        1
+      ],
+      [
+        "paper_20260511_005-section-1-v1",
+        1
+      ],
+      [
+        "paper_20260509_004-hard-oos",
+        1
+      ],
+      [
+        "paper_20260511_002-hard-oos",
+        1
+      ]
+    ]
+  },
+  "comparison": {
+    "total": 0,
+    "sub_type_counts": {}
+  }
+}

@@ -20,8 +20,12 @@
 | 📝 笔记生成 | LLM 生成 13 段结构化中文 Markdown 论文笔记 |
 | 🔍 RAG 问答 | 向量检索 + LLM，支持单篇/全库，附带依据片段 |
 | 📊 多论文对比 | 2–5 篇论文自动生成结构化 Markdown 对比表（含固定核心维度与关键差异） |
-| 🗄️ 知识库 | 文本切块 + sentence-transformers 嵌入 + 向量检索 |
+| 🗄️ 知识库 | 文本切块 + sentence-transformers 嵌入 + 向量检索；支持多 KB 隔离与增量索引 |
+| 🎯 高级 RAG | Cross-encoder Rerank（bge-reranker-v2-m3）+ BM25/Hybrid 检索 + 查询改写 / HyDE |
 | 📥 Markdown 导出 | 笔记/对比结果保存为 .md 并支持下载 |
+| 🤖 **Agent 助手** | 自然语言驱动：自动拆解任务、调用工具链、工作流编排 |
+| 📊 **数据分析 & A/B 测试** | analytics 收集器、3 个实验场景、失败 case 分析、Jupyter Notebook 可视化 |
+| ⚙️ **工程化任务与日志** | 后台任务状态追踪、统一错误响应、request_id、JSONL 日志分析 |
 
 ## 技术栈
 
@@ -31,8 +35,11 @@
 | 前端 | Streamlit |
 | PDF 解析 | PyMuPDF |
 | LLM | OpenAI-compatible API (DeepSeek / Qwen / Ollama) |
-| Embedding | sentence-transformers (bge-small-zh-v1.5) |
+| Embedding | sentence-transformers (bge-small-zh-v1.5) + 多模型切换 (bge-large / m3e / bge-m3) |
 | 向量检索 | 余弦相似度（接口兼容 Chroma） |
+| **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排）** |
+| **Analytics (Phase 2)** | **pandas + matplotlib + seaborn + scipy（指标 / 可视化 / 显著性检验）** |
+| **Production readiness (Phase 3)** | **FastAPI BackgroundTasks + FileJobStore + JSONL logging + request tracing** |
 | 评测 | `app/evaluation` schemas + seed dataset builder + retrieval / QA benchmark scripts |
 | 配置 | .env (pydantic-settings) |
 
@@ -159,7 +166,9 @@ Service Layer
   ├── paper_compare → LLM
   └── chunker / markdown_exporter
   ↓
-Storage: papers/ | notes/ | metadata/ | vector_db/
+Background Tasks + JobStore + JSONL Logs
+  ↓
+Storage: papers/ | notes/ | metadata/ | vector_db/ | logs/
 ```
 
 详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -181,6 +190,13 @@ Storage: papers/ | notes/ | metadata/ | vector_db/
 | `DELETE` | `/papers/{id}` | 删除论文及相关索引/笔记 |
 | `POST` | `/qa` | RAG 问答 |
 | `POST` | `/papers/compare` | 多论文对比 |
+| `GET` | `/tasks` | 列出后台任务 |
+| `POST` | `/tasks/note/{id}` | 提交笔记生成后台任务 |
+| `POST` | `/tasks/compare` | 提交多论文对比后台任务 |
+| `GET` | `/tasks/{job_id}` | 查询任务状态 |
+| `GET` | `/tasks/{job_id}/result` | 获取任务结果 |
+| `DELETE` | `/tasks/{job_id}` | 取消任务 |
+| `POST` | `/tasks/{job_id}/retry` | 重试失败任务 |
 
 ### cURL 示例
 
@@ -239,8 +255,13 @@ research-agent/
 │   │   ├── paper_note_prompt.py
 │   │   ├── qa_prompt.py
 │   │   └── compare_prompt.py
-│   ├── agents/                # 预留 Agent 扩展
-│   └── storage/               # 本地数据
+│   ├── agents/                # Agent 系统（Phase 1）
+│   │   ├── tools/             # 工具封装层
+│   │   ├── workflows/         # LangGraph 工作流
+│   │   ├── prompts/           # Agent prompt 模板
+│   │   ├── langchain_adapter.py  # BaseTool → LangChain 适配
+│   │   └── paper_research_agent.py  # Agent 主体
+│   ├── storage/               # 本地数据
 ├── ui/
 │   └── streamlit_app.py       # 5 Tab 前端
 ├── examples/
@@ -268,7 +289,12 @@ research-agent/
 | Embedding + 向量库 | sentence-transformers + 本地持久化检索 | ✅ |
 | RAG 问答 | 检索 + LLM 生成 + sources | ✅ |
 | 多论文对比 | 2-5 篇结构化对比表 | ✅ |
-| Streamlit 前端 | 5 Tab 完整串联 | ✅ |
+| Streamlit 前端 | 6 Tab 完整串联（含 Agent 助手） | ✅ |
+| **Agent 系统** | LangChain + LangGraph 工作流编排（6 工具 + 2 工作流） | ✅ |
+| **数据分析与效果评估** | Phase 2 analytics + experiments + 4 个 Jupyter Notebook + 失败分析 | ✅ |
+| **工程化与生产就绪** | 异步任务、结构化日志、错误处理、健康检查、日志分析 | ✅ |
+| **高级 RAG（Phase 4）** | Cross-encoder Rerank + BM25/Hybrid + QueryRewrite/HyDE + 多 KB | ✅ |
+| 测试基线 | 202 → 401 passed | ✅ |
 
 ## 运行测试
 
@@ -282,7 +308,7 @@ python -m pytest tests -q
 
 > 📋 **详细升级路线图**：[JD_ALIGNED_ROADMAP.md](docs/JD_ALIGNED_ROADMAP.md)  
 > 🎯 **执行周期**：12 周（6 个 Phase）  
-> 🚀 **当前阶段**：Week 0 准备阶段
+> 🚀 **当前阶段**：Phase 2 已完成（2026-05-20）→ Phase 3 准备启动
 
 | Phase | 目标 | 周期 |
 |-------|------|------|

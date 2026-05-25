@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -7,6 +7,16 @@ from pydantic import BaseModel, Field, model_validator
 class HealthResponse(BaseModel):
     status: str
     project: str
+    storage_writable: bool | None = None
+    vector_store_available: bool | None = None
+    config: dict[str, bool] = Field(default_factory=dict)
+
+
+class ErrorResponse(BaseModel):
+    error: str
+    message: str
+    request_id: str | None = None
+    status_code: int
 
 
 class DeletePaperResponse(BaseModel):
@@ -138,24 +148,20 @@ class QAResponse(BaseModel):
     sources: list[SourceItem]
 
 
-class IndexStatusResponse(BaseModel):
+class JobStatusResponse(BaseModel):
     job_id: str
-    job_type: str = "paper_index"
-    paper_id: str
-    status: Literal["queued", "running", "completed", "failed"]
+    job_type: Literal["paper_index", "note_generation", "paper_comparison", "batch_index"]
+    status: Literal["queued", "running", "completed", "failed", "cancelled"]
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
-    chunks_indexed: int
-    already_indexed: bool = False
-    parse_seconds: float = 0.0
-    chunk_seconds: float = 0.0
-    embedding_seconds: float = 0.0
-    persist_seconds: float = 0.0
-    total_seconds: float = 0.0
+    paper_id: str | None = None
+    paper_ids: list[str] = Field(default_factory=list)
+    result: dict[str, Any] | None = None
+    error: str | None = None
+    retry_of: str | None = None
     created_at: datetime
     started_at: datetime | None = None
     completed_at: datetime | None = None
     updated_at: datetime
-    error: str | None = None
 
     @model_validator(mode="after")
     def validate_lifecycle_timestamps(self):
@@ -165,12 +171,12 @@ class IndexStatusResponse(BaseModel):
             raise ValueError("running 状态必须提供 started_at")
         if self.status == "running" and self.completed_at is not None:
             raise ValueError("running 状态不得提供 completed_at")
-        if self.status == "completed" and self.completed_at is None:
-            raise ValueError("completed 状态必须提供 completed_at")
+        if self.status in {"completed", "cancelled"} and self.completed_at is None:
+            raise ValueError("completed/cancelled 状态必须提供 completed_at")
         if self.status == "failed" and self.completed_at is not None:
             raise ValueError("failed 状态不得提供 completed_at")
         if self.completed_at is not None and self.started_at is None:
-            raise ValueError("failed/completed 状态提供 completed_at 时必须同时提供 started_at")
+            raise ValueError("completed/cancelled 状态提供 completed_at 时必须同时提供 started_at")
         if self.completed_at is not None and self.started_at is not None and self.completed_at < self.started_at:
             raise ValueError("completed_at 不得早于 started_at")
         if self.updated_at < self.created_at:
@@ -194,13 +200,30 @@ class IndexStatusResponse(BaseModel):
         return self
 
 
+class IndexStatusResponse(JobStatusResponse):
+    job_type: Literal["paper_index"] = "paper_index"
+    paper_id: str
+    chunks_indexed: int
+    already_indexed: bool = False
+    parse_seconds: float = 0.0
+    chunk_seconds: float = 0.0
+    embedding_seconds: float = 0.0
+    persist_seconds: float = 0.0
+    total_seconds: float = 0.0
+
+
 class IndexJobStatusResponse(IndexStatusResponse):
     pass
 
 
 class JobListResponse(BaseModel):
     count: int
-    jobs: list[IndexJobStatusResponse] = Field(default_factory=list)
+    jobs: list[JobStatusResponse] = Field(default_factory=list)
+
+
+class JobRetryResponse(BaseModel):
+    original_job_id: str
+    retry_job: JobStatusResponse
 
 
 class CompareRequest(BaseModel):
@@ -263,3 +286,41 @@ class CompareResponse(BaseModel):
     output_path: str
     content: str
     comparison: PaperComparisonResult | None = None
+
+
+class AgentChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class AgentExecuteRequest(BaseModel):
+    task: str
+    chat_history: list[AgentChatMessage] | None = None
+
+
+class AgentExecuteResponse(BaseModel):
+    task: str
+    answer: str
+
+
+class KBCreateRequest(BaseModel):
+    kb_id: str
+    name: str
+    description: str = ""
+
+
+class KBResponse(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    paper_ids: list[str] = []
+    created_at: str | None = None
+
+
+class KBListResponse(BaseModel):
+    count: int
+    knowledge_bases: list[KBResponse]
+
+
+class KBAddPaperRequest(BaseModel):
+    paper_id: str

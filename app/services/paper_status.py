@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from app.schemas import IndexJobStatusResponse
+from app.schemas import IndexJobStatusResponse, JobStatusResponse
 from app.services.vector_store import VectorStore
 
 
@@ -44,6 +44,39 @@ def get_library_status(vector_store: VectorStore) -> dict:
     }
 
 
+def build_job_status(
+    *,
+    job_id: str,
+    job_type: str,
+    status: str,
+    created_at: str,
+    updated_at: str,
+    paper_id: str | None = None,
+    paper_ids: list[str] | None = None,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    progress: float = 0.0,
+    result: dict | None = None,
+    error: str | None = None,
+    retry_of: str | None = None,
+) -> JobStatusResponse:
+    return JobStatusResponse(
+        job_id=job_id,
+        job_type=job_type,
+        paper_id=paper_id,
+        paper_ids=paper_ids or [],
+        status=status,
+        progress=progress,
+        result=result,
+        error=error,
+        retry_of=retry_of,
+        created_at=created_at,
+        started_at=started_at,
+        completed_at=completed_at,
+        updated_at=updated_at,
+    )
+
+
 def build_index_job_status(
     *,
     job_id: str,
@@ -61,6 +94,7 @@ def build_index_job_status(
     embedding_seconds: float = 0.0,
     persist_seconds: float = 0.0,
     total_seconds: float = 0.0,
+    result: dict | None = None,
     error: str | None = None,
 ) -> IndexJobStatusResponse:
     return IndexJobStatusResponse(
@@ -76,6 +110,7 @@ def build_index_job_status(
         embedding_seconds=embedding_seconds,
         persist_seconds=persist_seconds,
         total_seconds=total_seconds,
+        result=result,
         created_at=created_at,
         started_at=started_at,
         completed_at=completed_at,

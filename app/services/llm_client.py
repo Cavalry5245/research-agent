@@ -1,6 +1,7 @@
 import logging
 import time
 
+import httpx
 from openai import APITimeoutError, InternalServerError, OpenAI, RateLimitError
 
 from app.config import settings
@@ -11,6 +12,7 @@ RETRYABLE_EXCEPTIONS = (InternalServerError, RateLimitError, APITimeoutError)
 MAX_RETRIES = 3
 BACKOFF_SECONDS = 1.0
 REQUEST_TIMEOUT_SECONDS = 90.0
+_HTTPX_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
 
 
 class LLMClient:
@@ -22,7 +24,12 @@ class LLMClient:
         self.base_url = settings.llm_base_url
         self.api_key = settings.llm_api_key
         self.model = settings.llm_model
-        self._client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+        self._client = OpenAI(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=_HTTPX_TIMEOUT,
+            max_retries=0,
+        )
 
     def generate_text(self, prompt: str) -> str:
         logger.info("LLM call: model=%s, prompt_chars=%d", self.model, len(prompt))

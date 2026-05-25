@@ -1,0 +1,896 @@
+{
+  "dataset": "app/evaluation/datasets/qa_eval_seed.jsonl",
+  "pipeline": "live",
+  "judge_mode": "llm",
+  "paper_ids": [
+    "paper_20260520_001",
+    "paper_20260520_002",
+    "paper_20260520_003",
+    "paper_20260520_004",
+    "paper_20260520_005"
+  ],
+  "subset_size": 10,
+  "wall_clock_seconds": 336.7455740959995,
+  "rule_based_summary": {
+    "sample_count": 10,
+    "evaluation_mode": "rule_based",
+    "answer_pass_rate": 0.3,
+    "citation_pass_rate": 0.3,
+    "mean_answer_score": 0.34283916870571907,
+    "mean_citation_score": 0.3
+  },
+  "llm_summary": {
+    "sample_count": 10,
+    "evaluation_mode": "llm",
+    "answer_pass_rate": 0.4,
+    "citation_pass_rate": 0.6,
+    "mean_answer_score": 0.41000000000000003,
+    "mean_citation_score": 0.496
+  },
+  "results": [
+    {
+      "sample_id": "paper_20260520_001-abstract",
+      "question": "What does the paper 'arXiv:2303.05499v5 [cs.CV] 19 Jul 2024' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "根据当前给定的论文片段，**无法准确判断这篇论文“主要提出或研究了什么”**。\n\n### 可确认的信息\n从参考文献和致谢片段中，只能看出该论文可能与以下方向有关：\n1. **开放词汇目标检测（open-vocabulary object detection）**  \n   参考文献中出现了：\n   - DetCLIP / DetCLIPv2\n   - “Open-vocabulary object detection via vision and language knowledge distillation”\n\n2. **视觉-语言建模 / 多模态理解**\n   参考文献中出现了：\n   - CLIP-Adapter\n   - MDETR\n   - adversarial training for vision-language representation learning\n\n3. **可能涉及 diffusion models**\n   致谢中提到作者感谢他人在 **diffusion models** 方面的帮助。\n\n### 但目前不能确定的内容\n由于提供的片段**仅包含结论末尾致谢和参考文献条目**，缺少：\n- 论文标题\n- 摘要\n- 引言\n- 方法部分\n- 实验结果\n\n因此无法判断：\n- 论文的**核心问题定义**\n- 作者**具体提出的方法**\n- 是否是**新模型、新训练框架、新数据集**，还是**实验性研究**\n- 论文的**主要贡献和结论**\n\n### 结论\n**根据当前论文片段无法判断**该论文主要提出或研究了什么；最多只能推测它大概率位于**视觉-语言、多模态目标检测/开放词汇检测**相关领域，并可能与 **DetCLIP** 和 **diffusion models** 有关联，但这不足以形成严谨结论。\n\n**依据片段编号：**[片段 1]、[片段 2]、[片段 3]、[片段 4]、[片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "Conclusion",
+          "chunk_id": "paper_20260520_001_chunk_0053",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6953039103952945
+        },
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "References",
+          "chunk_id": "paper_20260520_001_chunk_0068",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6821396236992567
+        },
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "References",
+          "chunk_id": "paper_20260520_001_chunk_0057",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6729525856034477
+        },
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "References",
+          "chunk_id": "paper_20260520_001_chunk_0058",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6667879339755314
+        },
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "References",
+          "chunk_id": "paper_20260520_001_chunk_0056",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6641662898477205
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未回答论文主要提出Grounding DINO这一开放集目标检测器，反而错误地表示无法判断。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "论文提出了一个开放集目标检测器Grounding DINO",
+            "将Transformer检测器DINO与grounded pre-training结合",
+            "能够根据类别名称或指代表达检测任意对象"
+          ],
+          "incorrect_points": [
+            "声称根据当前给定片段无法准确判断论文主要提出或研究了什么"
+          ],
+          "raw_response_chars": 272
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用主要来自 Conclusion 和 References，未使用最相关的 Abstract，且参考文献条目本身不能直接支撑对论文主旨的判断。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_001|Conclusion",
+            "paper_20260520_001|References",
+            "paper_20260520_001|References",
+            "paper_20260520_001|References",
+            "paper_20260520_001|References"
+          ],
+          "missing_evidence": [
+            "论文主要提出或研究内容的直接证据应来自 Abstract",
+            "“无法准确判断这篇论文主要提出或研究了什么”的依据缺少对 Abstract/标题缺失的直接支撑",
+            "关于开放词汇目标检测、视觉-语言建模、diffusion models 方向的推测缺少来自论文正文或摘要的直接证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_001-section-1-v1",
+      "question": "According to the 'Introduction' section of 'arXiv:2303.05499v5 [cs.CV] 19 Jul 2024', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "根据当前提供的论文片段，**无法直接回答 Introduction 部分“highlighted key information”具体是什么**，因为检索结果中**没有 Introduction 章节内容**，只有 **Conclusion** 和 **References** 相关片段。\n\n不过，从现有片段中**只能间接看出**论文在结论里强调了以下信息：\n\n1. **模型会在某些情况下产生假阳性（false positive）**\n   - 作者指出这类问题可能需要更多技术或数据来减少“hallucination”。\n\n2. **模型存在安全与可靠性风险**\n   - 深度学习模型容易受到**对抗攻击（adversarial attacks）**影响。\n   - 模型输出的**准确性和正确性无法得到保证**。\n\n3. **开放集检测能力可能被滥用**\n   - 作者特别提到模型的 **open-set detection** 能力存在被用于非法目的的风险。\n\n4. **论文与若干开放词汇/开放世界目标检测相关工作有关**\n   - 从致谢与参考文献可看出，论文与 **GLIP、OmDet、DetCLIP、DetCLIPv2** 等工作存在联系或对比背景。\n   - 但这些信息**并不能替代 Introduction 中“highlighted key information” 的原文总结**。\n\n因此，若问题严格限定为 **“According to the Introduction section”**，则应回答：\n\n> **根据当前论文片段无法判断 Introduction 部分具体强调了哪些关键信息。**\n\n依据片段编号：**[片段 1], [片段 3], [片段 4]**",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "Conclusion",
+          "chunk_id": "paper_20260520_001_chunk_0052",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6471427908081001
+        },
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "References",
+          "chunk_id": "paper_20260520_001_chunk_0058",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6429438441953343
+        },
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "References",
+          "chunk_id": "paper_20260520_001_chunk_0063",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6412620464803448
+        },
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "References",
+          "chunk_id": "paper_20260520_001_chunk_0068",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6402491263428493
+        },
+        {
+          "paper_id": "paper_20260520_001",
+          "section": "References",
+          "chunk_id": "paper_20260520_001_chunk_0065",
+          "title": "arXiv:2303.05499v5  [cs.CV]  19 Jul 2024",
+          "score": 0.6391035609039498
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.0,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未回答引言中强调的关键信息，反而以无法判断作答，与参考答案核心内容不符。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "AGI系统能力的关键指标是处理开放世界场景的熟练度",
+            "论文目标是开发一个强大的系统来检测由人类语言输入指定的任意对象",
+            "该任务通常被称为开放集目标检测（open-set object detection）"
+          ],
+          "incorrect_points": [
+            "声称无法根据Introduction回答该问题",
+            "转而总结Conclusion中的假阳性、安全风险、对抗攻击和滥用风险等内容，答非所问"
+          ],
+          "raw_response_chars": 310
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.1,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "答案明确讨论的是无法从 Introduction 回答，但所引来源几乎全部来自 Conclusion 和 References，未正确指向问题要求的 Introduction，且对答案中若干间接总结也缺乏直接支撑。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_001 | section=References",
+            "paper_20260520_001 | section=References",
+            "paper_20260520_001 | section=References",
+            "paper_20260520_001 | section=References"
+          ],
+          "missing_evidence": [
+            "“检索结果中没有 Introduction 章节内容”这一判断缺少直接证据",
+            "“模型会产生假阳性并需要更多技术或数据减少 hallucination”缺少来自 Introduction 的支撑",
+            "“模型存在安全与可靠性风险、易受对抗攻击、输出准确性无法保证”缺少来自 Introduction 的支撑",
+            "“open-set detection 能力可能被滥用”缺少来自 Introduction 的支撑",
+            "“与 GLIP、OmDet、DetCLIP、DetCLIPv2 等工作有关”并不能回答 Introduction highlighted key information，且缺少相关章节支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_002-abstract",
+      "question": "What does the paper 'remote sensing' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "The paper mainly studies **single-frame infrared small target (SIRST) detection** and proposes a new deep-learning method called **IRSTFormer** for this task.\n\n### Main proposal\nAccording to the provided fragments, the proposed method **IRSTFormer** consists of **three components**:\n1. **HOSPT encoder**\n2. **TFAM decoder**\n3. **CBS loss**\n\nThe paper discusses these three parts in detail and evaluates their contributions through ablation studies. The ablation results show that adding these components progressively improves:\n- **nIoU**\n- **FM**\n- **PD**\n- while reducing **FA**\n\n### Research focus\nThe paper explicitly states that it focuses on:\n- **single-frame infrared small target detection**, rather than multi-frame detection.\n\nIt also positions the work against prior methods:\n- traditional model-driven methods,\n- and deep learning/data-driven methods.\n\n### Experimental findings\nThe experiments are conducted on:\n- **public SIRST dataset**\n- **the authors’ IRST640 dataset**\n\nThe reported conclusion from the experiment section is that the proposed method shows **superiority over other state-of-the-art methods**. One fragment also states that the method can achieve **target detection with zero false alarms** in some comparison context.\n\n### Concise summary\nSo, the paper primarily proposes an **infrared small target detection framework, IRSTFormer, for single-frame SIRST detection**, and studies its effectiveness through comparative and ablation experiments on **SIRST** and **IRST640** datasets.\n\n**依据片段编号：**[1], [3], [4], [5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Experiments",
+          "chunk_id": "paper_20260520_002_chunk_0013",
+          "title": "remote sensing",
+          "score": 0.7318108405634075
+        },
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Method",
+          "chunk_id": "paper_20260520_002_chunk_0055",
+          "title": "remote sensing",
+          "score": 0.6671042441758265
+        },
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Discussion",
+          "chunk_id": "paper_20260520_002_chunk_0067",
+          "title": "remote sensing",
+          "score": 0.6660090404703983
+        },
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_002_chunk_0004",
+          "title": "remote sensing",
+          "score": 0.6619983873096204
+        },
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Method",
+          "chunk_id": "paper_20260520_002_chunk_0063",
+          "title": "remote sensing",
+          "score": 0.6603754667732685
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.8,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案抓住了论文主要研究方向是单帧红外小目标检测，并给出了所提方法与实验结论，但未覆盖参考答案强调的背景动机，如640×512分辨率、FOV增大及干扰增多。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "红外小目标检测在红外搜索与跟踪系统中的重要地位",
+            "红外图像常见尺寸发展到640×512",
+            "视场（FOV）显著增大",
+            "更大的图像与视场带来更多干扰，从而妨碍小目标检测这一研究背景"
+          ],
+          "incorrect_points": [],
+          "raw_response_chars": 265
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.6,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "引用的论文 ID 正确且多数章节与答案主题相关，但未使用期望的 Abstract，且答案中的总体主旨与实验结论混杂，部分论断缺少最直接支撑。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_002 | section=Discussion"
+          ],
+          "missing_evidence": [
+            "论文主要研究/提出内容这一总述性结论应优先由 Abstract 支撑",
+            "“three components: HOSPT encoder, TFAM decoder, CBS loss”需要明确对应方法概述出处",
+            "“can achieve target detection with zero false alarms”这一强结论需要更直接的实验原文支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_002-section-1-v1",
+      "question": "According to the 'Introduction' section of 'remote sensing', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "根据给定片段，**“Introduction”部分突出强调的信息**可以归纳为以下几点，但需要说明：**当前检索结果中没有直接给出 Introduction 原文，只能依据与引言相邻的概述性片段进行总结**。\n\n### 1. 方法目标与研究任务\n论文关注的是**红外小目标检测（infrared small target detection）**问题。  \n从片段可见，作者提出了一种新方法，并通过实验验证其效果优于已有方法。\n\n### 2. 方法名称与核心特征\n论文提出的方法是 **IRSTFormer**，属于一种**基于 Vision Transformer 的红外小目标检测方法**。  \n从方法概述看，其核心组成包括：\n- **四阶段编码器**：Hierarchical Overlapped Small Patch Transformer（HOSPT）\n- **渐进式解码器**\n- **Top-down Feature Aggregation Module（TFAM）**\n- **CBS loss**（combined BCE and softIoU loss）\n\n### 3. 研究动机\n论文指出，随着**红外探测器尺寸和视场（FOV）增大**，图像中的小目标检测变得更具挑战性。  \n此外，现有基于 CNN 的方法受限于卷积的**局部感受野**，在建模**长距离依赖**方面能力不足，这构成了提出 Transformer 方法的重要动机。\n\n### 4. 数据集与实验验证\n作者不仅在**公开 SIRST 数据集**上实验，还构建了新的 **IRST640 数据集**。  \n论文强调：\n- IRST640 是一个 **640 × 512** 的合成红外小目标数据集；\n- 数据集包含 **1024 张图像**；\n- 实验结果表明，该方法在 **SIRST** 和 **IRST640** 上都优于其他**state-of-the-art**方法。\n\n### 5. 论文结构说明\n引言中还概述了论文整体组织：\n- 第 2 节：相关工作\n- 第 3 节：提出的方法\n- 第 4、5 节：实验、结果与讨论\n- 第 6 节：结论与未来工作\n\n### 说明\n由于当前没有直接提供 **Introduction** 正文，以上内容是根据论文中带有概述性质的片段进行提炼。  \n若严格对应“Introduction section highlighted what key information”，**根据当前论文片段无法完整判断引言的全部内容**。\n\n**依据片段编号：**[片段 2]、[片段 3]、[片段 4]、[片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Method",
+          "chunk_id": "paper_20260520_002_chunk_0049",
+          "title": "remote sensing",
+          "score": 0.7087107285961958
+        },
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Experiments",
+          "chunk_id": "paper_20260520_002_chunk_0013",
+          "title": "remote sensing",
+          "score": 0.6992402829925621
+        },
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Method",
+          "chunk_id": "paper_20260520_002_chunk_0026",
+          "title": "remote sensing",
+          "score": 0.6889993746886582
+        },
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Method",
+          "chunk_id": "paper_20260520_002_chunk_0024",
+          "title": "remote sensing",
+          "score": 0.6873578223389936
+        },
+        {
+          "paper_id": "paper_20260520_002",
+          "section": "Method",
+          "chunk_id": "paper_20260520_002_chunk_0047",
+          "title": "remote sensing",
+          "score": 0.6837235280710251
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.1,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案基本未覆盖参考答案强调的红外探测器昼夜探测能力、夜间温差导致灰度差异以及IRST系统视场中的远距离目标背景，只是泛泛转向方法与数据集介绍。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "红外探测器可以全天候检测目标",
+            "夜间物体温度不同导致红外辐射不同，从而使目标在红外图像上与周围产生灰度差异",
+            "在IRST系统视场(FOV)中涉及远距离目标/场景这一引言背景信息"
+          ],
+          "incorrect_points": [
+            "将Introduction的重点错误概括为IRSTFormer方法结构、损失函数、数据集与论文组织，而非参考答案中的引言背景信息"
+          ],
+          "raw_response_chars": 324
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用论文 ID 正确，但全部指向 Method/Experiments 而非期望的 Introduction，且只能间接支撑少量方法与实验信息，无法合理支撑对“Introduction”重点内容的总结。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_002 | section=Method",
+            "paper_20260520_002 | section=Experiments",
+            "paper_20260520_002 | section=Method",
+            "paper_20260520_002 | section=Method",
+            "paper_20260520_002 | section=Method"
+          ],
+          "missing_evidence": [
+            "“Introduction”部分本身突出强调了哪些关键信息",
+            "研究动机：随着红外探测器尺寸和视场增大，小目标检测更具挑战性",
+            "现有 CNN 方法因局部感受野不足而难以建模长距离依赖",
+            "引言中概述了论文结构（第2节到第6节的安排）",
+            "引言中对 IRST640 数据集的介绍及其具体规模是否被强调"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_003-abstract",
+      "question": "What does the paper 'TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "The paper mainly proposes **TY-RIST**, a **real-time infrared small target detection (IRSTD) algorithm/framework** built on **YOLOv12n**, and studies how a set of **“tactical YOLO tricks”** can improve detection performance for small infrared targets while preserving efficiency.\n\n## Main proposal\nAccording to the provided fragments, TY-RIST is:\n- a **unified framework based on YOLOv12n** for infrared small target detection;\n- designed to address the difficulties of **small target size, weak contrast, low SNR, and cluttered infrared backgrounds**;\n- centered on improving both **spatial localization** and **real-time detection performance**.\n\nA specifically mentioned component is:\n- a **stride-aware convolutional backbone** to build a **fine-grained receptive field** and improve spatial localization.\n\n## What the paper studies\nThe paper also studies the effectiveness of this design through:\n1. **Comparisons with many models**  \n   - TY-RIST reportedly achieves **SOTA performance against 20 different models**.\n\n2. **Ablation experiments**  \n   - The authors perform a **comprehensive ablation study** on the **ITSDT-15k benchmark**.\n   - The baseline **YOLOv12n** obtains **78.9% mAP@50**.\n   - One modification, **reducing stride**, improves **mAP@50 by 5.2%**, suggesting better feature extraction for small targets.\n\n3. **Loss-function tuning**  \n   - The paper includes a **tuning study of the C parameter** in the **NWD regression loss**.\n\n4. **Transfer/cross-dataset generalization**  \n   - In cross-dataset validation on **IRDST-1k**, TY-RIST shows **strong generalization**, ranking:\n     - **2nd in F1**\n     - **2nd in Recall**\n     - **3rd in Precision**\n\n## Overall conclusion\nIn summary, the paper mainly proposes an **efficient YOLOv12n-based real-time detector for infrared small targets**, and experimentally studies how targeted architectural and training modifications improve **accuracy, localization, and generalization** in challenging infrared scenes.\n\n## Limitations / future direction mentioned\nThe authors note there is still room for improvement, especially in:\n- reducing **false alarms** and **missed detections**,\n- by integrating **temporal features** and fusing them with **spatial features**.\n\n依据片段编号：**[1], [2], [3], [4], [5]**",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "Conclusion",
+          "chunk_id": "paper_20260520_003_chunk_0050",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.791961219385968
+        },
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "experiment",
+          "chunk_id": "paper_20260520_003_chunk_0042",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.7210215355006998
+        },
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_003_chunk_0005",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.7129105082011351
+        },
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_003_chunk_0001",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.7110853899977408
+        },
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "results",
+          "chunk_id": "paper_20260520_003_chunk_0040",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.7044525890665359
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.8,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案正确指出论文主要提出了TY-RIST这一面向红外小目标检测的实时方法，并覆盖了其旨在提升检测性能与效率的核心方向，但对参考答案中明确列出的四类挑战概括不够完整且加入了部分未被参考答案直接支持的细节。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "参考答案中明确列出的四个具体挑战未完整逐项覆盖：最小特征导致目标丢失、复杂背景中的虚警、低显著性导致漏检、高计算成本"
+          ],
+          "incorrect_points": [
+            "YOLOv12n、stride-aware convolutional backbone、ITSDT-15k、IRDST-1k、NWD回归损失及具体排名/数值等细节并未在参考答案中体现，属于超出参考答案支持范围的信息"
+          ],
+          "raw_response_chars": 363
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.58,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "引用论文ID正确且部分章节能支撑答案主旨，但期望的核心来源应为Abstract，当前大量细节依赖Introduction/experiment/results/Conclusion，且若干具体论断缺少精确对应支撑。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_003 | Conclusion",
+            "paper_20260520_003 | results"
+          ],
+          "missing_evidence": [
+            "答案关于“built on YOLOv12n / unified framework based on YOLOv12n”的核心主张应直接由Abstract支撑",
+            "答案关于“stride-aware convolutional backbone”“fine-grained receptive field”“improve spatial localization”的具体方法描述缺少明确对应引用",
+            "答案关于“20 different models”“ITSDT-15k”“78.9% mAP@50”“reducing stride improves mAP@50 by 5.2%”等实验细节缺少精确定位支撑",
+            "答案关于“NWD regression loss 的 C parameter 调优”缺少明确对应引用",
+            "答案关于“IRDST-1k 上 2nd in F1 / 2nd in Recall / 3rd in Precision”的跨数据集排名缺少明确对应引用",
+            "答案关于“未来通过融合 temporal features and spatial features 以减少 false alarms and missed detections”的表述缺少精确支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_003-section-1-v1",
+      "question": "According to the 'Introduction' section of 'TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "According to the available **Introduction** fragments, the paper highlights the following key information:\n\n### 1. Definition and characteristics of infrared small target detection (IRSTD)\n- Small targets in object detection are defined as objects that:\n  - occupy **less than 0.5% of the total image area**,\n  - have **weak contrast** (typically **below 0.15**),\n  - and possess a **low signal-to-noise ratio (SNR)**.\n- IRSTD focuses on detecting such small, often moving targets in **cluttered and noisy infrared backgrounds**.\n\n### 2. Importance of IRSTD\nThe introduction emphasizes that IRSTD is important for several critical applications, including:\n- **military reconnaissance**,\n- **traffic monitoring and management**,\n- **maritime search and rescue**.\n\n### 3. Core challenges in IRSTD\nThe paper points out that IRSTD is highly challenging because:\n- the **tiny size** and **weak signal strength** of targets can cause loss of critical features,\n- and **complex infrared scenes / cluttered backgrounds** make reliable detection difficult.\n\n### 4. Motivation for YOLO-based methods\n- Among existing methods, **YOLO-based detectors** are highlighted for their ability to balance:\n  - **detection performance**, and\n  - **real-time inference efficiency**.\n- The introduction specifically notes **YOLOv12** as the latest YOLO advancement, emphasizing its **Area Attention** mechanism, which:\n  - improves **feature representation**,\n  - surpasses traditional convolutional architectures,\n  - while maintaining **competitive inference speed**.\n\n### 5. What TY-RIST proposes\nThe introduction presents **TY-RIST (Tactical YOLO Tricks for Real-time Infrared Small Target Detection)** as:\n- a **unified framework**,\n- built on the **YOLOv12n baseline**,\n- designed to address the above IRSTD challenges.\n\nThe visible introduction fragment specifically states one key design point:\n- it introduces a **stride-aware convolutional backbone** to build a **fine-grained receptive field** for **improved spatial localization**.\n\n### 6. Limitation of the available fragment\nThe introduction text provided is incomplete, so if more “key information” was listed after “Second, …”, **根据当前论文片段无法判断**.\n\n**依据片段编号：**[片段 3], [片段 4]",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "Conclusion",
+          "chunk_id": "paper_20260520_003_chunk_0050",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.7905487273951122
+        },
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "results",
+          "chunk_id": "paper_20260520_003_chunk_0040",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.7465191163418032
+        },
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_003_chunk_0005",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.744390616472514
+        },
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_003_chunk_0001",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.743306048168117
+        },
+        {
+          "paper_id": "paper_20260520_003",
+          "section": "Methodology",
+          "chunk_id": "paper_20260520_003_chunk_0025",
+          "title": "TY-RIST: Tactical YOLO Tricks for Real-time Infrared Small Target Detection",
+          "score": 0.7431794592027328
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.8,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案准确覆盖了参考答案中的核心定义与IRSTD任务描述，但加入了参考答案片段未体现的应用场景、YOLOv12与TY-RIST设计细节。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [],
+          "incorrect_points": [
+            "加入了参考答案片段未明确给出的内容，如军事侦察、交通监控、海上搜救、YOLOv12的Area Attention机制以及TY-RIST基于YOLOv12n和stride-aware backbone等细节。"
+          ],
+          "raw_response_chars": 264
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.6,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "引用中包含正确的 Introduction 章节且能部分支撑答案，但混入了与题目要求不符的 Conclusion、results、Methodology，且答案中的若干细节未被可靠引用充分支撑。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_003|Conclusion",
+            "paper_20260520_003|results",
+            "paper_20260520_003|Methodology"
+          ],
+          "missing_evidence": [
+            "“small targets occupy less than 0.5% of the total image area”这一具体阈值",
+            "“weak contrast typically below 0.15”和“low signal-to-noise ratio (SNR)”这两个具体数值/表述",
+            "“YOLOv12 is the latest YOLO advancement”及其“Area Attention”机制细节",
+            "“built on the YOLOv12n baseline”这一具体基线信息",
+            "“introduces a stride-aware convolutional backbone”这一具体设计点若在 Introduction 中出现，需要更直接证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_004-abstract",
+      "question": "What does the paper 'DNR-YOLO: an infrared small object detection' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "根据当前给定片段，**无法直接看到论文摘要、引言、方法或实验部分**，因此**无法完整判断**这篇论文“DNR-YOLO: an infrared small object detection”具体提出了什么方法细节。  \n\n但**从论文标题和参考文献主题**可以较为明确地看出：\n\n## 该论文主要研究内容\n这篇论文**主要聚焦于红外小目标检测（infrared small object detection）问题**，并且很可能是**基于 YOLO 框架提出一种改进方法 DNR-YOLO**，用于提升红外小目标检测性能。\n\n## 可从片段中支持的推断\n1. **研究对象**  \n   论文标题直接表明其研究对象是**红外小目标检测**。  \n   标题中的 “DNR-YOLO” 暗示作者提出了一个**YOLO 系列的改进检测模型**。\n\n2. **方法范式**  \n   参考文献大量涉及：\n   - YOLO 系列目标检测方法；\n   - 红外弱小目标检测；\n   - 小目标检测中的感受野增强、损失函数改进、激活函数、池化方法等。  \n   \n   这说明论文大概率是在**YOLO 架构基础上针对红外小目标场景进行结构或训练策略改进**。\n\n3. **研究背景与相关方向**  \n   参考文献中包含：\n   - 红外弱小目标检测网络（如 RISTDnet）；\n   - 基于 YOLO 的红外弱小目标检测方法（如 YOLO-IDSTD）；\n   - 小目标检测中的感受野增强、尺度敏感 IOU 损失等。  \n   \n   由此可见，论文所研究的问题属于**复杂背景下红外弱小目标/小目标检测性能提升**这一方向。\n\n## 无法确定的内容\n根据当前论文片段，**无法判断**以下关键信息：\n- DNR-YOLO 中 **“DNR” 的具体含义**；\n- 提出的模型到底改进了 **主干网络、颈部结构、检测头、损失函数，还是数据增强策略**；\n- 使用了哪些 **数据集、评价指标、对比方法**；\n- 实验结果是否优于哪些基线模型，以及提升幅度是多少。\n\n## 简要结论\n**这篇论文主要研究红外小目标检测，并很可能提出了一种名为 DNR-YOLO 的 YOLO 改进模型来解决该任务。**  \n但由于当前提供的内容几乎全部是**参考文献**，**无法进一步准确说明其具体创新点、实验设置和性能结论**。\n\n**依据片段编号：**[片段 1] [片段 2] [片段 3] [片段 4] [片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0009",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6472491773250897
+        },
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0006",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6456676433701785
+        },
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0001",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6367567125112952
+        },
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0007",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6238349645286699
+        },
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0002",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6167319871388375
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.4,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案仅笼统指出论文研究红外小目标检测并提出YOLO改进模型，但未准确覆盖参考答案中针对无人机红外图像小目标检测提出轻量化增强特征融合算法、解决特征衰减/边界模糊/背景干扰且基于YOLOv11等核心信息。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "针对无人机（UAV）红外图像中的小目标检测场景",
+            "为解决特征衰减、边界模糊和背景干扰问题",
+            "提出的是轻量化增强特征融合检测算法",
+            "该方法基于YOLOv11架构"
+          ],
+          "incorrect_points": [
+            "声称无法完整判断论文具体提出了什么，未根据已知信息给出明确主旨概括"
+          ],
+          "raw_response_chars": 316
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "引用全部来自 References，不能直接支撑对论文主要内容的概括；且题目期望应引用 Abstract。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_004 References",
+            "paper_20260520_004 References",
+            "paper_20260520_004 References",
+            "paper_20260520_004 References",
+            "paper_20260520_004 References"
+          ],
+          "missing_evidence": [
+            "论文主要提出或研究了什么这一核心结论应由 Abstract 直接支撑",
+            "“提出一种名为 DNR-YOLO 的 YOLO 改进模型”缺少来自摘要的直接证据",
+            "“用于提升红外小目标检测性能”缺少来自摘要的直接证据",
+            "“基于 YOLO 架构进行结构或训练策略改进”缺少来自摘要的直接证据"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_004-section-1-v1",
+      "question": "According to the 'References' section of 'DNR-YOLO: an infrared small object detection', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "According to the provided **References** section fragment, the key information highlighted is that the paper cites a **broad set of prior works related to infrared small object detection, general object detection, YOLO model evolution, datasets, and architectural components**.\n\n## Specifically highlighted categories\n\n1. **Infrared small target / small object detection studies**\n   - Examples include:\n     - **RISTDnet** for robust infrared small target detection.\n     - A **weighted local difference measure** method for small infrared target detection.\n     - Work on **infrared small object detection based on attention mechanism**.\n     - **YOLO-IDSTD** for infrared dim and small target detection.\n\n2. **Mainstream object detection foundations**\n   - The references include classic detection frameworks such as:\n     - **YOLO**\n     - **SSD**\n     - **Fast R-CNN**\n     - **RetinaNet-related improved detection work**\n\n3. **YOLO series development and benchmarking**\n   - The references explicitly mention:\n     - A benchmark study on the evolution of **YOLO models**, including **YOLO11** and predecessors.\n     - A paper describing **key architectural enhancements of YOLOv11**.\n     - Application papers using newer YOLO variants such as **YOLOv8**.\n\n4. **Datasets and benchmarks**\n   - The paper cites:\n     - **Microsoft COCO**\n     - A dataset for **infrared detection and tracking of dim-small aircraft targets under ground/air background**\n\n5. **Architectural or methodological components**\n   - The references include works on:\n     - **Attention mechanisms**\n     - **Adaptive receptive field enhancement**\n     - **Depthwise separable convolutions** via **Xception**\n     - **Feature aggregation**\n     - **Normalized Wasserstein distance**\n\n6. **Related image processing / fusion work**\n   - Some citations concern:\n     - **Image fusion**\n     - **Infrared-visible synthetic data generation**\n     - **Pre-enhancement frameworks**\n\n## Overall interpretation\nFrom the visible references, the section highlights that **DNR-YOLO** is positioned within a research context combining:\n- **infrared dim/small target detection**,\n- **YOLO-based detector development**,\n- **general object detection backbones and benchmarks**,\n- and **supporting techniques such as attention, receptive field enhancement, feature aggregation, and distance-based optimization**.\n\n## Limitation\nThe provided fragments only show a **partial reference list**, so **according to the current paper fragments, it is not possible to determine any further author-intended “highlight” beyond the cited topics themselves**.\n\n**依据片段编号：**[片段 1], [片段 2], [片段 3], [片段 4], [片段 5]",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0006",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6799778752246295
+        },
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0001",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6703852899729009
+        },
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0002",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6691107849689406
+        },
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0009",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6575744568467734
+        },
+        {
+          "paper_id": "paper_20260520_004",
+          "section": "References",
+          "chunk_id": "paper_20260520_004_chunk_0005",
+          "title": "DNR-YOLO: an infrared small object detection",
+          "score": 0.6503100618290246
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.1,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案未按参考答案概括出参考文献条目的关键信息，且加入了大量参考答案中没有体现的具体文献与内容。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "未明确列出参考答案中的具体参考文献信息，如 Chen X, Peng DL, Gu Y 关于改进YOLOv5s的UAV实时目标检测论文",
+            "未明确列出参考答案中的 Microsoft COCO 文献信息（Lin, T., Maire, M., Belongie, S.; ECCV 2014; Zurich; 740–755）",
+            "未体现参考答案强调的是参考文献条目本身及其书目信息，而非泛化的主题分类"
+          ],
+          "incorrect_points": [
+            "提到 RISTDnet、YOLO-IDSTD、YOLO11、YOLOv11、YOLOv8、Xception、Normalized Wasserstein distance 等内容，参考答案中未体现这些信息",
+            "将问题回答为对参考文献主题的归纳，而不是参考答案所示的具体文献条目内容"
+          ],
+          "raw_response_chars": 488
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.9,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "引用均来自正确论文的 References 章节，能够较好支撑答案对参考文献主题分布的概括，但对“YOLO11、YOLOv11、YOLOv8、RetinaNet 改进”等具体细节是否确实出现在所给片段中存在一定不确定性。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [],
+          "missing_evidence": [
+            "答案中关于“YOLO11/YOLOv11 的基准研究与关键架构增强”以及“YOLOv8 应用论文”的具体表述，如果这些并非当前可见参考文献片段直接列出，则缺少更精确的对应引用。"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_005-abstract",
+      "question": "What does the paper 'Learning to Prompt for Open-Vocabulary Object Detection with' mainly propose or study?",
+      "mode": "llm",
+      "predicted_answer": "The paper mainly proposes a **new prompt learning method for open-vocabulary object detection (OVOD) using pre-trained vision-language models**, called **Detection Prompt (DetPro)**.\n\n### Main idea\nThe work studies how to **automatically learn prompt representations** for OVOD, instead of relying on manually designed text prompts for class names. This is motivated by prior OVOD methods such as ViLD, which use text descriptions fed into a vision-language model’s text encoder to obtain class embeddings for detection.\n\n### What is specifically proposed\nThe paper introduces **DetPro**, a method for **prompt representation learning in open-vocabulary object detection with pre-trained vision-language models**.\n\n### Why this is needed\nThe paper argues that directly applying prompt learning methods from image classification (e.g., CoOp) to object detection is inadequate because detection is more complex:\n1. It must **distinguish foreground from background**.\n2. It must **classify region proposals** into object categories.\n3. **Negative/background proposals** are important in detection but do not correspond to specific object classes, so they are hard to incorporate into prompt learning.\n4. Positive object proposals often contain **different amounts of context**, so a single prompt context may be insufficient.\n\n### Core study focus\nThe paper particularly studies the importance of using **both positive/foreground proposals and negative/background proposals** in learning prompt representations for OVOD.\n\n### Experimental scope mentioned\nThe paper reports experiments on:\n- **LVIS**\n- Transfer learning to **Pascal VOC**\n- **COCO**\n- **Objects365**\n\nThese experiments are said to demonstrate the **effectiveness** and **generalization ability** of the proposed approach.\n\n### Concise summary\nIn short, the paper mainly proposes **DetPro**, a prompt representation learning approach for **open-vocabulary object detection**, designed to better handle the unique challenges of detection—especially **foreground/background proposal modeling** and **context variation in object proposals**.\n\n**依据片段编号：1, 2, 3, 4, 5**",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_005_chunk_0002",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.7867100953978743
+        },
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_005_chunk_0004",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.780452341721947
+        },
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Conclusion",
+          "chunk_id": "paper_20260520_005_chunk_0052",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.7651588703888584
+        },
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_005_chunk_0005",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.7583438320149337
+        },
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Related Work",
+          "chunk_id": "paper_20260520_005_chunk_0007",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.7517422206839574
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.9,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "模型答案准确概括了论文主要提出基于预训练视觉-语言模型的开放词汇目标检测提示学习方法，并覆盖了用提示经文本编码器生成类别嵌入这一核心背景，但对参考答案后半句的检测流程表述不够直接完整。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "参考答案中提到类别文本嵌入生成后会进一步用于检测器中的后续步骤，模型答案未明确点出这一流程衔接"
+          ],
+          "incorrect_points": [],
+          "raw_response_chars": 231
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.72,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "引用的论文ID正确，且Introduction/Conclusion基本能支撑论文主要提出DetPro及其研究动机，但未命中最期望的Abstract，且部分细节论断缺少更直接证据。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_005 | section=Related Work"
+          ],
+          "missing_evidence": [
+            "答案中关于检测相比分类的四点具体挑战需要更直接的原文支撑",
+            "答案中关于特别研究同时利用前景/背景proposal学习prompt表示的表述需要更直接证据",
+            "答案中关于在LVIS并迁移到Pascal VOC、COCO、Objects365上验证泛化能力的实验范围，最好有Abstract或实验章节引用支撑"
+          ],
+          "citation_count": 5
+        }
+      }
+    },
+    {
+      "sample_id": "paper_20260520_005-section-1-v1",
+      "question": "According to the 'Introduction' section of 'Learning to Prompt for Open-Vocabulary Object Detection with', what key information is highlighted?",
+      "mode": "llm",
+      "predicted_answer": "According to the **Introduction** section, the key information highlighted is:\n\n### 1. Open-vocabulary object detection (OVOD) setting\n- OVOD aims to train detectors on **base classes** while enabling them to **detect novel/unseen classes**.\n- This is presented as the task context of the paper.\n\n### 2. Prior OVOD approach based on vision-language models\n- The introduction highlights **ViLD** as a recent OVOD framework.\n- ViLD transfers knowledge from a **pre-trained vision-language model** into an object detector.\n- It is motivated by progress in models such as **CLIP** and **ALIGN**, which use:\n  - an **image encoder**\n  - a **text encoder**\n  - and learn alignment between images and corresponding texts.\n\n### 3. Role of prompts in existing methods\n- In ViLD, **text descriptions of base classes** (called **prompts**) are fed into the **CLIP text encoder**.\n- These prompts are converted into **class text embeddings**.\n- The embeddings are then used to **classify object proposals**.\n\n### 4. The paper’s main proposed direction: prompt representation learning\n- The paper focuses on learning prompts as **continuous representations**, which it calls **prompt representation learning**.\n- It proposes a new method named **Detection Prompt (DetPro)** for this purpose in the OVOD setting with pre-trained vision-language models.\n\n### 5. Why existing prompt learning methods are insufficient\n- The introduction mentions prior prompt learning work such as **CoOp**, which improves **image classification** using pre-trained vision-language models.\n- However, directly applying CoOp to OVOD is said to be **unrealistic**, because:\n  - **image classification** only predicts the label of the whole image,\n  - while **object detection** must:\n    - distinguish **foreground from background**,\n    - and classify **region proposals** into object categories.\n\n### Concise summary\nThe Introduction emphasizes that OVOD benefits from pre-trained vision-language models and prompt-based text embeddings, but existing prompt learning methods designed for image classification are not directly suitable for detection. Therefore, the paper proposes **DetPro**, a prompt representation learning method tailored to the specific needs of open-vocabulary object detection.\n\n**依据片段编号：1，2**",
+      "citations": [
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_005_chunk_0002",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.8219292803727958
+        },
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Introduction",
+          "chunk_id": "paper_20260520_005_chunk_0004",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.7815581690587675
+        },
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Related Work",
+          "chunk_id": "paper_20260520_005_chunk_0009",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.7772554327431953
+        },
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "Related Work",
+          "chunk_id": "paper_20260520_005_chunk_0007",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.7739520287177191
+        },
+        {
+          "paper_id": "paper_20260520_005",
+          "section": "conclusion",
+          "chunk_id": "paper_20260520_005_chunk_0049",
+          "title": "Learning to Prompt for Open-Vocabulary Object Detection with",
+          "score": 0.773181196933454
+        }
+      ],
+      "answer_evaluation": {
+        "mode": "llm",
+        "score": 0.2,
+        "max_score": 1.0,
+        "passed": false,
+        "reasons": [
+          "模型答案大部分扩展到了开放词汇检测与提示学习等内容，但没有对齐参考答案中强调的核心信息——目标检测的基本定义及其在闭集问题上的成功。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "missing_points": [
+            "目标检测旨在在图像中定位物体的边界框并为其分配标签",
+            "近几年目标检测在解决闭集问题上取得了很大成功",
+            "闭集问题指检测器只能检测训练集中出现的类别"
+          ],
+          "incorrect_points": [
+            "将引言重点概括为开放词汇目标检测、ViLD、CLIP/ALIGN、CoOp 和 DetPro 等内容，未对应参考答案给出的引言关键信息"
+          ],
+          "raw_response_chars": 304
+        }
+      },
+      "citation_evaluation": {
+        "mode": "llm",
+        "score": 0.86,
+        "max_score": 1.0,
+        "passed": true,
+        "reasons": [
+          "主要引用准确指向期望论文的 Introduction，能够支撑答案的大部分内容，但同时给出了与该问题无关的 Related Work 和 conclusion 引用。"
+        ],
+        "metadata": {
+          "status": "ok",
+          "irrelevant_citations": [
+            "paper_20260520_005 | section=Related Work",
+            "paper_20260520_005 | section=Related Work",
+            "paper_20260520_005 | section=conclusion"
+          ],
+          "missing_evidence": [],
+          "citation_count": 5
+        }
+      }
+    }
+  ]
+}

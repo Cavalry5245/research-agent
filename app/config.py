@@ -23,6 +23,21 @@ class Settings(BaseSettings):
     note_dir: str = "app/storage/notes"
     metadata_dir: str = "app/storage/metadata"
 
+    # Phase 4: Rerank
+    enable_rerank: bool = False
+    rerank_model: str = "BAAI/bge-reranker-v2-m3"
+    rerank_top_k: int = 5
+    rerank_recall_top_k: int = 20
+
+    # Phase 4: Retriever (vector / bm25 / hybrid)
+    retriever: str = "vector"
+    hybrid_alpha: float = 0.5
+    hybrid_recall_top_k: int = 20
+
+    # Phase 4: Query optimization
+    query_rewrite: str = "off"
+    hyde: str = "off"
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

@@ -14,6 +14,9 @@ BGE_MODEL_ALIASES = {
     "bge-large-zh-v1.5": "BAAI/bge-large-zh-v1.5",
     "bge-large-en-v1.5": "BAAI/bge-large-en-v1.5",
     "bge-m3": "BAAI/bge-m3",
+    "m3e-base": "moka-ai/m3e-base",
+    "m3e-small": "moka-ai/m3e-small",
+    "m3e-large": "moka-ai/m3e-large",
 }
 EMBEDDING_LOAD_RETRIES = 2
 EMBEDDING_LOAD_BACKOFF_SECONDS = 1.0

@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from app.services.llm_client import LLMClient
 from app.services.pdf_parser import load_parsed_result
@@ -53,5 +54,27 @@ def generate_note(
     prompt = build_note_prompt(title, paper_content)
 
     logger.info("Generating note for %s, content_chars=%d", paper_id, len(paper_content))
+    llm_start = time.perf_counter()
     markdown = llm_client.generate_text(prompt)
+    llm_seconds = time.perf_counter() - llm_start
+
+    logger.info(
+        "note_generated",
+        extra={
+            "ra_paper_id": paper_id,
+            "ra_llm_ms": round(llm_seconds * 1000, 2),
+            "ra_content_length": len(markdown or ""),
+        },
+    )
+    _emit_note_event(paper_id=paper_id, llm_time=llm_seconds, content_length=len(markdown or ""))
     return markdown
+
+
+def _emit_note_event(paper_id: str, llm_time: float, content_length: int) -> None:
+    """Best-effort analytics emit for note generation."""
+    try:
+        from app.analytics import get_collector
+
+        get_collector().log_note(paper_id=paper_id, llm_time=llm_time, content_length=content_length)
+    except Exception as exc:
+        logger.debug("Analytics emit skipped: %s", exc)

@@ -99,3 +99,48 @@ def test_vector_store_hybrid_query_uses_question_text_to_reorder_dense_results()
             "paper_A_chunk_0001",
         ]
         assert results[0]["score"] > results[1]["score"]
+
+
+def test_cross_encoder_reranker_reorders_by_predict_scores():
+    from app.services.reranker import CrossEncoderReranker
+
+    fake_model = MagicMock()
+    fake_model.predict.return_value = [0.1, 0.95, 0.5]
+    reranker = CrossEncoderReranker(model=fake_model)
+    results = [
+        {"chunk_id": "c1", "score": 0.8, "content": "alpha"},
+        {"chunk_id": "c2", "score": 0.4, "content": "beta"},
+        {"chunk_id": "c3", "score": 0.6, "content": "gamma"},
+    ]
+
+    reranked = reranker.rerank(question="q", results=results)
+
+    assert [item["chunk_id"] for item in reranked] == ["c2", "c3", "c1"]
+    assert reranked[0]["rerank_score"] == 0.95
+    fake_model.predict.assert_called_once()
+
+
+def test_cross_encoder_reranker_respects_top_k_and_handles_empty():
+    from app.services.reranker import CrossEncoderReranker
+
+    fake_model = MagicMock()
+    fake_model.predict.return_value = [0.2, 0.9]
+    reranker = CrossEncoderReranker(model=fake_model)
+    results = [
+        {"chunk_id": "c1", "score": 0.5, "content": "a"},
+        {"chunk_id": "c2", "score": 0.5, "content": "b"},
+    ]
+
+    reranked = reranker.rerank(question="q", results=results, top_k=1)
+    assert len(reranked) == 1
+    assert reranked[0]["chunk_id"] == "c2"
+
+    empty = reranker.rerank(question="q", results=[], top_k=5)
+    assert empty == []
+
+
+def test_cross_encoder_reranker_lazy_loads_model():
+    from app.services.reranker import CrossEncoderReranker
+
+    reranker = CrossEncoderReranker(model_name="dummy")
+    assert reranker._model is None

@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Protocol
 
 from app.services.embedding_client import EmbeddingClient
@@ -17,6 +18,11 @@ CLOSED_CLIENT_MARKERS = (
 
 class RerankerProtocol(Protocol):
     def rerank(self, question: str, results: list[dict], top_k: int | None = None) -> list[dict]:
+        ...
+
+
+class RetrieverProtocol(Protocol):
+    def search(self, query: str, top_k: int, paper_id: str | None = None) -> list[dict]:
         ...
 
 
@@ -73,16 +79,27 @@ def answer_question(
     top_k: int = 5,
     llm_client_factory=None,
     reranker: RerankerProtocol | None = None,
+    recall_top_k: int | None = None,
+    retriever: RetrieverProtocol | None = None,
 ) -> dict:
     logger.info("QA: question='%s', paper_id=%s, top_k=%d", question[:80], paper_id, top_k)
 
     if llm_client_factory is None:
         llm_client_factory = LLMClient
 
-    query_emb = embedding_client.embed_query(question)
-    results = vector_store.query(query_emb, top_k=top_k, paper_id=paper_id)
+    effective_recall_top_k = recall_top_k if recall_top_k is not None else top_k
+
+    retrieval_start = time.perf_counter()
+    if retriever is not None:
+        results = retriever.search(query=question, top_k=effective_recall_top_k, paper_id=paper_id)
+    else:
+        query_emb = embedding_client.embed_query(question)
+        results = vector_store.query(query_emb, top_k=effective_recall_top_k, paper_id=paper_id)
+    retrieval_seconds = time.perf_counter() - retrieval_start
 
     if not results:
+        _emit_qa_event(question=question, paper_id=paper_id, top_k=top_k,
+                       answer="", retrieval_time=retrieval_seconds, llm_time=0.0, sources=[])
         return {
             "question": question,
             "answer": "当前知识库中没有检索到相关内容。请先上传并索引论文。",
@@ -93,6 +110,7 @@ def answer_question(
     context = _build_context(results)
     prompt = build_qa_prompt(question, context)
 
+    llm_start = time.perf_counter()
     try:
         answer = llm_client.generate_text(prompt)
     except RuntimeError as e:
@@ -101,6 +119,7 @@ def answer_question(
             answer = llm_client_factory().generate_text(prompt)
         else:
             raise
+    llm_seconds = time.perf_counter() - llm_start
 
     sources = [
         {
@@ -117,9 +136,50 @@ def answer_question(
         for r in results
     ]
 
+    logger.info(
+        "qa_completed",
+        extra={
+            "ra_paper_id": paper_id,
+            "ra_top_k": top_k,
+            "ra_sources_count": len(sources),
+            "ra_retrieval_ms": round(retrieval_seconds * 1000, 2),
+            "ra_llm_ms": round(llm_seconds * 1000, 2),
+        },
+    )
+    _emit_qa_event(question=question, paper_id=paper_id, top_k=top_k,
+                   answer=answer, retrieval_time=retrieval_seconds, llm_time=llm_seconds,
+                   sources=sources)
 
     return {
         "question": question,
         "answer": answer,
         "sources": sources,
+        "retrieval_time": retrieval_seconds,
+        "llm_time": llm_seconds,
     }
+
+
+def _emit_qa_event(
+    question: str,
+    paper_id: str | None,
+    top_k: int,
+    answer: str,
+    retrieval_time: float,
+    llm_time: float,
+    sources: list[dict],
+) -> None:
+    """Best-effort analytics emit; never break the QA path on failure."""
+    try:
+        from app.analytics import get_collector
+
+        get_collector().log_qa_request(
+            paper_id=paper_id,
+            question=question,
+            answer=answer,
+            retrieval_time=retrieval_time,
+            llm_time=llm_time,
+            sources_count=len(sources),
+            top_k=top_k,
+        )
+    except Exception as exc:
+        logger.debug("Analytics emit skipped: %s", exc)

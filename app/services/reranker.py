@@ -60,3 +60,43 @@ class HybridReranker:
         if top_k is None:
             return reranked
         return reranked[:top_k]
+
+
+class CrossEncoderReranker:
+    def __init__(
+        self,
+        model_name: str = "BAAI/bge-reranker-v2-m3",
+        batch_size: int = 16,
+        device: str | None = None,
+        model=None,
+    ):
+        self.model_name = model_name
+        self.batch_size = batch_size
+        self.device = device
+        self._model = model
+
+    def _ensure_model(self):
+        if self._model is None:
+            from sentence_transformers import CrossEncoder
+
+            self._model = CrossEncoder(self.model_name, device=self.device) if self.device else CrossEncoder(self.model_name)
+        return self._model
+
+    def rerank(self, question: str, results: list[dict], top_k: int | None = None) -> list[dict]:
+        if not results:
+            return []
+
+        pairs = [(question, item.get("content", "")) for item in results]
+        model = self._ensure_model()
+        scores = model.predict(pairs, batch_size=self.batch_size)
+
+        reranked = []
+        for item, score in zip(results, scores):
+            copied = dict(item)
+            copied["rerank_score"] = float(score)
+            reranked.append(copied)
+
+        reranked.sort(key=lambda x: (-x["rerank_score"], -x.get("score", 0.0), x.get("chunk_id", "")))
+        if top_k is None:
+            return reranked
+        return reranked[:top_k]

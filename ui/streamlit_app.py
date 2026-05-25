@@ -104,6 +104,23 @@ def parse_saved_files(saved_files: list[dict]) -> list[dict]:
     return parsed_results
 
 
+def format_task_status(job: dict) -> str:
+    labels = {
+        "queued": "排队中",
+        "running": "执行中",
+        "completed": "已完成",
+        "failed": "失败",
+        "cancelled": "已取消",
+    }
+    status = labels.get(job.get("status", ""), job.get("status", "unknown"))
+    progress = int(float(job.get("progress", 0.0)) * 100)
+    job_type = job.get("job_type", "task")
+    error = job.get("error")
+    if error:
+        return f"{job_type}: {status} ({progress}%) — {error}"
+    return f"{job_type}: {status} ({progress}%)"
+
+
 def index_parsed_files(saved_files: list[dict]) -> list[dict]:
     indexed_results = []
     vector_store = get_vector_store()
@@ -151,7 +168,7 @@ with st.sidebar:
     st.caption("论文阅读与实验分析助手")
 
     st.divider()
-    tab = st.radio("导航", ["📤 论文上传", "📝 笔记生成", "💬 论文问答", "📊 论文对比", "🗄️ 知识库"], label_visibility="collapsed")
+    tab = st.radio("导航", ["📤 论文上传", "📝 笔记生成", "💬 论文问答", "📊 论文对比", "🗄️ 知识库", "🤖 Agent 助手"], label_visibility="collapsed")
 
     st.divider()
 
@@ -548,3 +565,132 @@ elif tab == "🗄️ 知识库":
 
     if st.button("🔄 刷新"):
         st.rerun()
+
+
+# ── Tab 6: Agent ─────────────────────────────────────────────────────────────
+
+
+elif tab == "🤖 Agent 助手":
+    st.header("🤖 Agent 助手")
+    st.caption("自然语言驱动的论文研究助手 — 支持多步工具调用和工作流编排")
+
+    # Workflow selector
+    workflow_mode = st.radio(
+        "工作模式",
+        ["自由对话", "完整论文分析工作流", "多论文对比工作流"],
+        horizontal=True,
+        key="agent_workflow_mode",
+    )
+
+    if workflow_mode == "完整论文分析工作流":
+        st.subheader("完整论文分析工作流: parse → index → note → qa")
+        uploaded = st.file_uploader(
+            "上传论文 PDF",
+            type=["pdf"],
+            accept_multiple_files=False,
+            key="agent_workflow_upload",
+        )
+
+        question = st.text_input("分析问题（可选）", placeholder="例如：这篇论文的核心创新是什么？", key="agent_wf_question")
+
+        if st.button("▶️ 执行工作流", type="primary", disabled=not uploaded, key="btn_run_workflow"):
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                tmp.write(uploaded.getbuffer())
+                tmp_path = tmp.name
+
+            with st.spinner("执行中: parse → index → note → qa..."):
+                from app.agents.workflows.research_workflow import build_research_workflow
+                graph = build_research_workflow()
+                state = graph.invoke({
+                    "paper_id": "",
+                    "file_path": tmp_path,
+                    "question": question,
+                    "top_k": 5,
+                    "parsed": False,
+                    "indexed": False,
+                    "note_generated": False,
+                    "title": "",
+                    "sections_count": 0,
+                    "chars": 0,
+                    "chunks_indexed": 0,
+                    "note_path": "",
+                    "note_length": 0,
+                    "answer": "",
+                    "sources_count": 0,
+                    "error": "",
+                })
+
+            if state.get("error"):
+                st.error(f"工作流执行失败: {state['error']}")
+            else:
+                st.success(f"工作流完成: {state['paper_id']}")
+                st.metric("解析", f"{state.get('title', '-')} ({state.get('sections_count', 0)} 章节)")
+                st.metric("索引", f"{state.get('chunks_indexed', 0)} chunks")
+                st.metric("笔记", f"{state.get('note_length', 0)} 字符")
+
+                if state.get("note_path"):
+                    with open(state["note_path"], "r", encoding="utf-8") as f:
+                        with st.expander("查看笔记内容"):
+                            st.markdown(f.read())
+
+                if state.get("answer"):
+                    st.subheader("分析回答")
+                    st.markdown(state["answer"])
+
+            # Cleanup
+            import os as _os
+            _os.unlink(tmp_path)
+
+    elif workflow_mode == "多论文对比工作流":
+        st.subheader("多论文对比工作流: parse → compare → export")
+        uploaded_files = st.file_uploader(
+            "上传多篇论文 PDF (2-5 篇)",
+            type=["pdf"],
+            accept_multiple_files=True,
+            key="agent_compare_upload",
+        )
+
+        if st.button("▶️ 执行对比", type="primary", disabled=not uploaded_files or len(uploaded_files) < 2, key="btn_run_compare"):
+            import tempfile
+            import os as _os
+            tmp_paths = []
+            for uf in uploaded_files:
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                    tmp.write(uf.getbuffer())
+                    tmp_paths.append(tmp.name)
+
+            with st.spinner(f"对比 {len(tmp_paths)} 篇论文..."):
+                from app.agents.workflows.comparison_workflow import build_comparison_workflow
+                graph = build_comparison_workflow()
+                state = graph.invoke({
+                    "file_paths": tmp_paths,
+                    "paper_ids": [],
+                    "all_parsed": False,
+                    "compared": False,
+                    "exported": False,
+                    "titles": [],
+                    "output_path": "",
+                    "content_length": 0,
+                    "aspects_count": 0,
+                    "error": "",
+                })
+
+            if state.get("error"):
+                st.error(f"对比失败: {state['error']}")
+            else:
+                st.success(f"对比完成: {len(state.get('paper_ids', []))} 篇论文")
+                st.metric("对比维度", f"{state.get('aspects_count', 0)} 个")
+
+                if state.get("output_path"):
+                    with open(state["output_path"], "r", encoding="utf-8") as f:
+                        with st.expander("查看对比结果"):
+                            st.markdown(f.read())
+
+            for p in tmp_paths:
+                _os.unlink(p)
+
+    else:
+        # Free conversation mode
+        from ui.components.agent_chat import render_agent_chat
+        render_agent_chat()

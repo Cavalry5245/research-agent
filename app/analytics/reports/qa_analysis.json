@@ -1,0 +1,89 @@
+{
+  "report_path": "app/evaluation/reports/qa_eval_seed_report.json",
+  "summary": {
+    "sample_count": 168,
+    "evaluation_mode": "llm",
+    "answer_pass_rate": 0.27380952380952384,
+    "citation_pass_rate": 0.4523809523809524,
+    "mean_answer_score": 0.27279761904761907,
+    "mean_citation_score": 0.42464285714285716
+  },
+  "answer_length_distribution": {
+    "count": 168,
+    "mean": 1335.0535714285713,
+    "median": 1189.5,
+    "p95": 2834,
+    "min": 0,
+    "max": 4649
+  },
+  "citation_accuracy": {
+    "sample_count": 168,
+    "answer_pass_rate": 0.27380952380952384,
+    "citation_pass_rate": 0.4523809523809524,
+    "mean_answer_score": 0.27279761904761907,
+    "mean_citation_score": 0.42464285714285716,
+    "answer_score_std": 0.35490223937762805
+  },
+  "top_questions": [
+    [
+      "What does 'Receptive-Field and Direction Induced Attention' ",
+      6
+    ],
+    [
+      "Summarize the main points from the 'Introduction' section of",
+      6
+    ],
+    [
+      "What does 'Few-Shot Adaptation of Grounding DINO for Agricul",
+      6
+    ],
+    [
+      "What does 'arXiv:2110.13389v2 [cs.CV] 14 Jun 2022' describe ",
+      6
+    ],
+    [
+      "What does 'arXiv:2303.05499v5 [cs.CV] 19 Jul 2024' describe ",
+      6
+    ],
+    [
+      "What does 'TY-RIST: Tactical YOLO Tricks for Real-time Infra",
+      6
+    ],
+    [
+      "What does 'Learning to Prompt for Open-Vocabulary Object Det",
+      6
+    ],
+    [
+      "Summarize the main points from the 'Experiments' section of ",
+      4
+    ],
+    [
+      "According to the 'results' section of 'Receptive-Field and D",
+      3
+    ],
+    [
+      "Summarize the main points from the 'results' section of 'Rec",
+      3
+    ]
+  ],
+  "live_event_time_breakdown": {
+    "retrieval_time": {
+      "count": 540,
+      "mean": 0.15904207765491232,
+      "p95": 0.03309128503315151,
+      "median": 0.007821959006832913
+    },
+    "llm_time": {
+      "count": 540,
+      "mean": 13.697469323683752,
+      "p95": 36.77139230701141,
+      "median": 11.721460212487727
+    },
+    "total_time": {
+      "count": 540,
+      "mean": 13.856511401338665,
+      "p95": 37.5994701939635,
+      "median": 11.733399830496637
+    }
+  }
+}
