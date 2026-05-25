@@ -67,6 +67,9 @@ def build_live_qa_predictions(
     embedding_client: Any,
     llm_client: Any,
     top_k: int = 5,
+    reranker: Any = None,
+    query_rewriter: Any = None,
+    recall_top_k: int | None = None,
 ) -> dict[str, Any]:
     """Run the real paper_qa.answer_question pipeline against a single sample.
 
@@ -75,14 +78,24 @@ def build_live_qa_predictions(
     """
     from app.services.paper_qa import answer_question
 
+    question = sample.question
+    if query_rewriter is not None:
+        try:
+            question = query_rewriter.rewrite(question) or sample.question
+        except Exception as exc:
+            logger.warning("Query rewrite failed for %s, using original: %s", sample.sample_id, exc)
+            question = sample.question
+
     try:
         result = answer_question(
-            question=sample.question,
+            question=question,
             vector_store=vector_store,
             embedding_client=embedding_client,
             llm_client=llm_client,
             paper_id=sample.paper_id,
             top_k=top_k,
+            reranker=reranker,
+            recall_top_k=recall_top_k,
         )
     except Exception as exc:
         logger.exception("Live QA pipeline failed for sample %s: %s", sample.sample_id, exc)
@@ -112,6 +125,26 @@ def _build_live_pipeline_clients() -> tuple[Any, Any, Any]:
     from app.services.vector_store import VectorStore
 
     return VectorStore(), EmbeddingClient(), LLMClient()
+
+
+def _build_optional_components(
+    enable_rerank: bool,
+    query_rewrite: bool,
+    llm_client: Any,
+    rerank_recall_top_k: int = 20,
+) -> tuple[Any, Any, int | None]:
+    """Build optional reranker and query_rewriter; return (reranker, rewriter, recall_top_k)."""
+    reranker = None
+    rewriter = None
+    recall_top_k = None
+    if enable_rerank:
+        from app.services.reranker import CrossEncoderReranker
+        reranker = CrossEncoderReranker()
+        recall_top_k = rerank_recall_top_k
+    if query_rewrite:
+        from app.services.query_rewriter import QueryRewriter
+        rewriter = QueryRewriter(llm_client)
+    return reranker, rewriter, recall_top_k
 
 
 def evaluate_qa_sample(
@@ -158,6 +191,8 @@ def evaluate_qa_dataset(
     use_live_pipeline: bool = False,
     top_k: int = 5,
     limit: int | None = None,
+    enable_rerank: bool = False,
+    query_rewrite: bool = False,
 ) -> dict[str, Any]:
     answer_judge, citation_judge = build_judges(mode=mode)
     samples = load_qa_samples(str(dataset_path))
@@ -165,16 +200,28 @@ def evaluate_qa_dataset(
         samples = samples[:limit]
 
     live_clients: tuple[Any, Any, Any] | None = None
+    reranker = None
+    rewriter = None
+    recall_top_k = None
     if use_live_pipeline:
         live_clients = _build_live_pipeline_clients()
         logger.info("Live QA pipeline enabled: VectorStore + EmbeddingClient + LLMClient initialized")
+        if enable_rerank or query_rewrite:
+            _, _, lc = live_clients
+            reranker, rewriter, recall_top_k = _build_optional_components(
+                enable_rerank=enable_rerank,
+                query_rewrite=query_rewrite,
+                llm_client=lc,
+            )
+            logger.info("Optional components: rerank=%s, query_rewrite=%s", enable_rerank, query_rewrite)
 
     results = []
     for sample in samples:
         if use_live_pipeline and live_clients is not None:
             vs, ec, lc = live_clients
             prediction = build_live_qa_predictions(
-                sample, vector_store=vs, embedding_client=ec, llm_client=lc, top_k=top_k
+                sample, vector_store=vs, embedding_client=ec, llm_client=lc, top_k=top_k,
+                reranker=reranker, query_rewriter=rewriter, recall_top_k=recall_top_k,
             )
         else:
             prediction = build_seed_qa_predictions(sample)
@@ -188,9 +235,15 @@ def evaluate_qa_dataset(
             )
         )
 
+    config_label = "live"
+    if enable_rerank:
+        config_label += "+rerank"
+    if query_rewrite:
+        config_label += "+rewrite"
+
     return {
         "dataset": str(dataset_path),
-        "pipeline": "live" if use_live_pipeline else "stub",
+        "pipeline": config_label if use_live_pipeline else "stub",
         "summary": summarize_qa_results(results, mode=mode),
         "results": [result.model_dump() for result in results],
     }
@@ -210,6 +263,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--top-k", type=int, default=5, help="top_k for live retrieval (only used with --use-live-pipeline)")
     parser.add_argument("--limit", type=int, default=None, help="Cap to first N samples (smoke test).")
+    parser.add_argument("--enable-rerank", action="store_true", help="Apply cross-encoder rerank post-retrieval.")
+    parser.add_argument("--query-rewrite", action="store_true", help="Apply LLM query rewrite pre-retrieval.")
     args = parser.parse_args()
 
     report = evaluate_qa_dataset(
@@ -218,6 +273,8 @@ if __name__ == "__main__":
         use_live_pipeline=args.use_live_pipeline,
         top_k=args.top_k,
         limit=args.limit,
+        enable_rerank=args.enable_rerank,
+        query_rewrite=args.query_rewrite,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

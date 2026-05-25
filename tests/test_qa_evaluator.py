@@ -209,7 +209,7 @@ def test_build_live_qa_predictions_uses_answer_question(monkeypatch):
 
     captured: dict = {}
 
-    def fake_answer_question(question, vector_store, embedding_client, llm_client, paper_id=None, top_k=5):
+    def fake_answer_question(question, vector_store, embedding_client, llm_client, paper_id=None, top_k=5, **kwargs):
         captured["question"] = question
         captured["paper_id"] = paper_id
         captured["top_k"] = top_k
@@ -281,7 +281,7 @@ def test_evaluate_qa_dataset_live_pipeline_flag(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         eq,
         "build_live_qa_predictions",
-        lambda sample, vector_store, embedding_client, llm_client, top_k=5: {
+        lambda sample, vector_store, embedding_client, llm_client, top_k=5, **kwargs: {
             "predicted_answer": "Live: " + sample.expected_answer,
             "citations": [
                 {"paper_id": sample.paper_id, "section": "Abstract", "chunk_id": "c", "title": "T"}

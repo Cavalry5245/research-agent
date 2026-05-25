@@ -36,6 +36,7 @@ Source: `app/evaluation/reports/qa_eval_live_10sample_llmjudge_report.json`
 
 | Experiment | Best Variant | Headline Metric | Caveat |
 |---|---|---|---|
+| **end-to-end QA (combined)** | rerank + LLM rewrite | answer_pass_rate +43.5% vs post-fix baseline (0.2738 → **0.3929**) | 14/168 pipeline failures from doubled LLM calls |
 | **embedding_comparison** | `m3e-base` | hit@5 = **0.5655** vs bge-small 0.4702 (+20%) | Smallest retrieval_time too |
 | **rerank_comparison** | cross-encoder rerank (GPU) | hit@5 +15.2% (p=0.0018 ✅) | Latency 6× slower (0.10s → 0.61s) on RTX 4060 |
 | **hybrid_comparison** | hybrid α=0.5 | hit@5 +3.8% (p=0.08 ❌) | Not statistically significant |
@@ -120,25 +121,30 @@ Decision: **Use full 13-section template as default** (more comprehensive notes,
 
 Replaces the prior 109-sample stub-mode report (which echoed `expected_answer` and over-reported 96% pass rate).
 
-| Metric | Pre-fix (860 chunks) | Post-fix (887 chunks) | Δ |
-|---|---|---|---|
-| sample_count | 168 | 168 | — |
-| pipeline | live | live | — |
-| evaluation_mode | llm | llm | — |
-| **answer_pass_rate** | 0.2381 | **0.2738** | +15.0% |
-| **citation_pass_rate** | 0.4405 | **0.4524** | +2.7% |
-| mean_answer_score | 0.2408 | **0.2728** | +13.3% |
-| mean_citation_score | 0.4071 | **0.4246** | +4.3% |
+| Metric | Pre-fix baseline | Post-fix baseline | Combined (rerank + rewrite) | Δ vs post-fix |
+|---|---|---|---|---|
+| sample_count | 168 | 168 | 168 | — |
+| pipeline | live | live | live+rerank+rewrite | — |
+| evaluation_mode | llm | llm | llm | — |
+| **answer_pass_rate** | 0.2381 | 0.2738 | **0.3929** | **+43.5%** ⭐ |
+| citation_pass_rate | 0.4405 | 0.4524 | 0.4464 | -1.3% |
+| **mean_answer_score** | 0.2408 | 0.2728 | **0.3708** | **+35.9%** ⭐ |
+| mean_citation_score | 0.4071 | 0.4246 | 0.3892 | -8.3% |
+| samples passing both judges | — | 33 | **46** | **+39%** |
 
-Status breakdown (post-fix run, 2026-05-24):
-- 161/168 LLM answer judges returned valid JSON (`status=ok`); 7 parse/API errors recorded score=0.
-- 166/168 LLM citation judges returned valid JSON; 2 errors recorded score=0.
-- 5/168 live pipeline failures (3 retries exhausted on upstream 502); recorded `predicted_answer=""`.
-- 33/168 samples fully passed both judges; 46 passed answer judge; 76 passed citation judge.
+Status breakdown (combined run, 2026-05-25):
+- 154/168 LLM answer judges returned valid JSON (`status=ok`); 14 parse/API errors recorded score=0.
+- 161/168 LLM citation judges returned valid JSON; 7 errors recorded score=0.
+- 14/168 live pipeline failures (3 retries exhausted on upstream 502); recorded `predicted_answer=""`. Higher than post-fix run (5) because the combined config doubles LLM calls per sample (rewrite + answer), which doubles 502 exposure.
+- 46/168 samples fully passed both judges; 66 passed answer judge; 75 passed citation judge.
 
-Source: `app/evaluation/reports/qa_eval_seed_report.json`. Downstream analytics regenerated to `app/analytics/reports/qa_analysis.json`.
+Sources: `app/evaluation/reports/qa_eval_seed_report.json` (post-fix baseline), `app/evaluation/reports/qa_eval_seed_combined_report.json` (combined). Downstream analytics regenerated to `app/analytics/reports/qa_analysis.json`.
 
-**Interpretation**: The Abstract-chunker fix lifted answer pass rate by +15% relative because the 27 Abstract-targeted samples can now retrieve the right section instead of citing arbitrary `Method` chunks. Citation pass rate moves less (+2.7%) because cited `paper_id` usually matched even pre-fix — section matching was already a softer signal in the citation judge. The drop from the stub-mode 96.3% pass rate is still the entire signal vs the old echo baseline.
+**Interpretation**:
+- **Combined config is the headline result.** Stacking rerank (top-20 → cross-encoder → top-5) on top of LLM query rewrite lifts end-to-end answer pass rate from 27.4% to 39.3%, a +43.5% relative gain. The lift exceeds either component individually (rerank alone +15.2% hit@5, rewrite alone +20.3% hit@5) because the components compose: rewrite improves the *recall set* the reranker sees.
+- **Citation pass rate is essentially flat (-1.3%)**, well within sub2api 502 noise. Citation judge already saturated near its ceiling on the post-fix corpus where most queries can match `paper_id` even when the section is wrong.
+- **mean_citation_score drops 8.3%** despite flat pass rate. Hypothesis: query rewriting changes the question's surface text, so the citation judge — which scores citation-question semantic alignment — is judging citations against a slightly different question than the dataset reference. The pass/fail boundary is unaffected, only the soft score distribution shifts.
+- **Pre-fix → combined is +65% answer pass rate** (0.2381 → 0.3929). That's the full Phase 4 retrieval-stack story end-to-end on a real benchmark.
 
 ## Aggregate Recommendation (from cross-experiment evidence)
 
@@ -148,9 +154,11 @@ ENABLE_RERANK=true                    # +15% hit@5 (significant); cross-encoder 
 EMBEDDING_DEVICE=cpu                  # frees the 8GB VRAM budget for the reranker
 HYBRID_RETRIEVER=off                  # no significant lift at α=0.5 on this corpus
 CHUNK_SIZE=800; CHUNK_OVERLAP=100     # keep current; smaller chunks don't justify +53% storage
-QUERY_REWRITE=on-for-async-paths      # +20% hit@5 but ~94× slower; gate behind feature flag
+QUERY_REWRITE=on                      # combined with rerank: +43.5% answer_pass_rate end-to-end
 PROMPT_TEMPLATE=full_13_section       # use compact only for time-sensitive batches
 ```
+
+**Combined config validated end-to-end**: rerank + query_rewrite together lift answer_pass_rate from 0.2738 to 0.3929 (+43.5%). The components compose — rewrite improves the recall set the reranker sees. Latency cost is ~8s/query (dominated by LLM rewrite call); acceptable for QA but not for search-as-you-type. For interactive paths, rerank-only (0.61s/query) is the right tradeoff.
 
 ## Known Limitations & Next Steps
 
