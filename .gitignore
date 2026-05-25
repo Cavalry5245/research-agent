@@ -25,3 +25,4 @@ app/storage/logs/*
 !app/storage/logs/.gitkeep
 
 app/analytics/reports/log_analysis.md
+app/storage/memory.db

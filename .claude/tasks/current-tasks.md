@@ -1707,7 +1707,122 @@ cat .claude/tasks/current-tasks.md
 
 ## Week 9-10: Phase 5 - 多 Agent 协作与记忆管理
 
-（任务清单待 Phase 4 完成后展开）
+> 架构选型：LangGraph Supervisor 模式（非 AutoGen/CrewAI）。
+> 基于现有 `PaperResearchAgent` + `StateGraph` workflows 扩展，不重写。
+
+### 5.1 记忆管理系统 — SQLite 持久化（Day 1-2）
+
+**目标**: 用 SQLite 实现会话历史 + 长期记忆，替代当前 in-memory list
+
+- [x] 5.1.1 设计 SQLite schema（conversations / messages / user_preferences / reading_history）
+  - 涉及文件：`app/services/memory_store.py`（新建）
+  - 验收：`python -c "from app.services.memory_store import MemoryStore; m=MemoryStore(':memory:'); print('ok')"`
+  - ✅ 完成：6 张表（conversations, messages, user_preferences, reading_history, semantic_facts, agent_traces）+ WAL + 索引
+- [x] 5.1.2 实现 ShortTermMemory — 对话历史 CRUD + 滑动窗口截断
+  - 涉及文件：`app/agents/memory/short_term.py`（新建）
+  - 验收：`pytest tests/test_memory.py::TestShortTerm -v`
+  - ✅ 完成：3 tests passed
+- [x] 5.1.3 实现 LongTermMemory — 用户偏好 + 论文阅读历史 + 常见问题
+  - 涉及文件：`app/agents/memory/long_term.py`（新建）
+  - 验收：`pytest tests/test_memory.py::TestLongTerm -v`
+  - ✅ 完成：5 tests passed
+- [x] 5.1.4 实现 SemanticMemory — 向量化存储重要事实，recall 时检索
+  - 涉及文件：`app/agents/memory/semantic.py`（新建）
+  - 复用：`EmbeddingClient` + `VectorStore`（已有）
+  - 验收：`pytest tests/test_memory.py::TestSemantic -v`
+  - ✅ 完成：3 tests passed
+- [x] 5.1.5 集成到 PaperResearchAgent — 每轮对话自动存取记忆上下文
+  - 涉及文件：`app/agents/paper_research_agent.py`（改）
+  - 验收：`pytest tests/test_agent_memory_integration.py -v`
+  - ✅ 完成：4 tests passed；execute() 自动创建/复用 conversation_id，持久化 user/assistant 消息
+- [x] 5.1.6 添加 FastAPI 端点 — `/api/conversations`（列表/详情/删除）
+  - 涉及文件：`app/routers/conversations.py`（新建）, `app/main.py`（改）
+  - 验收：`pytest tests/test_api_conversations.py -v`
+  - ✅ 完成：6 tests passed；GET/DELETE /api/conversations 端点就绪
+
+### 5.2 Supervisor + 专业化 Agent 架构（Day 3-5）
+
+**目标**: 将单一 ReAct Agent 拆分为 Supervisor → Specialist 模式
+
+- [x] 5.2.1 定义 Specialist Agent 接口 + 4 个专业 Agent
+  - `ExtractorAgent`（论文解析/信息提取）
+  - `SummarizerAgent`（笔记生成/摘要）
+  - `QAAgent`（RAG 问答，含 rerank + query rewrite）
+  - `ComparatorAgent`（多论文对比）
+  - 涉及文件：`app/agents/specialists/` 目录（新建 4 文件 + __init__.py）
+  - 验收：`pytest tests/test_specialist_agents.py -v`
+  - ✅ 完成：12 tests passed
+- [x] 5.2.2 实现 Supervisor Agent — LangGraph StateGraph 路由
+  - 职责：接收用户请求 → 判断意图 → 分发给对应 Specialist → 汇总结果
+  - 涉及文件：`app/agents/supervisor.py`（新建）
+  - 验收：`pytest tests/test_supervisor.py -v`
+  - ✅ 完成：12 tests passed；route→execute→synthesize 三节点 graph
+- [x] 5.2.3 实现 Agent 间消息协议 + 共享状态
+  - TypedDict state 包含 messages / task_type / delegations / results
+  - 涉及文件：`app/agents/state.py`（新建）
+  - 验收：单测覆盖 state 流转
+  - ✅ 完成：SupervisorState + Delegation + TaskType + TASK_TYPE_TO_SPECIALIST 映射
+- [x] 5.2.4 实现 3 个协作场景端到端
+  - 场景 A：完整论文分析（upload → extract → summarize → QA 预设问题）
+  - 场景 B：多论文对比（parallel extract → compare → export）
+  - 场景 C：交互式研究助手（supervisor 动态路由多轮对话）
+  - 涉及文件：`app/agents/scenarios/__init__.py`（新建）
+  - 验收：`pytest tests/test_scenarios.py -v`（mock LLM）
+  - ✅ 完成：3 tests passed；TypedDict state + LangGraph StateGraph
+- [x] 5.2.5 替换旧 `PaperResearchAgent` 入口 → Supervisor 模式
+  - 保持 `/agent/execute` 接口向下兼容，新增 `mode="supervisor"` 切换
+  - 涉及文件：`app/agents/paper_research_agent.py`（改）, `app/main.py`（改）, `app/schemas.py`（改）
+  - 验收：现有 agent 相关测试全部通过
+  - ✅ 完成：10 旧 agent 测试 + 12 supervisor + 12 specialist + 3 scenario 全部通过；新增 execute_supervisor 方法
+
+### 5.3 Agent 可观测性与追踪（Day 6-7）
+
+**目标**: 实现执行追踪、决策日志、可视化
+
+- [x] 5.3.1 实现 AgentTracer — 记录每步 tool call / delegation / 耗时
+  - 涉及文件：`app/agents/tracing.py`（新建）
+  - 存储：SQLite `agent_traces` 表
+  - 验收：`pytest tests/test_tracing.py -v`
+  - ✅ 完成：AgentTracer 支持 span context manager（含嵌套）、record 直接记录、timeline/stats 聚合；11 tests passed
+- [x] 5.3.2 实现 DecisionLogger — 记录 supervisor 路由决策理由
+  - 涉及文件：`app/agents/decision_logger.py`（新建）
+  - 验收：单测覆盖
+  - ✅ 完成：DecisionLogger 支持 log_routing/log_delegation_result/get_routing_history/get_routing_stats；9 tests passed
+- [x] 5.3.3 添加 Streamlit "Agent 监控" Tab
+  - 执行时间线（每步 agent + tool 耗时条形图）
+  - Agent 间通信图（mermaid 或 graphviz）
+  - 工具调用统计
+  - 涉及文件：`ui/pages/agent_monitor.py`（新建）
+  - 验收：`streamlit run ui/streamlit_app.py` 可见新 Tab
+  - ✅ 完成：三子 Tab（执行时间线/路由决策/工具统计），含 bar_chart 可视化；import 验证通过
+- [x] 5.3.4 添加 `/api/traces` 端点 — 查询历史执行记录
+  - 涉及文件：`app/routers/traces.py`（新建）
+  - 验收：`pytest tests/test_api_traces.py -v`
+  - ✅ 完成：GET /api/traces（支持 agent_id/conversation_id/limit 过滤）+ GET /api/traces/stats 聚合；7 tests passed
+
+### 5.4 集成测试 + 文档（Day 8-10）
+
+- [x] 5.4.1 端到端集成测试 — 3 个场景 × 真实 LLM 调用（10 样本 smoke）
+  - 涉及文件：`tests/integration/test_multi_agent_e2e.py`（新建）
+  - 验收：`pytest tests/integration/ -v --timeout=300`
+  - ✅ 完成：3 场景（Supervisor E2E / Memory Integration / Scenario Graphs）共 10 tests passed
+- [x] 5.4.2 创建 `docs/MULTI_AGENT_DESIGN.md` — 架构图 + 状态流转 + 路由逻辑
+  - ✅ 完成：含 ASCII 架构图、State 定义、路由表、Specialist 说明、场景描述、可观测性
+- [x] 5.4.3 创建 `docs/MEMORY_SYSTEM.md` — schema + 三层记忆 + 集成方式
+  - ✅ 完成：含架构图、SQLite schema、三层 API 说明、集成示例、线程安全说明
+- [x] 5.4.4 更新 `docs/ARCHITECTURE.md` — 加入 Supervisor 架构层
+  - ✅ 完成：新增 Phase 5 多 Agent 协作 section，含架构图、场景表、取舍说明
+- [x] 5.4.5 更新 `README.md` — 添加多 Agent 特性说明 + 使用示例
+  - ✅ 完成：功能表新增多 Agent 行、技术栈新增 Multi-Agent 行、开发进度新增 Phase 5、API 表新增 5 个端点
+
+### Phase 5 整体验收标准
+
+- [x] 所有测试通过（`pytest tests -q`）— 489 passed
+- [x] Supervisor 可根据用户意图自动路由到正确 Specialist — classify_intent + route_node 验证通过
+- [x] 对话历史持久化到 SQLite，重启后可恢复 — MemoryStore + ShortTermMemory + API 验证通过
+- [x] 3 个协作场景可通过 API 或 Streamlit 演示 — paper_analysis / multi_comparison / interactive_session
+- [x] Agent 执行过程可追踪（tracing Tab 可查看） — AgentTracer + DecisionLogger + /api/traces + UI Tab
+- [x] 无新增外部依赖（LangGraph/LangChain 已在 requirements.txt）— requirements.txt 无变更
 
 ---
 
