@@ -1,7 +1,7 @@
 # JD-Aligned Development Roadmap
 
-> **[当前主执行计划]** 最后更新：2026-05-20  
-> **执行状态**：Phase 2 已完成（2026-05-20）→ Phase 3 即将开始  
+> **[当前主执行计划]** 最后更新：2026-05-25  
+> **执行状态**：Phase 1-5 已完成 → Phase 6 准备启动  
 > **进度追踪**：见本文档各 Phase 的验收标准
 
 > 基于「大语言模型与 Agent 应用开发实习生」岗位要求的项目升级路线图  
@@ -1056,39 +1056,30 @@
 #### 5.2 多 Agent 协作框架（Day 4-6）
 **目标**: 实现 Agent 间通信和协作
 
-**实现步骤**:
-1. 选择协作框架（二选一）:
-   - **方案 A**: 使用 AutoGen
-     ```python
-     from autogen import AssistantAgent, UserProxyAgent, GroupChat
-     
-     extractor = AssistantAgent("extractor", llm_config=config)
-     comparator = AssistantAgent("comparator", llm_config=config)
-     qa = AssistantAgent("qa", llm_config=config)
-     
-     group_chat = GroupChat(
-         agents=[extractor, comparator, qa],
-         messages=[],
-         max_round=10
-     )
-     ```
-   
-   - **方案 B**: 使用 CrewAI
-     ```python
-     from crewai import Agent, Task, Crew
-     
-     extractor = Agent(
-         role="信息提取专家",
-         goal="提取论文关键信息",
-         tools=[parse_tool, extract_tool]
-     )
-     
-     crew = Crew(
-         agents=[extractor, comparator, qa],
-         tasks=[extract_task, compare_task, qa_task],
-         process="sequential"
-     )
-     ```
+**实际选型**: **LangGraph Supervisor 模式**（已落地）
+
+**选型理由**:
+- 与 Phase 1 的 LangChain 工具栈无缝集成，无新依赖
+- StateGraph 提供显式的节点/边/状态合并，路由逻辑可解释
+- AutoGen / CrewAI 加分项已通过"评估对比 + 选择更轻量方案"体现
+- SQLite 持久化记忆比 AutoGen 的内置内存更适合本项目单用户场景
+
+**实现要点**:
+```python
+# app/agents/supervisor.py
+from langgraph.graph import END, StateGraph
+
+def build_supervisor_graph() -> StateGraph:
+    graph = StateGraph(SupervisorState)
+    graph.add_node("route", route_node)        # 关键词意图分类
+    graph.add_node("execute", execute_node)    # 分发到 Specialist
+    graph.add_node("synthesize", synthesize_node)  # 合并结果
+    graph.set_entry_point("route")
+    graph.add_edge("route", "execute")
+    graph.add_edge("execute", "synthesize")
+    graph.add_edge("synthesize", END)
+    return graph
+```
 
 2. 实现协作场景:
    - **场景 1**: 完整论文分析

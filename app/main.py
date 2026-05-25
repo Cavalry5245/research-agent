@@ -73,6 +73,12 @@ app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 app.add_middleware(RequestIDMiddleware)
 
+from app.routers.conversations import router as conversations_router
+app.include_router(conversations_router)
+
+from app.routers.traces import router as traces_router
+app.include_router(traces_router)
+
 
 class JobStore(Protocol):
     def upsert(self, job: JobStatusResponse) -> JobStatusResponse: ...
@@ -987,18 +993,38 @@ async def agent_execute(req: AgentExecuteRequest):
     from app.agents.paper_research_agent import get_agent
 
     agent = get_agent()
-    chat_history = None
-    if req.chat_history:
-        chat_history = [
-            {"role": m.role, "content": m.content} for m in req.chat_history
-        ]
 
     try:
-        result = agent.execute(req.task, chat_history=chat_history)
+        if req.mode == "supervisor":
+            result = agent.execute_supervisor(
+                req.task,
+                context=req.context,
+                conversation_id=req.conversation_id,
+            )
+            return AgentExecuteResponse(
+                task=result["task"],
+                answer=result["answer"],
+                conversation_id=result.get("conversation_id"),
+                task_type=result.get("task_type"),
+            )
+        else:
+            chat_history = None
+            if req.chat_history:
+                chat_history = [
+                    {"role": m.role, "content": m.content} for m in req.chat_history
+                ]
+            result = agent.execute(
+                req.task,
+                chat_history=chat_history,
+                conversation_id=req.conversation_id,
+            )
+            return AgentExecuteResponse(
+                task=result["task"],
+                answer=result["answer"],
+                conversation_id=result.get("conversation_id"),
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent 执行失败: {e}") from e
-
-    return AgentExecuteResponse(task=result["task"], answer=result["answer"])
 
 
 # ── Knowledge Base management (Phase 4) ──────────────────────────────────────

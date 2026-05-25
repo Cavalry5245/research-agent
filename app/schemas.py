@@ -296,11 +296,16 @@ class AgentChatMessage(BaseModel):
 class AgentExecuteRequest(BaseModel):
     task: str
     chat_history: list[AgentChatMessage] | None = None
+    mode: str = "react"  # "react" (LangChain ReAct) or "supervisor" (multi-agent)
+    conversation_id: str | None = None
+    context: dict | None = None
 
 
 class AgentExecuteResponse(BaseModel):
     task: str
     answer: str
+    conversation_id: str | None = None
+    task_type: str | None = None
 
 
 class KBCreateRequest(BaseModel):

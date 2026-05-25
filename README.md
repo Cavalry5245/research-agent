@@ -26,6 +26,7 @@
 | 🤖 **Agent 助手** | 自然语言驱动：自动拆解任务、调用工具链、工作流编排 |
 | 📊 **数据分析 & A/B 测试** | analytics 收集器、3 个实验场景、失败 case 分析、Jupyter Notebook 可视化 |
 | ⚙️ **工程化任务与日志** | 后台任务状态追踪、统一错误响应、request_id、JSONL 日志分析 |
+| 🧠 **多 Agent 协作** | Supervisor 路由 + 4 个 Specialist Agent + 三层记忆系统 + 执行追踪 |
 
 ## 技术栈
 
@@ -37,7 +38,8 @@
 | LLM | OpenAI-compatible API (DeepSeek / Qwen / Ollama) |
 | Embedding | sentence-transformers (bge-small-zh-v1.5) + 多模型切换 (bge-large / m3e / bge-m3) |
 | 向量检索 | 余弦相似度（接口兼容 Chroma） |
-| **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排）** |
+| **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排 + Supervisor 多 Agent）** |
+| **Multi-Agent** | **LangGraph Supervisor + 4 Specialist Agents + SQLite Memory** |
 | **Analytics (Phase 2)** | **pandas + matplotlib + seaborn + scipy（指标 / 可视化 / 显著性检验）** |
 | **Production readiness (Phase 3)** | **FastAPI BackgroundTasks + FileJobStore + JSONL logging + request tracing** |
 | 评测 | `app/evaluation` schemas + seed dataset builder + retrieval / QA benchmark scripts |
@@ -197,6 +199,11 @@ Storage: papers/ | notes/ | metadata/ | vector_db/ | logs/
 | `GET` | `/tasks/{job_id}/result` | 获取任务结果 |
 | `DELETE` | `/tasks/{job_id}` | 取消任务 |
 | `POST` | `/tasks/{job_id}/retry` | 重试失败任务 |
+| `POST` | `/agent/execute` | Agent 执行（mode: react/supervisor） |
+| `GET` | `/api/conversations` | 对话历史列表 |
+| `GET` | `/api/conversations/{id}` | 对话详情 |
+| `GET` | `/api/traces` | Agent 执行追踪 |
+| `GET` | `/api/traces/stats` | 追踪统计 |
 
 ### cURL 示例
 
@@ -294,6 +301,7 @@ research-agent/
 | **数据分析与效果评估** | Phase 2 analytics + experiments + 4 个 Jupyter Notebook + 失败分析 | ✅ |
 | **工程化与生产就绪** | 异步任务、结构化日志、错误处理、健康检查、日志分析 | ✅ |
 | **高级 RAG（Phase 4）** | Cross-encoder Rerank + BM25/Hybrid + QueryRewrite/HyDE + 多 KB | ✅ |
+| **多 Agent 协作（Phase 5）** | Supervisor 路由 + Specialist Agents + 三层记忆 + 执行追踪 | ✅ |
 | 测试基线 | 202 → 401 passed | ✅ |
 
 ## 运行测试

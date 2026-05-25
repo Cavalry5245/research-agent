@@ -168,7 +168,7 @@ with st.sidebar:
     st.caption("论文阅读与实验分析助手")
 
     st.divider()
-    tab = st.radio("导航", ["📤 论文上传", "📝 笔记生成", "💬 论文问答", "📊 论文对比", "🗄️ 知识库", "🤖 Agent 助手"], label_visibility="collapsed")
+    tab = st.radio("导航", ["📤 论文上传", "📝 笔记生成", "💬 论文问答", "📊 论文对比", "🗄️ 知识库", "🤖 Agent 助手", "🔍 Agent 监控"], label_visibility="collapsed")
 
     st.divider()
 
@@ -694,3 +694,11 @@ elif tab == "🤖 Agent 助手":
         # Free conversation mode
         from ui.components.agent_chat import render_agent_chat
         render_agent_chat()
+
+
+# ── Tab 7: Agent Monitor ─────────────────────────────────────────────────────
+
+
+elif tab == "🔍 Agent 监控":
+    from ui.pages.agent_monitor import render_agent_monitor
+    render_agent_monitor()

@@ -325,3 +325,52 @@ question ──►    │   (可选) QueryRewriter / HyDE            │
 
 - 不引入 Chroma 多 collection；KB 通过 paper_id 列表关联，复用单一 vector store
 - 索引版本管理与 `KnowledgeBaseManager` 解耦，便于按需采用
+
+## 多 Agent 协作（Phase 5）
+
+Phase 5 在 Phase 1 的单 Agent ReAct 基础上引入 Supervisor 多 Agent 架构：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Multi-Agent Layer                           │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Supervisor (LangGraph StateGraph)                    │  │
+│  │  route_node → execute_node → synthesize_node → END   │  │
+│  └────────────────────────┬──────────────────────────────┘  │
+│                           │                                 │
+│  ┌────────────────────────▼──────────────────────────────┐  │
+│  │  Specialist Agents                                    │  │
+│  │  ┌──────────┬───────────┬──────────┬──────────────┐   │  │
+│  │  │Extractor │Summarizer │ QA Agent │ Comparator   │   │  │
+│  │  └──────────┴───────────┴──────────┴──────────────┘   │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Memory System (SQLite WAL)                           │  │
+│  │  ShortTerm │ LongTerm │ Semantic                      │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Observability                                        │  │
+│  │  AgentTracer │ DecisionLogger │ /api/traces           │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                             │
+│  API: POST /agent/execute {mode: "supervisor"}              │
+│  UI: 🔍 Agent 监控 Tab                                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 协作场景
+
+| 场景 | Graph | 节点 |
+|------|-------|------|
+| 完整论文分析 | PaperAnalysisState | extract → summarize → qa |
+| 多论文对比 | ComparisonState | batch_extract → compare |
+| 交互式研究 | Sequential supervisor | 多轮路由 |
+
+### Phase 5 取舍
+
+- 使用 LangGraph 而非 AutoGen/CrewAI：与现有 LangChain 生态一致，无新依赖
+- SQLite 而非 Redis/PostgreSQL：单用户本地 MVP 足够，WAL 模式支持并发读
+- 关键词意图分类而非 LLM 分类：零延迟、零成本、可解释
