@@ -1,7 +1,7 @@
 """Tests for multi-agent collaboration scenarios."""
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

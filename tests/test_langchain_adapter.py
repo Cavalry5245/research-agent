@@ -4,7 +4,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.agents.langchain_adapter import _create_args_schema, convert_to_langchain_tool, convert_all_tools
+from app.agents.langchain_adapter import (
+    _create_args_schema,
+    convert_all_tools,
+    convert_to_langchain_tool,
+)
 from app.agents.tools.base import BaseTool, ToolParameter, ToolResult
 from app.agents.tools.paper_tools import QATool, UploadPaperTool
 
@@ -17,7 +21,12 @@ class EchoTool(BaseTool):
     def parameters(self) -> list[ToolParameter]:
         return [
             ToolParameter(name="message", type="string", description="Message to echo"),
-            ToolParameter(name="repeat", type="integer", description="Repeat count", required=False),
+            ToolParameter(
+                name="repeat",
+                type="integer",
+                description="Repeat count",
+                required=False,
+            ),
         ]
 
     def execute(self, **kwargs) -> ToolResult:

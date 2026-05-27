@@ -13,14 +13,19 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from app.evaluation.metrics import load_comparison_samples
-from app.evaluation.reporting import build_comparison_report_markdown, build_comparison_report_payload
+from app.evaluation.reporting import (
+    build_comparison_report_markdown,
+    build_comparison_report_payload,
+)
 from app.schemas import CompareBatchRunResult, PaperComparisonResult
 from app.services.paper_compare import compare_papers_batch, save_compare_batch_result
 
 DEFAULT_DATASET = Path("app/evaluation/datasets/comparison_eval_seed.jsonl")
 DEFAULT_OUTPUT = Path("app/evaluation/reports/comparison_eval_seed_report.json")
 DEFAULT_MARKDOWN_OUTPUT = Path("app/evaluation/reports/comparison_eval_seed_report.md")
-DEFAULT_COMPARE_OUTPUT = Path("app/evaluation/reports/comparison_eval_seed_predictions.json")
+DEFAULT_COMPARE_OUTPUT = Path(
+    "app/evaluation/reports/comparison_eval_seed_predictions.json"
+)
 DEFAULT_METADATA_DIR = Path("app/storage/metadata")
 
 
@@ -73,7 +78,9 @@ def _build_seed_predicted_comparison(sample: Any) -> dict[str, Any]:
     for aspect in sample.comparison_aspects:
         evidence = []
         per_paper = {}
-        for paper_id, paper_title in zip(sample.paper_ids, sample.paper_titles, strict=False):
+        for paper_id, paper_title in zip(
+            sample.paper_ids, sample.paper_titles, strict=False
+        ):
             sections = sample.supporting_sections.get(paper_id, [])
             if sections:
                 per_paper[paper_id] = f"基于{sections[0]}提取的{aspect}信息"
@@ -111,7 +118,6 @@ def _normalize_text(value: Any) -> str:
     return str(value).strip().lower()
 
 
-
 def _aspect_evidence_matches(aspect: Any) -> bool:
     if not aspect.evidence:
         return False
@@ -124,11 +130,17 @@ def _aspect_evidence_matches(aspect: Any) -> bool:
     if not relevant_values:
         return False
 
-    evidence_sections = {_normalize_text(item.section) for item in aspect.evidence if _normalize_text(item.section)}
+    evidence_sections = {
+        _normalize_text(item.section)
+        for item in aspect.evidence
+        if _normalize_text(item.section)
+    }
     aspect_name = _normalize_text(getattr(aspect, "name", ""))
     snippets = " ".join(_normalize_text(item.snippet) for item in aspect.evidence)
     return any(
-        value in snippets or value in evidence_sections or (aspect_name and aspect_name in snippets)
+        value in snippets
+        or value in evidence_sections
+        or (aspect_name and aspect_name in snippets)
         for value in relevant_values
     )
 
@@ -141,7 +153,6 @@ def _aspect_sections_align(aspect: Any, sample: Any) -> bool:
     if not aligned_by_paper:
         return True
     return all(score >= 1.0 for score in aligned_by_paper.values())
-
 
 
 def _aspect_paper_alignment(aspect: Any, sample: Any) -> dict[str, float]:
@@ -163,7 +174,8 @@ def _aspect_paper_alignment(aspect: Any, sample: Any) -> dict[str, float]:
         evidence_sections = {
             _normalize_text(item.section)
             for item in aspect.evidence
-            if _normalize_text(getattr(item, "paper_id", None)) == _normalize_text(paper_id)
+            if _normalize_text(getattr(item, "paper_id", None))
+            == _normalize_text(paper_id)
             and _normalize_text(item.section)
         }
 
@@ -174,17 +186,21 @@ def _aspect_paper_alignment(aspect: Any, sample: Any) -> dict[str, float]:
             aligned_by_paper[paper_id] = 0.0
             continue
 
-        aligned_by_paper[paper_id] = 1.0 if bool(evidence_sections & expected_sections) else 0.0
+        aligned_by_paper[paper_id] = (
+            1.0 if bool(evidence_sections & expected_sections) else 0.0
+        )
 
     return aligned_by_paper
-
 
 
 def _load_predicted_comparison(sample: Any) -> tuple[PaperComparisonResult, str]:
     raw = sample.metadata.get("predicted_comparison")
     if raw:
         return PaperComparisonResult.model_validate(raw), "predicted_comparison"
-    return PaperComparisonResult.model_validate(_build_seed_predicted_comparison(sample)), "deterministic_stub"
+    return (
+        PaperComparisonResult.model_validate(_build_seed_predicted_comparison(sample)),
+        "deterministic_stub",
+    )
 
 
 def evaluate_comparison_dataset(dataset_path: Path) -> dict[str, Any]:
@@ -196,20 +212,30 @@ def evaluate_comparison_dataset(dataset_path: Path) -> dict[str, Any]:
         predicted_aspects = [aspect.name for aspect in comparison.aspects]
         expected_aspects = list(sample.comparison_aspects)
 
-        missing_aspects = [aspect for aspect in expected_aspects if aspect not in predicted_aspects]
+        missing_aspects = [
+            aspect for aspect in expected_aspects if aspect not in predicted_aspects
+        ]
         aspects_with_missing_evidence = []
         for aspect_name in expected_aspects:
-            aspect = next((item for item in comparison.aspects if item.name == aspect_name), None)
+            aspect = next(
+                (item for item in comparison.aspects if item.name == aspect_name), None
+            )
             if aspect is None or not aspect.evidence:
                 aspects_with_missing_evidence.append(aspect_name)
 
         evidence_quality_issues = []
         section_alignment_issues = []
-        paper_alignment: dict[str, float] = {paper_id: 0.0 for paper_id in sample.paper_ids}
-        paper_alignment_counts: dict[str, int] = {paper_id: 0 for paper_id in sample.paper_ids}
+        paper_alignment: dict[str, float] = {
+            paper_id: 0.0 for paper_id in sample.paper_ids
+        }
+        paper_alignment_counts: dict[str, int] = {
+            paper_id: 0 for paper_id in sample.paper_ids
+        }
         paper_alignment_issues: dict[str, list[str]] = {}
         for aspect_name in expected_aspects:
-            aspect = next((item for item in comparison.aspects if item.name == aspect_name), None)
+            aspect = next(
+                (item for item in comparison.aspects if item.name == aspect_name), None
+            )
             if aspect is None or not aspect.evidence:
                 continue
             if not _aspect_evidence_matches(aspect):
@@ -217,8 +243,14 @@ def evaluate_comparison_dataset(dataset_path: Path) -> dict[str, Any]:
             aspect_paper_alignment = _aspect_paper_alignment(aspect, sample)
             for paper_id, score in aspect_paper_alignment.items():
                 paper_alignment[paper_id] = paper_alignment.get(paper_id, 0.0) + score
-                paper_alignment_counts[paper_id] = paper_alignment_counts.get(paper_id, 0) + 1
-            misaligned_papers = [paper_id for paper_id, score in aspect_paper_alignment.items() if score < 1.0]
+                paper_alignment_counts[paper_id] = (
+                    paper_alignment_counts.get(paper_id, 0) + 1
+                )
+            misaligned_papers = [
+                paper_id
+                for paper_id, score in aspect_paper_alignment.items()
+                if score < 1.0
+            ]
             if misaligned_papers:
                 section_alignment_issues.append(aspect_name)
                 paper_alignment_issues[aspect_name] = misaligned_papers
@@ -234,23 +266,36 @@ def evaluate_comparison_dataset(dataset_path: Path) -> dict[str, Any]:
 
         for paper_id in sample.paper_ids:
             if paper_alignment_counts.get(paper_id):
-                paper_alignment[paper_id] = paper_alignment[paper_id] / paper_alignment_counts[paper_id]
+                paper_alignment[paper_id] = (
+                    paper_alignment[paper_id] / paper_alignment_counts[paper_id]
+                )
             else:
                 paper_alignment[paper_id] = 1.0
 
         total_aspects = len(expected_aspects)
-        completeness = (total_aspects - len(missing_aspects)) / total_aspects if total_aspects else 0.0
+        completeness = (
+            (total_aspects - len(missing_aspects)) / total_aspects
+            if total_aspects
+            else 0.0
+        )
         evidence_completeness = (
-            (total_aspects - len(aspects_with_missing_evidence)) / total_aspects if total_aspects else 0.0
+            (total_aspects - len(aspects_with_missing_evidence)) / total_aspects
+            if total_aspects
+            else 0.0
         )
         evidence_quality = (
-            (total_aspects - len(evidence_quality_issues)) / total_aspects if total_aspects else 0.0
+            (total_aspects - len(evidence_quality_issues)) / total_aspects
+            if total_aspects
+            else 0.0
         )
         section_alignment = (
-            sum(paper_alignment.values()) / len(paper_alignment) if paper_alignment else 0.0
+            sum(paper_alignment.values()) / len(paper_alignment)
+            if paper_alignment
+            else 0.0
         )
         paper_balance = (
-            sum(1 for covered in paper_coverage.values() if covered) / len(sample.paper_ids)
+            sum(1 for covered in paper_coverage.values() if covered)
+            / len(sample.paper_ids)
             if sample.paper_ids
             else 0.0
         )
@@ -280,11 +325,23 @@ def evaluate_comparison_dataset(dataset_path: Path) -> dict[str, Any]:
 
     summary = {
         "sample_count": len(results),
-        "mean_completeness": mean([result.completeness for result in results]) if results else 0.0,
-        "mean_evidence_completeness": mean([result.evidence_completeness for result in results]) if results else 0.0,
-        "mean_evidence_quality": mean([result.evidence_quality for result in results]) if results else 0.0,
-        "mean_section_alignment": mean([result.section_alignment for result in results]) if results else 0.0,
-        "mean_paper_balance": mean([result.paper_balance for result in results]) if results else 0.0,
+        "mean_completeness": (
+            mean([result.completeness for result in results]) if results else 0.0
+        ),
+        "mean_evidence_completeness": (
+            mean([result.evidence_completeness for result in results])
+            if results
+            else 0.0
+        ),
+        "mean_evidence_quality": (
+            mean([result.evidence_quality for result in results]) if results else 0.0
+        ),
+        "mean_section_alignment": (
+            mean([result.section_alignment for result in results]) if results else 0.0
+        ),
+        "mean_paper_balance": (
+            mean([result.paper_balance for result in results]) if results else 0.0
+        ),
     }
 
     return {
@@ -322,7 +379,9 @@ def generate_live_compare_predictions(
                 "compare batch helper failed with exit code "
                 f"{completed.returncode}\nSTDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
             )
-        return CompareBatchRunResult.model_validate_json(output_path.read_text(encoding="utf-8"))
+        return CompareBatchRunResult.model_validate_json(
+            output_path.read_text(encoding="utf-8")
+        )
 
     result = compare_papers_batch(
         dataset_path=str(dataset_path),
@@ -354,8 +413,16 @@ def inject_live_compare_predictions(
 
     dataset_sample_ids = {row.get("sample_id") for row in original_rows}
     batch_sample_ids = set(comparison_by_sample_id)
-    unmatched_sample_ids = [sample_id for sample_id in batch_sample_ids if sample_id not in dataset_sample_ids]
-    missing_prediction_sample_ids = [sample_id for sample_id in dataset_sample_ids if sample_id not in batch_sample_ids]
+    unmatched_sample_ids = [
+        sample_id
+        for sample_id in batch_sample_ids
+        if sample_id not in dataset_sample_ids
+    ]
+    missing_prediction_sample_ids = [
+        sample_id
+        for sample_id in dataset_sample_ids
+        if sample_id not in batch_sample_ids
+    ]
     if unmatched_sample_ids:
         raise ValueError(
             "Live compare payload contains sample_ids not found in dataset: "
@@ -385,7 +452,9 @@ def inject_live_compare_predictions(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Evaluate structured multi-paper comparison outputs.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate structured multi-paper comparison outputs."
+    )
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--markdown-output", type=Path, default=DEFAULT_MARKDOWN_OUTPUT)
@@ -422,7 +491,9 @@ if __name__ == "__main__":
     markdown = build_comparison_report_markdown(payload)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     args.markdown_output.parent.mkdir(parents=True, exist_ok=True)
     args.markdown_output.write_text(markdown, encoding="utf-8")
 

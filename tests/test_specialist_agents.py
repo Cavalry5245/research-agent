@@ -1,16 +1,16 @@
 """Tests for specialist agents."""
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.agents.specialists import AgentResult, BaseSpecialist
-from app.agents.specialists.extractor_agent import ExtractorAgent
-from app.agents.specialists.summarizer_agent import SummarizerAgent
-from app.agents.specialists.qa_agent import QAAgent
 from app.agents.specialists.comparator_agent import ComparatorAgent
+from app.agents.specialists.extractor_agent import ExtractorAgent
+from app.agents.specialists.qa_agent import QAAgent
+from app.agents.specialists.summarizer_agent import SummarizerAgent
 
 
 class TestBaseSpecialist:
@@ -51,7 +51,10 @@ class TestExtractorAgent:
         mock_parsed = MagicMock()
         mock_parsed.title = "Test Paper"
         mock_parsed.abstract = "This is an abstract about testing."
-        mock_parsed.sections = [MagicMock(heading="Introduction"), MagicMock(heading="Method")]
+        mock_parsed.sections = [
+            MagicMock(heading="Introduction"),
+            MagicMock(heading="Method"),
+        ]
         mock_load.return_value = mock_parsed
 
         agent = ExtractorAgent()

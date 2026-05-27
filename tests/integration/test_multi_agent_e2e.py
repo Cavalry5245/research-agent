@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.agents.decision_logger import DecisionLogger
 from app.agents.paper_research_agent import PaperResearchAgent
 from app.agents.scenarios import (
     run_interactive_session,
@@ -18,7 +19,6 @@ from app.agents.scenarios import (
 )
 from app.agents.supervisor import SupervisorAgent, classify_intent
 from app.agents.tracing import AgentTracer
-from app.agents.decision_logger import DecisionLogger
 from app.services.memory_store import MemoryStore
 
 
@@ -39,8 +39,16 @@ class TestSupervisorE2E:
     def test_qa_routing_full_pipeline(self, mock_emb_cls, mock_vs_cls, mock_answer):
         mock_answer.return_value = {
             "answer": "这是一个关于深度学习的回答。",
-            "sources": [{"chunk_id": "c1", "content": "Test", "paper_id": "p1",
-                         "title": "Paper", "section": "Method", "score": 0.9}],
+            "sources": [
+                {
+                    "chunk_id": "c1",
+                    "content": "Test",
+                    "paper_id": "p1",
+                    "title": "Paper",
+                    "section": "Method",
+                    "score": 0.9,
+                }
+            ],
         }
 
         supervisor = SupervisorAgent()
@@ -55,7 +63,9 @@ class TestSupervisorE2E:
         mock_llm.return_value = "## 对比结果\n论文A和B的主要区别在于..."
 
         supervisor = SupervisorAgent()
-        result = supervisor.run("对比这两篇论文的方法", context={"paper_ids": ["p1", "p2"]})
+        result = supervisor.run(
+            "对比这两篇论文的方法", context={"paper_ids": ["p1", "p2"]}
+        )
 
         assert result["task_type"] == "compare"
 
@@ -70,7 +80,9 @@ class TestSupervisorE2E:
         ]
         for text, expected_type in test_cases:
             result = classify_intent(text)
-            assert result == expected_type, f"'{text}' classified as '{result}', expected '{expected_type}'"
+            assert (
+                result == expected_type
+            ), f"'{text}' classified as '{result}', expected '{expected_type}'"
 
 
 # ── Scenario 2: Memory persistence across agent execution ────────────────────
@@ -167,7 +179,9 @@ class TestScenarioGraphsE2E:
         from app.agents.specialists import AgentResult
 
         mock_ext = MagicMock()
-        mock_ext.execute.return_value = AgentResult(success=True, output="Extracted info")
+        mock_ext.execute.return_value = AgentResult(
+            success=True, output="Extracted info"
+        )
         mock_ext_cls.return_value = mock_ext
 
         mock_sum = MagicMock()
@@ -175,7 +189,9 @@ class TestScenarioGraphsE2E:
         mock_sum_cls.return_value = mock_sum
 
         mock_qa = MagicMock()
-        mock_qa.execute.return_value = AgentResult(success=True, output="Answer to question")
+        mock_qa.execute.return_value = AgentResult(
+            success=True, output="Answer to question"
+        )
         mock_qa_cls.return_value = mock_qa
 
         result = run_paper_analysis("paper_001", questions=["核心贡献是什么？"])
@@ -197,7 +213,9 @@ class TestScenarioGraphsE2E:
         mock_ext_cls.return_value = mock_ext
 
         mock_comp = MagicMock()
-        mock_comp.execute.return_value = AgentResult(success=True, output="Comparison done")
+        mock_comp.execute.return_value = AgentResult(
+            success=True, output="Comparison done"
+        )
         mock_comp_cls.return_value = mock_comp
 
         result = run_multi_paper_comparison(["p1", "p2", "p3"])
@@ -254,6 +272,7 @@ class TestObservabilityWiring:
         assert len(routing_traces) >= 1
 
         import json
+
         output = json.loads(routing_traces[0]["output_data"])
         assert output["classified_type"] == "qa"
         assert output["routed_to"] == "qa"
@@ -279,6 +298,7 @@ class TestObservabilityWiring:
         assert len(delegation_traces) >= 1
 
         import json
+
         output = json.loads(delegation_traces[0]["output_data"])
         assert "success" in output
         assert delegation_traces[0]["duration_ms"] is not None
@@ -312,6 +332,7 @@ class TestObservabilityWiring:
     ):
         """Verify /api/traces and /api/traces/stats return data from real execution."""
         from fastapi.testclient import TestClient
+
         from app.main import app
         from app.routers.traces import set_trace_store
 

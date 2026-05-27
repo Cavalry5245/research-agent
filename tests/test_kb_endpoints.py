@@ -32,7 +32,9 @@ def test_list_kbs_includes_default():
 
 def test_create_kb_returns_201_and_persists():
     client, tmp = _fresh_manager_client()
-    resp = client.post("/kb", json={"kb_id": "robotics", "name": "机器人", "description": "机器人相关"})
+    resp = client.post(
+        "/kb", json={"kb_id": "robotics", "name": "机器人", "description": "机器人相关"}
+    )
     assert resp.status_code == 201
     assert resp.json()["id"] == "robotics"
 

@@ -14,7 +14,9 @@ def test_submit_note_task_runs_in_background_and_stores_result(monkeypatch, tmp_
     client = TestClient(app)
 
     monkeypatch.setattr("app.main._resolve_note_dir", lambda: str(tmp_path))
-    monkeypatch.setattr("app.main.generate_note", lambda paper_id: f"# Note for {paper_id}")
+    monkeypatch.setattr(
+        "app.main.generate_note", lambda paper_id: f"# Note for {paper_id}"
+    )
 
     response = client.post("/tasks/note/paper_NOTE")
 

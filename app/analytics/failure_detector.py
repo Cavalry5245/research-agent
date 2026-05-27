@@ -38,13 +38,19 @@ class FailureDetector:
                 reason="empty retrieval results",
                 context={"query": query[:160]},
             )
-        best_score = max((float(r.get("score", 0.0) or 0.0) for r in results), default=0.0)
+        best_score = max(
+            (float(r.get("score", 0.0) or 0.0) for r in results), default=0.0
+        )
         if best_score < self.retrieval_threshold:
             return FailureCase(
                 failure_type="retrieval_low_score",
                 sample_id=sample_id,
                 reason=f"top score {best_score:.3f} below threshold {self.retrieval_threshold}",
-                context={"query": query[:160], "top_score": best_score, "num_results": len(results)},
+                context={
+                    "query": query[:160],
+                    "top_score": best_score,
+                    "num_results": len(results),
+                },
             )
         relevant_count = sum(1 for r in results if r.get("is_relevant"))
         if relevant_count == 0:
@@ -79,7 +85,11 @@ class FailureDetector:
                     failure_type="qa_low_score",
                     sample_id=sample_id,
                     reason=f"answer score {score:.3f} below threshold {self.qa_threshold}",
-                    context={"question": question[:160], "score": score, "answer": answer[:200]},
+                    context={
+                        "question": question[:160],
+                        "score": score,
+                        "answer": answer[:200],
+                    },
                 )
         if citation_evaluation is not None:
             cite_score = float(citation_evaluation.get("score", 0.0) or 0.0)

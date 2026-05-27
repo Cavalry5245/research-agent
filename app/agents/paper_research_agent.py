@@ -32,7 +32,11 @@ class PaperResearchAgent:
     Wraps LangGraph create_react_agent for tool calling with conversation memory.
     """
 
-    def __init__(self, extra_tools: list[BaseTool] | None = None, memory_store: MemoryStore | None = None):
+    def __init__(
+        self,
+        extra_tools: list[BaseTool] | None = None,
+        memory_store: MemoryStore | None = None,
+    ):
         self._registry = ToolRegistry()
         self._register_default_tools()
         if extra_tools:
@@ -76,14 +80,16 @@ class PaperResearchAgent:
         )
 
     def _register_default_tools(self) -> None:
-        self._registry.register_all([
-            UploadPaperTool(),
-            GenerateNoteTool(),
-            IndexPaperTool(),
-            QATool(),
-            ComparePapersTool(),
-            ExportMarkdownTool(),
-        ])
+        self._registry.register_all(
+            [
+                UploadPaperTool(),
+                GenerateNoteTool(),
+                IndexPaperTool(),
+                QATool(),
+                ComparePapersTool(),
+                ExportMarkdownTool(),
+            ]
+        )
 
     @property
     def tool_names(self) -> list[str]:
@@ -93,7 +99,12 @@ class PaperResearchAgent:
     def tool_count(self) -> int:
         return len(self._registry.list_tools())
 
-    def execute(self, task: str, chat_history: list[dict[str, str]] | None = None, conversation_id: str | None = None) -> dict[str, Any]:
+    def execute(
+        self,
+        task: str,
+        chat_history: list[dict[str, str]] | None = None,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
         """Execute a user task and return the final answer.
 
         Args:
@@ -117,21 +128,26 @@ class PaperResearchAgent:
                 content = m.get("content", "")
                 if role == "user":
                     from langchain_core.messages import HumanMessage
+
                     messages.append(HumanMessage(content=content))
                 else:
                     from langchain_core.messages import AIMessage
+
                     messages.append(AIMessage(content=content))
         else:
             stored_ctx = self._short_term.get_context(conversation_id)
             for m in stored_ctx[:-1]:
                 if m["role"] == "user":
                     from langchain_core.messages import HumanMessage
+
                     messages.append(HumanMessage(content=m["content"]))
                 else:
                     from langchain_core.messages import AIMessage
+
                     messages.append(AIMessage(content=m["content"]))
 
         from langchain_core.messages import HumanMessage
+
         messages.append(HumanMessage(content=task))
 
         logger.info("Agent executing task: %s", task[:100])
@@ -165,6 +181,7 @@ class PaperResearchAgent:
         messages = []
         if chat_history:
             from langchain_core.messages import AIMessage, HumanMessage
+
             for m in chat_history:
                 role = m.get("role", "user")
                 content = m.get("content", "")
@@ -174,10 +191,16 @@ class PaperResearchAgent:
                     messages.append(AIMessage(content=content))
 
         from langchain_core.messages import HumanMessage
+
         messages.append(HumanMessage(content=task))
         return self._graph.stream({"messages": messages})
 
-    def execute_supervisor(self, task: str, context: dict[str, Any] | None = None, conversation_id: str | None = None) -> dict[str, Any]:
+    def execute_supervisor(
+        self,
+        task: str,
+        context: dict[str, Any] | None = None,
+        conversation_id: str | None = None,
+    ) -> dict[str, Any]:
         """Execute via the Supervisor multi-agent architecture.
 
         Routes the task to the appropriate specialist agent and returns the result.

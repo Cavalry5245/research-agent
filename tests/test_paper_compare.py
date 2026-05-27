@@ -35,8 +35,14 @@ def sample_parsed_papers(tmp_path: Path) -> str:
         "title": "Paper A",
         "abstract": "Paper A abstract",
         "sections": [
-            {"heading": "Method", "content": "Transformer backbone for classification."},
-            {"heading": "Experiments", "content": "Evaluated on CIFAR-10 with accuracy."},
+            {
+                "heading": "Method",
+                "content": "Transformer backbone for classification.",
+            },
+            {
+                "heading": "Experiments",
+                "content": "Evaluated on CIFAR-10 with accuracy.",
+            },
         ],
         "full_text": "full text a",
         "pdf_path": "paper_a.pdf",
@@ -53,12 +59,18 @@ def sample_parsed_papers(tmp_path: Path) -> str:
         "pdf_path": "paper_b.pdf",
     }
 
-    (metadata_dir / "paper_a_parsed.json").write_text(json.dumps(paper_a, ensure_ascii=False), encoding="utf-8")
-    (metadata_dir / "paper_b_parsed.json").write_text(json.dumps(paper_b, ensure_ascii=False), encoding="utf-8")
+    (metadata_dir / "paper_a_parsed.json").write_text(
+        json.dumps(paper_a, ensure_ascii=False), encoding="utf-8"
+    )
+    (metadata_dir / "paper_b_parsed.json").write_text(
+        json.dumps(paper_b, ensure_ascii=False), encoding="utf-8"
+    )
     return str(metadata_dir)
 
 
-def test_compare_papers_returns_structured_and_markdown_outputs(sample_parsed_papers: str):
+def test_compare_papers_returns_structured_and_markdown_outputs(
+    sample_parsed_papers: str,
+):
     llm_output = {
         "overview": "两篇论文都关注视觉任务，但方法路线不同。",
         "aspects": [
@@ -128,7 +140,12 @@ def test_compare_papers_rejects_invalid_compare_stage_json(sample_parsed_papers:
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -139,7 +156,9 @@ def test_compare_papers_rejects_invalid_compare_stage_json(sample_parsed_papers:
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Method", "snippet": "CNN backbone for detection."}],
+            "evidence": [
+                {"section": "Method", "snippet": "CNN backbone for detection."}
+            ],
         },
     }
     llm_client = StubLLMClient("")
@@ -161,7 +180,9 @@ def test_compare_papers_rejects_invalid_compare_stage_json(sample_parsed_papers:
         )
 
 
-def test_compare_papers_rejects_non_dict_compare_stage_payload(sample_parsed_papers: str):
+def test_compare_papers_rejects_non_dict_compare_stage_payload(
+    sample_parsed_papers: str,
+):
     extraction_output = {
         "paper_a": {
             "research_problem": "图像分类",
@@ -172,7 +193,12 @@ def test_compare_papers_rejects_non_dict_compare_stage_payload(sample_parsed_pap
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -183,7 +209,9 @@ def test_compare_papers_rejects_non_dict_compare_stage_payload(sample_parsed_pap
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Method", "snippet": "CNN backbone for detection."}],
+            "evidence": [
+                {"section": "Method", "snippet": "CNN backbone for detection."}
+            ],
         },
     }
     llm_client = StubLLMClient("")
@@ -205,7 +233,9 @@ def test_compare_papers_rejects_non_dict_compare_stage_payload(sample_parsed_pap
         )
 
 
-def test_compare_papers_normalizes_blank_compare_overview_and_summary(sample_parsed_papers: str):
+def test_compare_papers_normalizes_blank_compare_overview_and_summary(
+    sample_parsed_papers: str,
+):
     extraction_output = {
         "paper_a": {
             "research_problem": "图像分类",
@@ -216,7 +246,12 @@ def test_compare_papers_normalizes_blank_compare_overview_and_summary(sample_par
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -227,7 +262,9 @@ def test_compare_papers_normalizes_blank_compare_overview_and_summary(sample_par
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Method", "snippet": "CNN backbone for detection."}],
+            "evidence": [
+                {"section": "Method", "snippet": "CNN backbone for detection."}
+            ],
         },
     }
     compare_output = {
@@ -267,7 +304,9 @@ def test_compare_papers_normalizes_blank_compare_overview_and_summary(sample_par
     assert "## 总览\n未明确说明" in result.markdown
 
 
-def test_compare_papers_replaces_non_list_key_differences_with_empty_list(sample_parsed_papers: str):
+def test_compare_papers_replaces_non_list_key_differences_with_empty_list(
+    sample_parsed_papers: str,
+):
     extraction_output = {
         "paper_a": {
             "research_problem": "图像分类",
@@ -278,7 +317,12 @@ def test_compare_papers_replaces_non_list_key_differences_with_empty_list(sample
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -289,7 +333,9 @@ def test_compare_papers_replaces_non_list_key_differences_with_empty_list(sample
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Method", "snippet": "CNN backbone for detection."}],
+            "evidence": [
+                {"section": "Method", "snippet": "CNN backbone for detection."}
+            ],
         },
     }
     compare_output = {
@@ -327,7 +373,6 @@ def test_compare_papers_replaces_non_list_key_differences_with_empty_list(sample
     assert result.aspects[0].key_differences == []
 
 
-
 def test_compare_papers_escapes_markdown_table_cells(sample_parsed_papers: str):
     extraction_output = {
         "paper_a": {
@@ -339,7 +384,12 @@ def test_compare_papers_escapes_markdown_table_cells(sample_parsed_papers: str):
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -350,7 +400,9 @@ def test_compare_papers_escapes_markdown_table_cells(sample_parsed_papers: str):
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Method", "snippet": "CNN backbone for detection."}],
+            "evidence": [
+                {"section": "Method", "snippet": "CNN backbone for detection."}
+            ],
         },
     }
     compare_output = {
@@ -383,7 +435,9 @@ def test_compare_papers_escapes_markdown_table_cells(sample_parsed_papers: str):
     paper_a_path = parsed_dir / "paper_a_parsed.json"
     paper_a_payload = json.loads(paper_a_path.read_text(encoding="utf-8"))
     paper_a_payload["title"] = "Paper | A"
-    paper_a_path.write_text(json.dumps(paper_a_payload, ensure_ascii=False), encoding="utf-8")
+    paper_a_path.write_text(
+        json.dumps(paper_a_payload, ensure_ascii=False), encoding="utf-8"
+    )
 
     result = paper_compare.compare_papers(
         ["paper_a", "paper_b"],
@@ -397,7 +451,6 @@ def test_compare_papers_escapes_markdown_table_cells(sample_parsed_papers: str):
     assert "Transformer \\| CNN<br>第二行" in result.markdown
 
 
-
 def test_compare_papers_ignores_non_dict_aspect_entries(sample_parsed_papers: str):
     extraction_output = {
         "paper_a": {
@@ -409,7 +462,12 @@ def test_compare_papers_ignores_non_dict_aspect_entries(sample_parsed_papers: st
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -420,7 +478,9 @@ def test_compare_papers_ignores_non_dict_aspect_entries(sample_parsed_papers: st
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Method", "snippet": "CNN backbone for detection."}],
+            "evidence": [
+                {"section": "Method", "snippet": "CNN backbone for detection."}
+            ],
         },
     }
     compare_output = {
@@ -461,7 +521,9 @@ def test_compare_papers_ignores_non_dict_aspect_entries(sample_parsed_papers: st
     assert "Paper A 使用 Transformer" in result.markdown
 
 
-def test_compare_papers_propagates_structured_summaries_in_response(sample_parsed_papers: str):
+def test_compare_papers_propagates_structured_summaries_in_response(
+    sample_parsed_papers: str,
+):
     extraction_output = {
         "paper_a": {
             "research_problem": "图像分类中的表示学习。",
@@ -472,7 +534,12 @@ def test_compare_papers_propagates_structured_summaries_in_response(sample_parse
             "strengths": "全局建模能力强。",
             "limitations": "对算力要求较高。",
             "scenarios": "中等规模图像分类任务。",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测中的局部特征建模。",
@@ -483,7 +550,9 @@ def test_compare_papers_propagates_structured_summaries_in_response(sample_parse
             "strengths": "局部感受野强，检测成熟。",
             "limitations": "长程依赖建模较弱。",
             "scenarios": "通用检测任务。",
-            "evidence": [{"section": "Results", "snippet": "Evaluated on COCO with mAP."}],
+            "evidence": [
+                {"section": "Results", "snippet": "Evaluated on COCO with mAP."}
+            ],
         },
     }
     compare_output = {
@@ -493,7 +562,10 @@ def test_compare_papers_propagates_structured_summaries_in_response(sample_parse
                 "name": "method",
                 "summary": "Paper A 使用 Transformer，Paper B 使用 CNN。",
                 "key_differences": ["A 更偏表示学习", "B 更偏检测任务"],
-                "per_paper": {"paper_a": "Transformer backbone", "paper_b": "CNN backbone"},
+                "per_paper": {
+                    "paper_a": "Transformer backbone",
+                    "paper_b": "CNN backbone",
+                },
                 "evidence": [
                     {
                         "paper_id": "paper_a",
@@ -535,7 +607,9 @@ def test_compare_papers_propagates_structured_summaries_in_response(sample_parse
     assert result.structured_summaries["paper_b"].metrics == "mAP"
 
 
-def test_extract_paper_summaries_returns_per_paper_structured_fields(sample_parsed_papers: str):
+def test_extract_paper_summaries_returns_per_paper_structured_fields(
+    sample_parsed_papers: str,
+):
     llm_outputs = {
         "paper_a": {
             "research_problem": "图像分类中的表示学习。",
@@ -587,11 +661,18 @@ def test_extract_paper_summaries_returns_per_paper_structured_fields(sample_pars
     assert llm_client.prompts
 
 
-def test_extract_paper_summaries_defaults_missing_fields_to_未明确说明(sample_parsed_papers: str):
+def test_extract_paper_summaries_defaults_missing_fields_to_未明确说明(
+    sample_parsed_papers: str,
+):
     llm_outputs = {
         "paper_a": {
             "method": "Transformer backbone with supervised training.",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {},
     }
@@ -604,13 +685,17 @@ def test_extract_paper_summaries_defaults_missing_fields_to_未明确说明(samp
     )
 
     assert summaries["paper_a"].research_problem == "未明确说明"
-    assert summaries["paper_a"].method == "Transformer backbone with supervised training."
+    assert (
+        summaries["paper_a"].method == "Transformer backbone with supervised training."
+    )
     assert summaries["paper_b"].dataset == "未明确说明"
     assert summaries["paper_b"].strengths == "未明确说明"
     assert summaries["paper_b"].evidence == []
 
 
-def test_extract_paper_summaries_tolerates_non_dict_top_level_and_non_dict_per_paper_payload(sample_parsed_papers: str):
+def test_extract_paper_summaries_tolerates_non_dict_top_level_and_non_dict_per_paper_payload(
+    sample_parsed_papers: str,
+):
     top_level_non_dict_client = StubLLMClient(json.dumps([], ensure_ascii=False))
 
     with pytest.raises(RuntimeError, match="单篇结构化抽取结果解析失败"):
@@ -641,7 +726,9 @@ def test_extract_paper_summaries_tolerates_non_dict_top_level_and_non_dict_per_p
     assert summaries["paper_b"].dataset == "未明确说明"
 
 
-def test_compare_papers_uses_structured_extraction_before_comparison(sample_parsed_papers: str):
+def test_compare_papers_uses_structured_extraction_before_comparison(
+    sample_parsed_papers: str,
+):
     llm_output = {
         "overview": "两篇论文都关注视觉任务，但方法路线不同。",
         "aspects": [
@@ -723,7 +810,9 @@ def test_compare_papers_uses_structured_extraction_before_comparison(sample_pars
         return original_prompt_builder(papers_text)
 
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(paper_compare, "extract_paper_summaries", lambda *args, **kwargs: extracted)
+    monkeypatch.setattr(
+        paper_compare, "extract_paper_summaries", lambda *args, **kwargs: extracted
+    )
     monkeypatch.setattr(paper_compare, "build_compare_prompt", capture_prompt)
     try:
         result = paper_compare.compare_papers(
@@ -740,7 +829,9 @@ def test_compare_papers_uses_structured_extraction_before_comparison(sample_pars
     assert '"dataset": "COCO"' in captured["papers_text"]
 
 
-def test_compare_papers_infers_missing_aspect_evidence_from_structured_summaries(sample_parsed_papers: str):
+def test_compare_papers_infers_missing_aspect_evidence_from_structured_summaries(
+    sample_parsed_papers: str,
+):
     llm_output = {
         "overview": "两篇论文都关注视觉任务，但方法路线不同。",
         "aspects": [
@@ -802,7 +893,9 @@ def test_compare_papers_infers_missing_aspect_evidence_from_structured_summaries
 
     llm_client = StubLLMClient(json.dumps(llm_output, ensure_ascii=False))
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(paper_compare, "extract_paper_summaries", lambda *args, **kwargs: extracted)
+    monkeypatch.setattr(
+        paper_compare, "extract_paper_summaries", lambda *args, **kwargs: extracted
+    )
     try:
         result = paper_compare.compare_papers(
             ["paper_a", "paper_b"],
@@ -819,7 +912,9 @@ def test_compare_papers_infers_missing_aspect_evidence_from_structured_summaries
     assert "Transformer backbone for classification." in result.markdown
 
 
-def test_compare_papers_normalizes_blank_or_invalid_aspect_name_to_unknown(sample_parsed_papers: str):
+def test_compare_papers_normalizes_blank_or_invalid_aspect_name_to_unknown(
+    sample_parsed_papers: str,
+):
     extraction_output = {
         "paper_a": {
             "research_problem": "图像分类",
@@ -830,7 +925,12 @@ def test_compare_papers_normalizes_blank_or_invalid_aspect_name_to_unknown(sampl
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -841,7 +941,9 @@ def test_compare_papers_normalizes_blank_or_invalid_aspect_name_to_unknown(sampl
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Method", "snippet": "CNN backbone for detection."}],
+            "evidence": [
+                {"section": "Method", "snippet": "CNN backbone for detection."}
+            ],
         },
     }
     compare_output = {
@@ -881,7 +983,9 @@ def test_compare_papers_normalizes_blank_or_invalid_aspect_name_to_unknown(sampl
     assert "| unknown | Transformer | CNN | 方法路线不同。 |" in result.markdown
 
 
-def test_compare_papers_normalizes_blank_or_invalid_per_paper_values(sample_parsed_papers: str):
+def test_compare_papers_normalizes_blank_or_invalid_per_paper_values(
+    sample_parsed_papers: str,
+):
     extraction_output = {
         "paper_a": {
             "research_problem": "图像分类",
@@ -892,7 +996,12 @@ def test_compare_papers_normalizes_blank_or_invalid_per_paper_values(sample_pars
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -903,7 +1012,9 @@ def test_compare_papers_normalizes_blank_or_invalid_per_paper_values(sample_pars
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Results", "snippet": "Evaluated on COCO with mAP."}],
+            "evidence": [
+                {"section": "Results", "snippet": "Evaluated on COCO with mAP."}
+            ],
         },
     }
     compare_output = {
@@ -944,7 +1055,9 @@ def test_compare_papers_normalizes_blank_or_invalid_per_paper_values(sample_pars
     assert "| 核心方法 | 未明确说明 | 未明确说明 | 方法路线不同。 |" in result.markdown
 
 
-def test_compare_papers_tolerates_non_list_or_invalid_compare_stage_evidence(sample_parsed_papers: str):
+def test_compare_papers_tolerates_non_list_or_invalid_compare_stage_evidence(
+    sample_parsed_papers: str,
+):
     extraction_output = {
         "paper_a": {
             "research_problem": "图像分类",
@@ -955,7 +1068,12 @@ def test_compare_papers_tolerates_non_list_or_invalid_compare_stage_evidence(sam
             "strengths": "全局建模",
             "limitations": "算力开销高",
             "scenarios": "图像分类",
-            "evidence": [{"section": "Method", "snippet": "Transformer backbone for classification."}],
+            "evidence": [
+                {
+                    "section": "Method",
+                    "snippet": "Transformer backbone for classification.",
+                }
+            ],
         },
         "paper_b": {
             "research_problem": "目标检测",
@@ -966,7 +1084,9 @@ def test_compare_papers_tolerates_non_list_or_invalid_compare_stage_evidence(sam
             "strengths": "局部检测",
             "limitations": "长程依赖较弱",
             "scenarios": "目标检测",
-            "evidence": [{"section": "Results", "snippet": "Evaluated on COCO with mAP."}],
+            "evidence": [
+                {"section": "Results", "snippet": "Evaluated on COCO with mAP."}
+            ],
         },
     }
     compare_output = {
@@ -1013,7 +1133,9 @@ def test_compare_papers_tolerates_non_list_or_invalid_compare_stage_evidence(sam
 
     method_aspect = result.aspects[0]
     assert [e.paper_id for e in method_aspect.evidence] == ["paper_a"]
-    assert method_aspect.evidence[0].snippet == "Transformer backbone for classification."
+    assert (
+        method_aspect.evidence[0].snippet == "Transformer backbone for classification."
+    )
     assert "Transformer backbone for classification." in result.markdown
 
 
@@ -1072,10 +1194,14 @@ def test_compare_endpoint_returns_structured_result(monkeypatch):
     )
 
     monkeypatch.setattr("app.main.compare_papers", lambda *args, **kwargs: structured)
-    monkeypatch.setattr("app.main.save_compare_result", lambda markdown, note_dir: "/tmp/compare.md")
+    monkeypatch.setattr(
+        "app.main.save_compare_result", lambda markdown, note_dir: "/tmp/compare.md"
+    )
 
     client = TestClient(app)
-    response = client.post("/papers/compare", json={"paper_ids": ["paper_a", "paper_b"]})
+    response = client.post(
+        "/papers/compare", json={"paper_ids": ["paper_a", "paper_b"]}
+    )
 
     assert response.status_code == 200
     payload = response.json()

@@ -1,7 +1,7 @@
 """Tests for the Supervisor Agent and state routing."""
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -57,7 +57,11 @@ class TestExecuteNode:
     def test_executes_delegation(self, mock_qa_cls):
         mock_agent = MagicMock()
         mock_agent.execute.return_value = MagicMock(
-            success=True, output="Answer here", data={"k": "v"}, agent_id="qa", error=None
+            success=True,
+            output="Answer here",
+            data={"k": "v"},
+            agent_id="qa",
+            error=None,
         )
         mock_qa_cls.return_value = mock_agent
 
@@ -71,9 +75,9 @@ class TestExecuteNode:
             "context": {},
         }
 
-        with patch("app.agents.supervisor.ExtractorAgent"), \
-             patch("app.agents.supervisor.SummarizerAgent"), \
-             patch("app.agents.supervisor.ComparatorAgent"):
+        with patch("app.agents.supervisor.ExtractorAgent"), patch(
+            "app.agents.supervisor.SummarizerAgent"
+        ), patch("app.agents.supervisor.ComparatorAgent"):
             result = execute_node(state)
 
         assert len(result["results"]) == 1
@@ -86,7 +90,15 @@ class TestSynthesizeNode:
             "user_input": "",
             "task_type": "qa",
             "delegations": [],
-            "results": [{"success": True, "output": "The answer is 42.", "data": {}, "agent_id": "qa", "error": None}],
+            "results": [
+                {
+                    "success": True,
+                    "output": "The answer is 42.",
+                    "data": {},
+                    "agent_id": "qa",
+                    "error": None,
+                }
+            ],
             "final_answer": "",
             "error": None,
             "context": {},
@@ -100,7 +112,15 @@ class TestSynthesizeNode:
             "user_input": "",
             "task_type": "qa",
             "delegations": [],
-            "results": [{"success": False, "output": "", "data": {}, "agent_id": "qa", "error": "LLM down"}],
+            "results": [
+                {
+                    "success": False,
+                    "output": "",
+                    "data": {},
+                    "agent_id": "qa",
+                    "error": "LLM down",
+                }
+            ],
             "final_answer": "",
             "error": None,
             "context": {},

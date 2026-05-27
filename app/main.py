@@ -3,12 +3,23 @@ import shutil
 import time
 from typing import Protocol
 
-from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.logging_config import configure_logging, get_logger
-from app.middleware.error_handler import http_exception_handler, unhandled_exception_handler
+from app.middleware.error_handler import (
+    http_exception_handler,
+    unhandled_exception_handler,
+)
 from app.middleware.tracing import RequestIDMiddleware
 from app.schemas import (
     AgentExecuteRequest,
@@ -31,8 +42,8 @@ from app.schemas import (
     NoteReadResponse,
     PaperComparisonResult,
     PaperIndexDetailResponse,
-    PaperListResponse,
     PaperListItem,
+    PaperListResponse,
     PaperParseResult,
     PaperUploadResponse,
     ParseStatusResponse,
@@ -74,9 +85,11 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 app.add_middleware(RequestIDMiddleware)
 
 from app.routers.conversations import router as conversations_router
+
 app.include_router(conversations_router)
 
 from app.routers.traces import router as traces_router
+
 app.include_router(traces_router)
 
 
@@ -125,7 +138,9 @@ async def health_check():
             break
 
     try:
-        vector_store_available = _get_vector_store().metadata().get("backend") is not None
+        vector_store_available = (
+            _get_vector_store().metadata().get("backend") is not None
+        )
     except Exception:
         vector_store_available = False
 
@@ -397,7 +412,11 @@ def _run_index_job(job_id: str, paper_id: str, force: bool, created_at: str) -> 
         _get_job_store().upsert(job)
         logger.info(
             "index_job_completed",
-            extra={"ra_job_id": job_id, "ra_paper_id": paper_id, "ra_duration_ms": round(total_seconds * 1000, 2)},
+            extra={
+                "ra_job_id": job_id,
+                "ra_paper_id": paper_id,
+                "ra_duration_ms": round(total_seconds * 1000, 2),
+            },
         )
     except Exception as exc:
         failed_at = utc_now_iso()
@@ -426,7 +445,9 @@ def _run_index_job(job_id: str, paper_id: str, force: bool, created_at: str) -> 
         )
 
 
-@app.post("/papers/{paper_id}/index", response_model=IndexStatusResponse, status_code=202)
+@app.post(
+    "/papers/{paper_id}/index", response_model=IndexStatusResponse, status_code=202
+)
 async def index_paper(
     paper_id: str,
     background_tasks: BackgroundTasks,
@@ -719,7 +740,9 @@ async def retry_task_endpoint(job_id: str, background_tasks: BackgroundTasks):
     if job is None:
         raise HTTPException(status_code=404, detail=f"任务 {job_id} 不存在")
     if job.status != "failed":
-        raise HTTPException(status_code=409, detail=f"任务 {job_id} 不是失败状态，无法重试")
+        raise HTTPException(
+            status_code=409, detail=f"任务 {job_id} 不是失败状态，无法重试"
+        )
 
     created_at = utc_now_iso()
     if job.job_type == "note_generation" and job.paper_id:
@@ -749,7 +772,9 @@ async def retry_task_endpoint(job_id: str, background_tasks: BackgroundTasks):
             retry_of=job.job_id,
         )
         _get_job_store().upsert(retry_job)
-        background_tasks.add_task(_run_compare_job, retry_job_id, job.paper_ids, created_at)
+        background_tasks.add_task(
+            _run_compare_job, retry_job_id, job.paper_ids, created_at
+        )
         return JobRetryResponse(original_job_id=job.job_id, retry_job=retry_job)
 
     raise HTTPException(status_code=400, detail=f"任务 {job.job_type} 暂不支持重试")

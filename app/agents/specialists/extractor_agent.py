@@ -27,17 +27,29 @@ class ExtractorAgent(BaseSpecialist):
             return self._extract_info(paper_id)
         else:
             return AgentResult(
-                success=False, output="", agent_id=self.name,
+                success=False,
+                output="",
+                agent_id=self.name,
                 error="需要提供 file_path（解析PDF）或 paper_id（提取信息）",
             )
 
     def _parse_pdf(self, file_path: str) -> AgentResult:
         import os
+
         from app.config import settings
-        from app.services.pdf_parser import generate_paper_id, parse_pdf, save_parse_result
+        from app.services.pdf_parser import (
+            generate_paper_id,
+            parse_pdf,
+            save_parse_result,
+        )
 
         if not os.path.isfile(file_path):
-            return AgentResult(success=False, output="", agent_id=self.name, error=f"文件不存在: {file_path}")
+            return AgentResult(
+                success=False,
+                output="",
+                agent_id=self.name,
+                error=f"文件不存在: {file_path}",
+            )
 
         try:
             paper_id = generate_paper_id(settings.upload_dir)
@@ -46,12 +58,18 @@ class ExtractorAgent(BaseSpecialist):
             return AgentResult(
                 success=True,
                 output=f"论文解析完成: {result.title}",
-                data={"paper_id": paper_id, "title": result.title, "sections": len(result.sections)},
+                data={
+                    "paper_id": paper_id,
+                    "title": result.title,
+                    "sections": len(result.sections),
+                },
                 agent_id=self.name,
             )
         except Exception as e:
             logger.exception("ExtractorAgent parse failed")
-            return AgentResult(success=False, output="", agent_id=self.name, error=str(e))
+            return AgentResult(
+                success=False, output="", agent_id=self.name, error=str(e)
+            )
 
     def _extract_info(self, paper_id: str) -> AgentResult:
         from app.config import settings
@@ -60,7 +78,12 @@ class ExtractorAgent(BaseSpecialist):
         try:
             parsed = load_parsed_result(paper_id, settings.metadata_dir)
             if not parsed:
-                return AgentResult(success=False, output="", agent_id=self.name, error=f"未找到论文: {paper_id}")
+                return AgentResult(
+                    success=False,
+                    output="",
+                    agent_id=self.name,
+                    error=f"未找到论文: {paper_id}",
+                )
             sections = [s.heading for s in parsed.sections] if parsed.sections else []
             return AgentResult(
                 success=True,
@@ -75,4 +98,6 @@ class ExtractorAgent(BaseSpecialist):
             )
         except Exception as e:
             logger.exception("ExtractorAgent extract failed")
-            return AgentResult(success=False, output="", agent_id=self.name, error=str(e))
+            return AgentResult(
+                success=False, output="", agent_id=self.name, error=str(e)
+            )

@@ -28,8 +28,13 @@ def test_build_seed_qa_predictions_generates_offline_answer_and_citations():
     prediction = build_seed_qa_predictions(sample)
 
     assert prediction["predicted_answer"] == sample.expected_answer
-    assert [citation["section"] for citation in prediction["citations"]] == ["Abstract", "Method"]
-    assert all(citation["paper_id"] == "paper-7" for citation in prediction["citations"])
+    assert [citation["section"] for citation in prediction["citations"]] == [
+        "Abstract",
+        "Method",
+    ]
+    assert all(
+        citation["paper_id"] == "paper-7" for citation in prediction["citations"]
+    )
 
 
 def test_evaluate_qa_sample_runs_answer_and_citation_judges():
@@ -46,7 +51,9 @@ def test_evaluate_qa_sample_runs_answer_and_citation_judges():
     )
     prediction = {
         "predicted_answer": "The method uses structured retrieval with grounded citations.",
-        "citations": [{"paper_id": "paper-8", "section": "Method", "chunk_id": "paper-8-method-1"}],
+        "citations": [
+            {"paper_id": "paper-8", "section": "Method", "chunk_id": "paper-8-method-1"}
+        ],
     }
 
     result = evaluate_qa_sample(
@@ -67,7 +74,10 @@ def test_evaluate_qa_sample_runs_answer_and_citation_judges():
 
 def test_summarize_qa_results_aggregates_answer_and_citation_scores():
     from app.evaluation.judges import JudgeResult
-    from app.evaluation.scripts.evaluate_qa import QAEvaluationResult, summarize_qa_results
+    from app.evaluation.scripts.evaluate_qa import (
+        QAEvaluationResult,
+        summarize_qa_results,
+    )
 
     results = [
         QAEvaluationResult(
@@ -150,7 +160,9 @@ def test_evaluate_qa_dataset_returns_offline_scaffold_results(tmp_path: Path):
             "supporting_sections": ["Method"],
         },
     ]
-    dataset_path.write_text("\n".join(json.dumps(row) for row in rows), encoding="utf-8")
+    dataset_path.write_text(
+        "\n".join(json.dumps(row) for row in rows), encoding="utf-8"
+    )
 
     payload = evaluate_qa_dataset(dataset_path=dataset_path, mode="rule_based")
 
@@ -200,8 +212,14 @@ def test_evaluate_qa_script_supports_placeholder_mode(tmp_path: Path):
     assert result.returncode == 0, result.stderr
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     assert payload["summary"]["evaluation_mode"] == "placeholder_llm"
-    assert payload["results"][0]["answer_evaluation"]["metadata"]["status"] == "not_implemented"
-    assert payload["results"][0]["citation_evaluation"]["metadata"]["status"] == "not_implemented"
+    assert (
+        payload["results"][0]["answer_evaluation"]["metadata"]["status"]
+        == "not_implemented"
+    )
+    assert (
+        payload["results"][0]["citation_evaluation"]["metadata"]["status"]
+        == "not_implemented"
+    )
 
 
 def test_build_live_qa_predictions_uses_answer_question(monkeypatch):
@@ -209,7 +227,15 @@ def test_build_live_qa_predictions_uses_answer_question(monkeypatch):
 
     captured: dict = {}
 
-    def fake_answer_question(question, vector_store, embedding_client, llm_client, paper_id=None, top_k=5, **kwargs):
+    def fake_answer_question(
+        question,
+        vector_store,
+        embedding_client,
+        llm_client,
+        paper_id=None,
+        top_k=5,
+        **kwargs
+    ):
         captured["question"] = question
         captured["paper_id"] = paper_id
         captured["top_k"] = top_k
@@ -217,8 +243,20 @@ def test_build_live_qa_predictions_uses_answer_question(monkeypatch):
             "question": question,
             "answer": "Live answer about retrieval.",
             "sources": [
-                {"paper_id": paper_id, "section": "Abstract", "chunk_id": "c1", "title": "T", "score": 0.9},
-                {"paper_id": paper_id, "section": "Method", "chunk_id": "c2", "title": "T", "score": 0.8},
+                {
+                    "paper_id": paper_id,
+                    "section": "Abstract",
+                    "chunk_id": "c1",
+                    "title": "T",
+                    "score": 0.9,
+                },
+                {
+                    "paper_id": paper_id,
+                    "section": "Method",
+                    "chunk_id": "c2",
+                    "title": "T",
+                    "score": 0.8,
+                },
             ],
         }
 
@@ -241,7 +279,11 @@ def test_build_live_qa_predictions_uses_answer_question(monkeypatch):
         top_k=3,
     )
 
-    assert captured == {"question": "What is the contribution?", "paper_id": "paper-live-1", "top_k": 3}
+    assert captured == {
+        "question": "What is the contribution?",
+        "paper_id": "paper-live-1",
+        "top_k": 3,
+    }
     assert prediction["predicted_answer"] == "Live answer about retrieval."
     assert [c["section"] for c in prediction["citations"]] == ["Abstract", "Method"]
     assert prediction["citations"][0]["score"] == 0.9
@@ -277,14 +319,21 @@ def test_build_live_qa_predictions_returns_empty_on_failure(monkeypatch):
 def test_evaluate_qa_dataset_live_pipeline_flag(monkeypatch, tmp_path: Path):
     from app.evaluation.scripts import evaluate_qa as eq
 
-    monkeypatch.setattr(eq, "_build_live_pipeline_clients", lambda: (object(), object(), object()))
+    monkeypatch.setattr(
+        eq, "_build_live_pipeline_clients", lambda: (object(), object(), object())
+    )
     monkeypatch.setattr(
         eq,
         "build_live_qa_predictions",
         lambda sample, vector_store, embedding_client, llm_client, top_k=5, **kwargs: {
             "predicted_answer": "Live: " + sample.expected_answer,
             "citations": [
-                {"paper_id": sample.paper_id, "section": "Abstract", "chunk_id": "c", "title": "T"}
+                {
+                    "paper_id": sample.paper_id,
+                    "section": "Abstract",
+                    "chunk_id": "c",
+                    "title": "T",
+                }
             ],
         },
     )

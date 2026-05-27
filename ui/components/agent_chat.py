@@ -17,12 +17,16 @@ def render_agent_chat():
         )
     with col_clear:
         st.write("")
-        if st.session_state.get("agent_messages") and st.button("清除对话", key="clear_agent_chat"):
+        if st.session_state.get("agent_messages") and st.button(
+            "清除对话", key="clear_agent_chat"
+        ):
             st.session_state["agent_messages"] = []
             st.session_state.pop("agent_conversation_id", None)
             st.rerun()
 
-    st.caption(f"当前模式: {'Supervisor 多 Agent 协作' if agent_mode == 'supervisor' else 'ReAct 单 Agent'}")
+    st.caption(
+        f"当前模式: {'Supervisor 多 Agent 协作' if agent_mode == 'supervisor' else 'ReAct 单 Agent'}"
+    )
 
     if "agent_messages" not in st.session_state:
         st.session_state["agent_messages"] = []
@@ -50,7 +54,9 @@ def render_agent_chat():
                             prompt,
                             conversation_id=conversation_id,
                         )
-                        st.session_state["agent_conversation_id"] = result.get("conversation_id")
+                        st.session_state["agent_conversation_id"] = result.get(
+                            "conversation_id"
+                        )
                         answer = result["answer"]
                         task_type = result.get("task_type", "")
                         if task_type:
@@ -61,7 +67,9 @@ def render_agent_chat():
                             chat_history=history,
                             conversation_id=conversation_id,
                         )
-                        st.session_state["agent_conversation_id"] = result.get("conversation_id")
+                        st.session_state["agent_conversation_id"] = result.get(
+                            "conversation_id"
+                        )
                         answer = result["answer"]
 
                     st.markdown(answer)

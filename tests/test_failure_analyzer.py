@@ -22,7 +22,11 @@ from app.analytics.failure_detector import FailureCase, FailureDetector
 
 @pytest.fixture
 def detector() -> FailureDetector:
-    return FailureDetector(retrieval_score_threshold=0.5, qa_pass_score_threshold=0.5, comparison_completeness_threshold=0.7)
+    return FailureDetector(
+        retrieval_score_threshold=0.5,
+        qa_pass_score_threshold=0.5,
+        comparison_completeness_threshold=0.7,
+    )
 
 
 # ----- FailureDetector -----
@@ -36,13 +40,17 @@ def test_detect_retrieval_empty_results(detector: FailureDetector):
 
 
 def test_detect_retrieval_low_score(detector: FailureDetector):
-    case = detector.detect_retrieval_failure("q", [{"score": 0.1, "is_relevant": False}], sample_id="s2")
+    case = detector.detect_retrieval_failure(
+        "q", [{"score": 0.1, "is_relevant": False}], sample_id="s2"
+    )
     assert case is not None
     assert case.failure_type == "retrieval_low_score"
 
 
 def test_detect_retrieval_irrelevant(detector: FailureDetector):
-    case = detector.detect_retrieval_failure("q", [{"score": 0.9, "is_relevant": False}], sample_id="s3")
+    case = detector.detect_retrieval_failure(
+        "q", [{"score": 0.9, "is_relevant": False}], sample_id="s3"
+    )
     assert case is not None
     assert case.failure_type == "retrieval_irrelevant"
 
@@ -68,8 +76,11 @@ def test_detect_qa_low_score(detector: FailureDetector):
 
 def test_detect_qa_bad_citation(detector: FailureDetector):
     case = detector.detect_qa_failure(
-        "q?", "ans", answer_evaluation={"score": 0.9, "passed": True},
-        citation_evaluation={"score": 0.1, "passed": False}, sample_id="qa3",
+        "q?",
+        "ans",
+        answer_evaluation={"score": 0.9, "passed": True},
+        citation_evaluation={"score": 0.1, "passed": False},
+        sample_id="qa3",
     )
     assert case is not None
     assert case.failure_type == "qa_bad_citation"
@@ -77,26 +88,34 @@ def test_detect_qa_bad_citation(detector: FailureDetector):
 
 def test_detect_qa_success(detector: FailureDetector):
     case = detector.detect_qa_failure(
-        "q?", "answer", answer_evaluation={"score": 0.95, "passed": True},
+        "q?",
+        "answer",
+        answer_evaluation={"score": 0.95, "passed": True},
         citation_evaluation={"score": 0.95, "passed": True},
     )
     assert case is None
 
 
 def test_detect_comparison_low_completeness(detector: FailureDetector):
-    case = detector.detect_comparison_failure({"completeness": 0.3, "evidence_quality": 0.8})
+    case = detector.detect_comparison_failure(
+        {"completeness": 0.3, "evidence_quality": 0.8}
+    )
     assert case is not None
     assert case.failure_type == "comparison_incomplete"
 
 
 def test_detect_comparison_weak_evidence(detector: FailureDetector):
-    case = detector.detect_comparison_failure({"completeness": 0.9, "evidence_quality": 0.3})
+    case = detector.detect_comparison_failure(
+        {"completeness": 0.9, "evidence_quality": 0.3}
+    )
     assert case is not None
     assert case.failure_type == "comparison_weak_evidence"
 
 
 def test_detector_record_emits_to_collector(detector: FailureDetector, tmp_path: Path):
-    collector = AnalyticsCollector(events_path=tmp_path / "ev.jsonl", failures_path=tmp_path / "fail.jsonl")
+    collector = AnalyticsCollector(
+        events_path=tmp_path / "ev.jsonl", failures_path=tmp_path / "fail.jsonl"
+    )
     case = detector.detect_retrieval_failure("q", [], sample_id="rec1")
     detector.record(case, collector=collector)
     failures = collector.read_failures()
@@ -104,8 +123,12 @@ def test_detector_record_emits_to_collector(detector: FailureDetector, tmp_path:
     assert failures[0].payload["failure_type"] == "retrieval_no_results"
 
 
-def test_detector_record_handles_none_gracefully(detector: FailureDetector, tmp_path: Path):
-    collector = AnalyticsCollector(events_path=tmp_path / "ev.jsonl", failures_path=tmp_path / "fail.jsonl")
+def test_detector_record_handles_none_gracefully(
+    detector: FailureDetector, tmp_path: Path
+):
+    collector = AnalyticsCollector(
+        events_path=tmp_path / "ev.jsonl", failures_path=tmp_path / "fail.jsonl"
+    )
     detector.record(None, collector=collector)
     assert len(collector.read_failures()) == 0
 
@@ -120,9 +143,16 @@ def _write_failures(tmp_path: Path, cases: list[dict]) -> Path:
 
 
 def test_load_failures(tmp_path: Path):
-    path = _write_failures(tmp_path, [
-        {"event_type": "failure", "timestamp": "t", "payload": {"failure_type": "retrieval_low_score"}}
-    ])
+    path = _write_failures(
+        tmp_path,
+        [
+            {
+                "event_type": "failure",
+                "timestamp": "t",
+                "payload": {"failure_type": "retrieval_low_score"},
+            }
+        ],
+    )
     cases = load_failures(path)
     assert len(cases) == 1
 
@@ -139,19 +169,42 @@ def test_top_failure_modes_counts_by_type(tmp_path: Path):
 
 def test_analyze_retrieval_failures_groups_by_paper():
     cases = [
-        {"payload": {"failure_type": "retrieval_low_score", "context": {"paper_id": "p1", "query": "alpha beta gamma"}}},
-        {"payload": {"failure_type": "retrieval_no_results", "context": {"paper_id": "p2", "query": "delta epsilon"}}},
+        {
+            "payload": {
+                "failure_type": "retrieval_low_score",
+                "context": {"paper_id": "p1", "query": "alpha beta gamma"},
+            }
+        },
+        {
+            "payload": {
+                "failure_type": "retrieval_no_results",
+                "context": {"paper_id": "p2", "query": "delta epsilon"},
+            }
+        },
     ]
     report = analyze_retrieval_failures(cases)
     assert report["total"] == 2
     assert report["by_paper"] == {"p1": 1, "p2": 1}
-    assert report["sub_type_counts"] == {"retrieval_low_score": 1, "retrieval_no_results": 1}
+    assert report["sub_type_counts"] == {
+        "retrieval_low_score": 1,
+        "retrieval_no_results": 1,
+    }
 
 
 def test_analyze_qa_failures_counts_empty_and_long_answers():
     cases = [
-        {"payload": {"failure_type": "qa_empty_answer", "context": {"sample_id": "s1", "answer": ""}}},
-        {"payload": {"failure_type": "qa_low_score", "context": {"sample_id": "s2", "answer": "x" * 900}}},
+        {
+            "payload": {
+                "failure_type": "qa_empty_answer",
+                "context": {"sample_id": "s1", "answer": ""},
+            }
+        },
+        {
+            "payload": {
+                "failure_type": "qa_low_score",
+                "context": {"sample_id": "s2", "answer": "x" * 900},
+            }
+        },
     ]
     report = analyze_qa_failures(cases)
     assert report["total"] == 2
@@ -161,8 +214,18 @@ def test_analyze_qa_failures_counts_empty_and_long_answers():
 
 def test_analyze_comparison_failures_average_completeness():
     cases = [
-        {"payload": {"failure_type": "comparison_incomplete", "context": {"completeness": 0.3}}},
-        {"payload": {"failure_type": "comparison_incomplete", "context": {"completeness": 0.5}}},
+        {
+            "payload": {
+                "failure_type": "comparison_incomplete",
+                "context": {"completeness": 0.3},
+            }
+        },
+        {
+            "payload": {
+                "failure_type": "comparison_incomplete",
+                "context": {"completeness": 0.5},
+            }
+        },
     ]
     report = analyze_comparison_failures(cases)
     assert report["total"] == 2
@@ -170,11 +233,29 @@ def test_analyze_comparison_failures_average_completeness():
 
 
 def test_build_failure_report_end_to_end(tmp_path: Path):
-    path = _write_failures(tmp_path, [
-        {"payload": {"failure_type": "retrieval_low_score", "context": {"paper_id": "p1", "query": "alpha"}}},
-        {"payload": {"failure_type": "qa_low_score", "context": {"sample_id": "s1", "answer": "x"}}},
-        {"payload": {"failure_type": "comparison_incomplete", "context": {"completeness": 0.4}}},
-    ])
+    path = _write_failures(
+        tmp_path,
+        [
+            {
+                "payload": {
+                    "failure_type": "retrieval_low_score",
+                    "context": {"paper_id": "p1", "query": "alpha"},
+                }
+            },
+            {
+                "payload": {
+                    "failure_type": "qa_low_score",
+                    "context": {"sample_id": "s1", "answer": "x"},
+                }
+            },
+            {
+                "payload": {
+                    "failure_type": "comparison_incomplete",
+                    "context": {"completeness": 0.4},
+                }
+            },
+        ],
+    )
     report = build_failure_report(path)
     assert report["total_failures"] == 3
     assert report["retrieval"]["total"] == 1
@@ -187,7 +268,12 @@ def test_render_markdown_report_includes_sections():
         "total_failures": 0,
         "top_failure_modes": [],
         "retrieval": {"total": 0, "sub_type_counts": {}},
-        "qa": {"total": 0, "sub_type_counts": {}, "empty_answer_count": 0, "long_answer_count": 0},
+        "qa": {
+            "total": 0,
+            "sub_type_counts": {},
+            "empty_answer_count": 0,
+            "long_answer_count": 0,
+        },
         "comparison": {"total": 0, "sub_type_counts": {}},
     }
     md = render_markdown_report(report)
@@ -199,10 +285,12 @@ def test_render_markdown_report_includes_sections():
 
 
 def test_render_markdown_report_emits_suggestions():
-    report = build_failure_report_from_inline([
-        {"payload": {"failure_type": "retrieval_no_results", "context": {}}},
-        {"payload": {"failure_type": "qa_empty_answer", "context": {}}},
-    ])
+    report = build_failure_report_from_inline(
+        [
+            {"payload": {"failure_type": "retrieval_no_results", "context": {}}},
+            {"payload": {"failure_type": "qa_empty_answer", "context": {}}},
+        ]
+    )
     md = render_markdown_report(report)
     assert "Optimization Suggestions" in md
     # Specific suggestion text should appear

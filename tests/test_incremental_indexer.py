@@ -9,11 +9,16 @@ from app.services.incremental_indexer import IncrementalIndexer
 
 
 def _mk_chunk(chunk_id: str, content: str, paper_id: str = "p1") -> Chunk:
-    return Chunk(chunk_id=chunk_id, paper_id=paper_id, title="t", section="s", content=content)
+    return Chunk(
+        chunk_id=chunk_id, paper_id=paper_id, title="t", section="s", content=content
+    )
 
 
 def _mk_store_chunks(chunks):
-    return [{"chunk_id": c.chunk_id, "content": c.content, "paper_id": c.paper_id} for c in chunks]
+    return [
+        {"chunk_id": c.chunk_id, "content": c.content, "paper_id": c.paper_id}
+        for c in chunks
+    ]
 
 
 def test_incremental_index_adds_new_chunks_only():
@@ -35,7 +40,9 @@ def test_incremental_index_adds_new_chunks_only():
 
 def test_incremental_index_removes_missing_chunks():
     vs = MagicMock()
-    vs.list_chunks.return_value = _mk_store_chunks([_mk_chunk("c1", "x"), _mk_chunk("c2", "y")])
+    vs.list_chunks.return_value = _mk_store_chunks(
+        [_mk_chunk("c1", "x"), _mk_chunk("c2", "y")]
+    )
     vs.delete_chunks.return_value = 1
     vs.add_chunks.return_value = 0
     emb = MagicMock()

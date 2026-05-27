@@ -17,7 +17,9 @@ def get_index_status(vector_store: VectorStore, paper_id: str) -> dict:
 
 def get_library_status(vector_store: VectorStore) -> dict:
     chunks = vector_store.list_chunks()
-    grouped: dict[str, dict] = defaultdict(lambda: {"paper_id": "", "chunk_count": 0, "sections": set()})
+    grouped: dict[str, dict] = defaultdict(
+        lambda: {"paper_id": "", "chunk_count": 0, "sections": set()}
+    )
 
     for chunk in chunks:
         paper_id = chunk["paper_id"]

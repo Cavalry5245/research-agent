@@ -19,7 +19,9 @@ def aspect_coverage(results: list[dict[str, Any]]) -> dict[str, float]:
     total = len(results) or 1
     for r in results:
         for aspect in r.get("expected_aspects", []) or []:
-            if aspect in r.get("covered_aspects", []) or aspect in r.get("aspects_covered", []):
+            if aspect in r.get("covered_aspects", []) or aspect in r.get(
+                "aspects_covered", []
+            ):
                 aspect_counter[aspect] += 1
     return {aspect: count / total for aspect, count in aspect_counter.items()}
 
@@ -78,12 +80,16 @@ def comparison_event_time_distribution(events_path: Path) -> dict[str, Any]:
 
     return {
         "count": len(points),
-        "mean_time_by_paper_count": {k: statistics.mean(v) for k, v in by_count.items()},
+        "mean_time_by_paper_count": {
+            k: statistics.mean(v) for k, v in by_count.items()
+        },
         "all_points": points,
     }
 
 
-def analyze_comparison_report(report_path: Path, events_path: Path | None = None) -> dict[str, Any]:
+def analyze_comparison_report(
+    report_path: Path, events_path: Path | None = None
+) -> dict[str, Any]:
     report = load_comparison_report(report_path)
     results = report.get("results", [])
     payload = {
@@ -94,22 +100,46 @@ def analyze_comparison_report(report_path: Path, events_path: Path | None = None
         "sample_count": len(results),
     }
     if events_path:
-        payload["live_event_time_distribution"] = comparison_event_time_distribution(events_path)
+        payload["live_event_time_distribution"] = comparison_event_time_distribution(
+            events_path
+        )
     return payload
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analyze comparison evaluation report and live events.")
-    parser.add_argument("--input", type=Path, default=Path("app/evaluation/reports/comparison_eval_seed_report.json"))
-    parser.add_argument("--events", type=Path, default=Path("app/storage/analytics/events.jsonl"))
-    parser.add_argument("--output", type=Path, default=Path("app/analytics/reports/comparison_analysis.json"))
+    parser = argparse.ArgumentParser(
+        description="Analyze comparison evaluation report and live events."
+    )
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=Path("app/evaluation/reports/comparison_eval_seed_report.json"),
+    )
+    parser.add_argument(
+        "--events", type=Path, default=Path("app/storage/analytics/events.jsonl")
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("app/analytics/reports/comparison_analysis.json"),
+    )
     args = parser.parse_args()
 
     payload = analyze_comparison_report(args.input, events_path=args.events)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"Generated comparison analysis: {args.output}")
-    print(json.dumps({"summary": payload["summary"], "quality_score_distribution": payload["quality_score_distribution"]}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "summary": payload["summary"],
+                "quality_score_distribution": payload["quality_score_distribution"],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -31,10 +31,14 @@ def load_jsonl_logs(log_file: str | Path) -> list[dict[str, Any]]:
 def analyze_logs(records: list[dict[str, Any]]) -> dict[str, Any]:
     api_records = [record for record in records if record.get("event") == "api_request"]
     endpoint_counts = Counter(record.get("path", "unknown") for record in api_records)
-    status_counts = Counter(str(record.get("status_code", "unknown")) for record in api_records)
+    status_counts = Counter(
+        str(record.get("status_code", "unknown")) for record in api_records
+    )
     durations_by_path: dict[str, list[float]] = defaultdict(list)
     for record in api_records:
-        durations_by_path[record.get("path", "unknown")].append(float(record.get("duration_ms", 0.0)))
+        durations_by_path[record.get("path", "unknown")].append(
+            float(record.get("duration_ms", 0.0))
+        )
 
     endpoint_latency = {}
     for path, durations in durations_by_path.items():
@@ -51,9 +55,7 @@ def analyze_logs(records: list[dict[str, Any]]) -> dict[str, Any]:
     )
 
     error_count = sum(
-        1
-        for record in api_records
-        if int(record.get("status_code", 0) or 0) >= 400
+        1 for record in api_records if int(record.get("status_code", 0) or 0) >= 400
     )
     error_rate = error_count / len(api_records) if api_records else 0.0
 

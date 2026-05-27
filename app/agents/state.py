@@ -4,8 +4,18 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
-
-TaskType = Literal["upload", "parse", "extract", "note", "export", "qa", "question", "search", "compare", "unknown"]
+TaskType = Literal[
+    "upload",
+    "parse",
+    "extract",
+    "note",
+    "export",
+    "qa",
+    "question",
+    "search",
+    "compare",
+    "unknown",
+]
 
 TASK_TYPE_TO_SPECIALIST: dict[TaskType, str] = {
     "upload": "extractor",

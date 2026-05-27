@@ -14,7 +14,14 @@ def _setup():
     embedding.embed_query.return_value = [0.1, 0.2, 0.3]
     vector_store = MagicMock()
     vector_store.query.return_value = [
-        {"chunk_id": "c1", "content": "x", "paper_id": "p", "title": "t", "section": "s", "score": 0.9},
+        {
+            "chunk_id": "c1",
+            "content": "x",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 0.9,
+        },
     ]
     return llm, embedding, vector_store
 
@@ -26,7 +33,9 @@ def test_hyde_generates_hypothetical_doc_and_searches():
     results = hyde.search("CNN 在图像分类上效果如何", top_k=1)
 
     llm.generate_text.assert_called_once()
-    embedding.embed_query.assert_called_once_with("卷积神经网络在 ImageNet 上达到 SOTA...")
+    embedding.embed_query.assert_called_once_with(
+        "卷积神经网络在 ImageNet 上达到 SOTA..."
+    )
     assert len(results) == 1
     assert results[0]["chunk_id"] == "c1"
 

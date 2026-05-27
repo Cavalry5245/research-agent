@@ -10,6 +10,7 @@ from typing import Any
 @dataclass
 class AgentResult:
     """Standard result returned by any specialist agent."""
+
     success: bool
     output: str
     data: dict[str, Any] = field(default_factory=dict)

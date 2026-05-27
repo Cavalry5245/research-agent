@@ -8,8 +8,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.services.pdf_parser import parse_pdf, save_parse_result, generate_paper_id
 from app.schemas import PaperParseResult
+from app.services.pdf_parser import generate_paper_id, parse_pdf, save_parse_result
 
 
 def _create_test_pdf(filepath: str):

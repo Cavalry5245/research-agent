@@ -33,6 +33,7 @@ def generate_paper_id(upload_dir: str | None = None) -> str:
         seq = len(existing)
     else:
         from app.config import settings
+
         md = settings.metadata_dir
         if os.path.isdir(md):
             parsed_files = [f for f in os.listdir(md) if f.endswith("_parsed.json")]
@@ -82,8 +83,10 @@ def _detect_title(text: str, doc: fitz.Document) -> str:
     lines = text.strip().split("\n")
     for line in lines[:20]:
         stripped = line.strip()
-        if stripped and len(stripped) >= 5 and not re.match(
-            r"^(abstract|introduction)$", stripped, re.IGNORECASE
+        if (
+            stripped
+            and len(stripped) >= 5
+            and not re.match(r"^(abstract|introduction)$", stripped, re.IGNORECASE)
         ):
             # Avoid lines that are clearly metadata
             if "," in stripped and len(stripped) < 30:
@@ -126,10 +129,10 @@ def _extract_sections(text: str, page_texts: list[str] | None = None) -> list[Se
         re.escape(kw) for kw in SECTION_KEYWORDS if kw.lower() != "abstract"
     )
     heading_re = re.compile(
-        r"(?:^|\n)"                          # line start
-        r"\s*"                               # optional whitespace
-        r"(?:\d+[\.\)]\s*|[IVX]+[\.\)]\s*)?" # optional numbering
-        r"(" + keywords_pattern + r")\b",    # keyword
+        r"(?:^|\n)"  # line start
+        r"\s*"  # optional whitespace
+        r"(?:\d+[\.\)]\s*|[IVX]+[\.\)]\s*)?"  # optional numbering
+        r"(" + keywords_pattern + r")\b",  # keyword
         re.IGNORECASE,
     )
 
@@ -151,7 +154,9 @@ def _extract_sections(text: str, page_texts: list[str] | None = None) -> list[Se
                     if heading in page_text and content[:80].strip() in page_text:
                         page_number = index
                         break
-            sections.append(Section(heading=heading, content=content, page_number=page_number))
+            sections.append(
+                Section(heading=heading, content=content, page_number=page_number)
+            )
 
     return sections
 
@@ -175,8 +180,13 @@ def parse_pdf(filepath: str, paper_id: str) -> PaperParseResult:
         abstract = _extract_abstract(full_text)
         sections = _extract_sections(full_text, page_texts=page_texts)
 
-        logger.info("PDF parsed: %s, title=%s, sections=%d, chars=%d",
-                     paper_id, title, len(sections), len(full_text))
+        logger.info(
+            "PDF parsed: %s, title=%s, sections=%d, chars=%d",
+            paper_id,
+            title,
+            len(sections),
+            len(full_text),
+        )
 
         return PaperParseResult(
             paper_id=paper_id,
@@ -207,9 +217,12 @@ def load_parsed_result(paper_id: str, metadata_dir: str) -> dict:
         return json.load(f)
 
 
-def find_pdf_path(paper_id: str, upload_dir: str, metadata_dir: str | None = None) -> str:
+def find_pdf_path(
+    paper_id: str, upload_dir: str, metadata_dir: str | None = None
+) -> str:
     if metadata_dir is None:
         from app.config import settings
+
         metadata_dir = settings.metadata_dir
 
     data = load_parsed_result(paper_id, metadata_dir)
@@ -235,11 +248,13 @@ def list_papers(metadata_dir: str) -> list[dict]:
                 data = load_parsed_result(
                     fname.replace("_parsed.json", ""), metadata_dir
                 )
-                papers.append({
-                    "paper_id": data.get("paper_id", ""),
-                    "title": data.get("title", ""),
-                    "abstract": data.get("abstract", "")[:200],
-                })
+                papers.append(
+                    {
+                        "paper_id": data.get("paper_id", ""),
+                        "title": data.get("title", ""),
+                        "abstract": data.get("abstract", "")[:200],
+                    }
+                )
             except Exception:
                 continue
     return papers

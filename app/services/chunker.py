@@ -5,7 +5,9 @@ DEFAULT_CHUNK_OVERLAP = 100
 MIN_CHUNK_CHARS = 20
 
 
-def _sliding_window(text: str, chunk_size: int, chunk_overlap: int) -> list[tuple[int, int, str]]:
+def _sliding_window(
+    text: str, chunk_size: int, chunk_overlap: int
+) -> list[tuple[int, int, str]]:
     text = text.strip()
     if not text:
         return []

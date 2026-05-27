@@ -31,18 +31,28 @@ def answer_length_distribution(results: list[dict[str, Any]]) -> dict[str, float
 
 
 def citation_accuracy(results: list[dict[str, Any]]) -> dict[str, Any]:
-    citation_passes = sum(1 for r in results if r.get("citation_evaluation", {}).get("passed"))
-    answer_passes = sum(1 for r in results if r.get("answer_evaluation", {}).get("passed"))
+    citation_passes = sum(
+        1 for r in results if r.get("citation_evaluation", {}).get("passed")
+    )
+    answer_passes = sum(
+        1 for r in results if r.get("answer_evaluation", {}).get("passed")
+    )
     total = len(results) or 1
-    citation_scores = [r.get("citation_evaluation", {}).get("score", 0.0) for r in results]
+    citation_scores = [
+        r.get("citation_evaluation", {}).get("score", 0.0) for r in results
+    ]
     answer_scores = [r.get("answer_evaluation", {}).get("score", 0.0) for r in results]
     return {
         "sample_count": total,
         "answer_pass_rate": answer_passes / total,
         "citation_pass_rate": citation_passes / total,
         "mean_answer_score": statistics.mean(answer_scores) if answer_scores else 0.0,
-        "mean_citation_score": statistics.mean(citation_scores) if citation_scores else 0.0,
-        "answer_score_std": statistics.stdev(answer_scores) if len(answer_scores) > 1 else 0.0,
+        "mean_citation_score": (
+            statistics.mean(citation_scores) if citation_scores else 0.0
+        ),
+        "answer_score_std": (
+            statistics.stdev(answer_scores) if len(answer_scores) > 1 else 0.0
+        ),
     }
 
 
@@ -97,10 +107,17 @@ def qa_event_time_breakdown(events_path: Path) -> dict[str, Any]:
     }
 
 
-def analyze_qa_report(report_path: Path, events_path: Path | None = None) -> dict[str, Any]:
+def analyze_qa_report(
+    report_path: Path, events_path: Path | None = None
+) -> dict[str, Any]:
     report = load_qa_report(report_path)
     results = report.get("results", [])
-    summary = report.get("summary") or report.get("llm_summary") or report.get("rule_based_summary") or {}
+    summary = (
+        report.get("summary")
+        or report.get("llm_summary")
+        or report.get("rule_based_summary")
+        or {}
+    )
     payload = {
         "report_path": str(report_path),
         "summary": summary,
@@ -114,17 +131,37 @@ def analyze_qa_report(report_path: Path, events_path: Path | None = None) -> dic
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analyze QA evaluation report and live events.")
-    parser.add_argument("--input", type=Path, default=Path("app/evaluation/reports/qa_eval_seed_report.json"))
-    parser.add_argument("--events", type=Path, default=Path("app/storage/analytics/events.jsonl"))
-    parser.add_argument("--output", type=Path, default=Path("app/analytics/reports/qa_analysis.json"))
+    parser = argparse.ArgumentParser(
+        description="Analyze QA evaluation report and live events."
+    )
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=Path("app/evaluation/reports/qa_eval_seed_report.json"),
+    )
+    parser.add_argument(
+        "--events", type=Path, default=Path("app/storage/analytics/events.jsonl")
+    )
+    parser.add_argument(
+        "--output", type=Path, default=Path("app/analytics/reports/qa_analysis.json")
+    )
     args = parser.parse_args()
 
     payload = analyze_qa_report(args.input, events_path=args.events)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"Generated QA analysis: {args.output}")
-    print(json.dumps({"summary": payload["summary"], "answer_length_distribution": payload["answer_length_distribution"]}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "summary": payload["summary"],
+                "answer_length_distribution": payload["answer_length_distribution"],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 if __name__ == "__main__":

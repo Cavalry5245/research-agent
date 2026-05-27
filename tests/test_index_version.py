@@ -57,6 +57,8 @@ def test_rollback_to_missing_version_returns_none():
 def test_extra_fields_persist():
     with tempfile.TemporaryDirectory() as tmp:
         store = IndexVersionStore(Path(tmp) / "versions.json")
-        v = store.record_version("p1", chunk_count=10, embedding_model="m1", extra={"chunk_size": 800})
+        v = store.record_version(
+            "p1", chunk_count=10, embedding_model="m1", extra={"chunk_size": 800}
+        )
         assert v["chunk_size"] == 800
         assert store.list_versions("p1")[0]["chunk_size"] == 800

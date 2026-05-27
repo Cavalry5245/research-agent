@@ -17,7 +17,11 @@ _REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         incoming = request.headers.get("X-Request-ID")
-        request_id = incoming if incoming and _REQUEST_ID_PATTERN.fullmatch(incoming) else str(uuid.uuid4())
+        request_id = (
+            incoming
+            if incoming and _REQUEST_ID_PATTERN.fullmatch(incoming)
+            else str(uuid.uuid4())
+        )
         request.state.request_id = request_id
         started = time.perf_counter()
         response = await call_next(request)

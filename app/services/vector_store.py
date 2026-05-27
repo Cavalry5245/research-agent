@@ -40,7 +40,9 @@ class VectorStore:
             with open(self._store_path, "r", encoding="utf-8") as f:
                 records = json.load(f)
         except (OSError, json.JSONDecodeError) as e:
-            logger.warning("Failed to load vector store from %s: %s", self._store_path, e)
+            logger.warning(
+                "Failed to load vector store from %s: %s", self._store_path, e
+            )
             return
 
         from app.schemas import Chunk
@@ -103,20 +105,24 @@ class VectorStore:
 
         output = []
         for score, cid, chunk in top:
-            output.append({
-                "chunk_id": cid,
-                "content": chunk.content,
-                "paper_id": chunk.paper_id,
-                "title": chunk.title,
-                "section": chunk.section,
-                "page_number": chunk.page_number,
-                "chunk_start": chunk.chunk_start,
-                "chunk_end": chunk.chunk_end,
-                "score": score,
-            })
+            output.append(
+                {
+                    "chunk_id": cid,
+                    "content": chunk.content,
+                    "paper_id": chunk.paper_id,
+                    "title": chunk.title,
+                    "section": chunk.section,
+                    "page_number": chunk.page_number,
+                    "chunk_start": chunk.chunk_start,
+                    "chunk_end": chunk.chunk_end,
+                    "score": score,
+                }
+            )
 
         if hybrid_query_text and output:
-            output = HybridReranker().rerank(question=hybrid_query_text, results=output, top_k=top_k)
+            output = HybridReranker().rerank(
+                question=hybrid_query_text, results=output, top_k=top_k
+            )
             for item in output:
                 item["score"] = item.get("rerank_score", item.get("score", 0.0))
 
@@ -141,7 +147,9 @@ class VectorStore:
             return 0
         target = set(chunk_ids)
         before = len(self._store)
-        self._store = [(cid, chunk, emb) for cid, chunk, emb in self._store if cid not in target]
+        self._store = [
+            (cid, chunk, emb) for cid, chunk, emb in self._store if cid not in target
+        ]
         deleted = before - len(self._store)
         if deleted:
             self._persist()
@@ -171,12 +179,14 @@ class VectorStore:
         for chunk_id, chunk, emb in self._store:
             if paper_id and chunk.paper_id != paper_id:
                 continue
-            output.append({
-                "chunk_id": chunk_id,
-                "paper_id": chunk.paper_id,
-                "title": chunk.title,
-                "section": chunk.section,
-                "content": chunk.content,
-                "embedding_dim": len(emb),
-            })
+            output.append(
+                {
+                    "chunk_id": chunk_id,
+                    "paper_id": chunk.paper_id,
+                    "title": chunk.title,
+                    "section": chunk.section,
+                    "content": chunk.content,
+                    "embedding_dim": len(emb),
+                }
+            )
         return output

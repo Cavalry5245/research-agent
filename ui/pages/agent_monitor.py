@@ -16,7 +16,9 @@ def render_agent_monitor():
 
     store = _get_monitor_store()
 
-    tab_timeline, tab_routing, tab_tools = st.tabs(["执行时间线", "路由决策", "工具统计"])
+    tab_timeline, tab_routing, tab_tools = st.tabs(
+        ["执行时间线", "路由决策", "工具统计"]
+    )
 
     with tab_timeline:
         _render_timeline(store)
@@ -72,7 +74,8 @@ def _render_routing_decisions(store: MemoryStore):
 
     traces = store.get_traces(agent_id="supervisor", limit=100)
     routing_traces = [
-        t for t in traces
+        t
+        for t in traces
         if json.loads(t.get("metadata", "{}")).get("type") == "routing_decision"
     ]
 
@@ -137,8 +140,12 @@ def _render_tool_stats(store: MemoryStore):
         chart_data = {name: sum(durations) for name, durations in tools.items()}
         if chart_data:
             import pandas as pd
+
             df = pd.DataFrame(
-                {"工具": list(chart_data.keys()), "总耗时(ms)": list(chart_data.values())}
+                {
+                    "工具": list(chart_data.keys()),
+                    "总耗时(ms)": list(chart_data.values()),
+                }
             )
             st.bar_chart(df.set_index("工具"))
 

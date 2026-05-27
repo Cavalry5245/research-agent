@@ -7,7 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from app.experiments.config import ExperimentConfig, VariantConfig, load_experiment_config
+from app.experiments.config import (
+    ExperimentConfig,
+    VariantConfig,
+    load_experiment_config,
+)
 from app.experiments.runner import (
     ComparisonReport,
     ExperimentRunner,
@@ -26,8 +30,12 @@ def _make_config(experiment_id: str = "demo") -> ExperimentConfig:
         metric_keys=["score", "latency"],
         higher_is_better=["score"],
         variants=[
-            VariantConfig(variant="A", parameters={"flag": False}, description="baseline"),
-            VariantConfig(variant="B", parameters={"flag": True}, description="treatment"),
+            VariantConfig(
+                variant="A", parameters={"flag": False}, description="baseline"
+            ),
+            VariantConfig(
+                variant="B", parameters={"flag": True}, description="treatment"
+            ),
         ],
     )
 
@@ -62,23 +70,41 @@ def test_load_experiment_config_from_json(tmp_path: Path):
 
 
 def test_default_simulated_executor_returns_metrics():
-    metrics = default_simulated_executor(VariantConfig(variant="A", parameters={"prompt_module": "x"}))
+    metrics = default_simulated_executor(
+        VariantConfig(variant="A", parameters={"prompt_module": "x"})
+    )
     assert "generation_time" in metrics
     assert "content_length" in metrics
 
 
 def test_experiment_runner_executes_all_variants():
     cfg = _make_config()
-    runner = ExperimentRunner(cfg, variant_fn=lambda v: {"score": 0.8 if v.variant == "A" else 0.9, "latency": 1.0})
+    runner = ExperimentRunner(
+        cfg,
+        variant_fn=lambda v: {
+            "score": 0.8 if v.variant == "A" else 0.9,
+            "latency": 1.0,
+        },
+    )
     results = runner.run_experiment()
     assert len(results) == 2
     assert all(r.samples["score"] for r in results)
 
 
 def test_compare_variants_selects_winner_on_higher_is_better():
-    a = VariantResult(variant="A", metrics={"score": 0.8, "latency": 1.0}, samples={"score": [0.8] * 10, "latency": [1.0] * 10})
-    b = VariantResult(variant="B", metrics={"score": 0.9, "latency": 0.9}, samples={"score": [0.9] * 10, "latency": [0.9] * 10})
-    deltas, sig, winner = compare_variants([a, b], metric_keys=["score", "latency"], higher_is_better=["score"])
+    a = VariantResult(
+        variant="A",
+        metrics={"score": 0.8, "latency": 1.0},
+        samples={"score": [0.8] * 10, "latency": [1.0] * 10},
+    )
+    b = VariantResult(
+        variant="B",
+        metrics={"score": 0.9, "latency": 0.9},
+        samples={"score": [0.9] * 10, "latency": [0.9] * 10},
+    )
+    deltas, sig, winner = compare_variants(
+        [a, b], metric_keys=["score", "latency"], higher_is_better=["score"]
+    )
     assert winner == "B"
     assert deltas["score"]["delta"] == pytest.approx(0.1)
     assert "p_value" in sig["score"]
@@ -86,7 +112,9 @@ def test_compare_variants_selects_winner_on_higher_is_better():
 
 def test_compare_variants_returns_none_with_single_variant():
     a = VariantResult(variant="A", metrics={"score": 0.8})
-    deltas, sig, winner = compare_variants([a], metric_keys=["score"], higher_is_better=["score"])
+    deltas, sig, winner = compare_variants(
+        [a], metric_keys=["score"], higher_is_better=["score"]
+    )
     assert deltas == {}
     assert winner is None
 
@@ -99,8 +127,17 @@ def test_generate_report_writes_markdown(tmp_path: Path):
             VariantResult(variant="A", metrics={"score": 0.7}),
             VariantResult(variant="B", metrics={"score": 0.9}),
         ],
-        deltas={"score": {"variant_a": 0.7, "variant_b": 0.9, "delta": 0.2, "relative_change": 0.286}},
-        significance={"score": {"test": "welch_t", "p_value": 0.001, "significant_at_0.05": True}},
+        deltas={
+            "score": {
+                "variant_a": 0.7,
+                "variant_b": 0.9,
+                "delta": 0.2,
+                "relative_change": 0.286,
+            }
+        },
+        significance={
+            "score": {"test": "welch_t", "p_value": 0.001, "significant_at_0.05": True}
+        },
         winner="B",
     )
     path = tmp_path / "out.md"

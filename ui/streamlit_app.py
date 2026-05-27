@@ -168,7 +168,19 @@ with st.sidebar:
     st.caption("论文阅读与实验分析助手")
 
     st.divider()
-    tab = st.radio("导航", ["📤 论文上传", "📝 笔记生成", "💬 论文问答", "📊 论文对比", "🗄️ 知识库", "🤖 Agent 助手", "🔍 Agent 监控"], label_visibility="collapsed")
+    tab = st.radio(
+        "导航",
+        [
+            "📤 论文上传",
+            "📝 笔记生成",
+            "💬 论文问答",
+            "📊 论文对比",
+            "🗄️ 知识库",
+            "🤖 Agent 助手",
+            "🔍 Agent 监控",
+        ],
+        label_visibility="collapsed",
+    )
 
     st.divider()
 
@@ -181,7 +193,9 @@ with st.sidebar:
 
     try:
         emb = get_embedding_client()
-        st.success(f"Embedding: {emb.model_name} @ {emb.device} | batch={emb.batch_size}")
+        st.success(
+            f"Embedding: {emb.model_name} @ {emb.device} | batch={emb.batch_size}"
+        )
     except Exception:
         st.warning("Embedding 模型未就绪")
 
@@ -219,14 +233,18 @@ if tab == "📤 论文上传":
     )
 
     if uploaded_files:
-        st.caption(f"当前已选 {len(uploaded_files)} 个文件（拖拽后如果这里有文件名，说明 Streamlit 已接收到文件）")
+        st.caption(
+            f"当前已选 {len(uploaded_files)} 个文件（拖拽后如果这里有文件名，说明 Streamlit 已接收到文件）"
+        )
         for uploaded in uploaded_files:
             st.caption(f"已选: {uploaded.name}")
 
     col_upload, col_parse, col_clear = st.columns(3)
 
     with col_upload:
-        if st.button("📥 保存上传文件", use_container_width=True, key="btn_save_uploads"):
+        if st.button(
+            "📥 保存上传文件", use_container_width=True, key="btn_save_uploads"
+        ):
             if not uploaded_files:
                 st.warning("请先选择或拖拽至少 1 个 PDF 文件")
             else:
@@ -244,7 +262,12 @@ if tab == "📤 论文上传":
                 st.rerun()
 
     with col_parse:
-        if st.button("🧠 开始解析", use_container_width=True, type="primary", key="btn_parse_uploads"):
+        if st.button(
+            "🧠 开始解析",
+            use_container_width=True,
+            type="primary",
+            key="btn_parse_uploads",
+        ):
             pending_uploads = st.session_state.get("pending_uploads", [])
             if not pending_uploads:
                 st.warning("没有待解析的文件，请先上传并保存 PDF")
@@ -257,13 +280,19 @@ if tab == "📤 论文上传":
                         st.session_state["last_indexed_uploads"] = indexed_results
                         st.session_state["pending_uploads"] = []
                         refresh_papers()
-                        indexed_count = sum(1 for item in indexed_results if item["status"] == "indexed")
-                        st.success(f"✅ 成功解析 {len(parsed_results)} 篇论文，并完成 {indexed_count} 篇入库")
+                        indexed_count = sum(
+                            1 for item in indexed_results if item["status"] == "indexed"
+                        )
+                        st.success(
+                            f"✅ 成功解析 {len(parsed_results)} 篇论文，并完成 {indexed_count} 篇入库"
+                        )
                     except Exception as e:
                         st.error(f"解析失败: {e}")
 
     with col_clear:
-        if st.button("🗑️ 清空待解析", use_container_width=True, key="btn_clear_uploads"):
+        if st.button(
+            "🗑️ 清空待解析", use_container_width=True, key="btn_clear_uploads"
+        ):
             st.session_state["pending_uploads"] = []
             st.session_state["last_parsed_uploads"] = []
             st.session_state["last_indexed_uploads"] = []
@@ -315,9 +344,15 @@ if tab == "📤 论文上传":
                         st.rerun()
 
                 if st.session_state.get("delete_confirm_paper_id") == paper_id:
-                    st.warning(f"确认删除 {paper_id} 吗？此操作会同时删除原始 PDF、解析结果、笔记和向量索引。")
+                    st.warning(
+                        f"确认删除 {paper_id} 吗？此操作会同时删除原始 PDF、解析结果、笔记和向量索引。"
+                    )
                     with confirm_col:
-                        if st.button("确认删除", key=f"confirm_delete_paper_{paper_id}", type="primary"):
+                        if st.button(
+                            "确认删除",
+                            key=f"confirm_delete_paper_{paper_id}",
+                            type="primary",
+                        ):
                             try:
                                 result = delete_paper_assets(
                                     paper_id=paper_id,
@@ -364,7 +399,10 @@ elif tab == "📝 笔记生成":
                 with st.spinner("解析中..."):
                     try:
                         from app.services.pdf_parser import find_pdf_path
-                        pdf_path = find_pdf_path(selected_id, settings.upload_dir, settings.metadata_dir)
+
+                        pdf_path = find_pdf_path(
+                            selected_id, settings.upload_dir, settings.metadata_dir
+                        )
                         result = parse_pdf(pdf_path, selected_id)
                         save_parse_result(result, settings.metadata_dir)
                         st.success("解析完成")
@@ -372,12 +410,19 @@ elif tab == "📝 笔记生成":
                         st.error(f"解析失败: {e}")
 
         with col2:
-            if st.button("🤖 生成笔记", use_container_width=True, type="primary", key="btn_generate"):
+            if st.button(
+                "🤖 生成笔记",
+                use_container_width=True,
+                type="primary",
+                key="btn_generate",
+            ):
                 with st.spinner("LLM 生成笔记中（可能需要 30-60 秒）..."):
                     llm = get_llm_client()
                     try:
                         content = generate_note(selected_id, llm_client=llm)
-                        note_path = save_markdown(selected_id, content, settings.note_dir)
+                        note_path = save_markdown(
+                            selected_id, content, settings.note_dir
+                        )
                         st.session_state["note_content"] = content
                         st.session_state["note_path"] = note_path
                         st.success(f"笔记已生成: {note_path}")
@@ -425,7 +470,9 @@ elif tab == "💬 论文问答":
                 key="qa_paper_select",
             )
 
-    question = st.text_area("输入问题", placeholder="例如：这篇论文的核心创新点是什么？", key="qa_question")
+    question = st.text_area(
+        "输入问题", placeholder="例如：这篇论文的核心创新点是什么？", key="qa_question"
+    )
     top_k = st.slider("检索片段数", 1, 10, 3, key="qa_topk")
 
     if st.button("🔍 提问", type="primary", disabled=not question, key="btn_qa"):
@@ -452,7 +499,9 @@ elif tab == "💬 论文问答":
                         st.divider()
                         st.subheader("依据片段")
                         for i, src in enumerate(result["sources"], 1):
-                            with st.expander(f"来源 {i}: {src['paper_id']} / {src['section']}"):
+                            with st.expander(
+                                f"来源 {i}: {src['paper_id']} / {src['section']}"
+                            ):
                                 st.caption(f"Chunk: {src['chunk_id']}")
                                 st.caption(f"论文: {src['title']}")
                                 st.text(src["content"])
@@ -491,7 +540,9 @@ elif tab == "📊 论文对比":
                             settings.metadata_dir,
                             llm_client=llm,
                         )
-                        output_path = save_compare_result(comparison.markdown, settings.note_dir)
+                        output_path = save_compare_result(
+                            comparison.markdown, settings.note_dir
+                        )
                         st.session_state["compare_content"] = comparison.markdown
                         st.session_state["compare_result"] = comparison
                         st.session_state["compare_path"] = output_path
@@ -507,7 +558,9 @@ elif tab == "📊 论文对比":
             st.download_button(
                 label="📥 下载对比结果",
                 data=st.session_state["compare_content"],
-                file_name=os.path.basename(st.session_state.get("compare_path", "compare.md")),
+                file_name=os.path.basename(
+                    st.session_state.get("compare_path", "compare.md")
+                ),
                 mime="text/markdown",
                 key="dl_compare",
             )
@@ -540,7 +593,12 @@ elif tab == "🗄️ 知识库":
         with col2:
             st.write("")
             st.write("")
-            if st.button("📥 索引到向量库", use_container_width=True, type="primary", key="btn_index"):
+            if st.button(
+                "📥 索引到向量库",
+                use_container_width=True,
+                type="primary",
+                key="btn_index",
+            ):
                 with st.spinner("切块 + 向量化 + 写入中..."):
                     try:
                         data = load_parsed_result(index_paper_id, settings.metadata_dir)
@@ -551,7 +609,9 @@ elif tab == "🗄️ 知识库":
                             st.error("论文内容为空，无法索引")
                         else:
                             emb_client = get_embedding_client()
-                            embeddings = emb_client.embed_texts([c.content for c in chunks])
+                            embeddings = emb_client.embed_texts(
+                                [c.content for c in chunks]
+                            )
                             get_vector_store().add_chunks(chunks, embeddings)
                             st.success(f"✅ 已索引 {len(chunks)} 个 chunks")
                     except Exception as e:
@@ -591,41 +651,59 @@ elif tab == "🤖 Agent 助手":
             key="agent_workflow_upload",
         )
 
-        question = st.text_input("分析问题（可选）", placeholder="例如：这篇论文的核心创新是什么？", key="agent_wf_question")
+        question = st.text_input(
+            "分析问题（可选）",
+            placeholder="例如：这篇论文的核心创新是什么？",
+            key="agent_wf_question",
+        )
 
-        if st.button("▶️ 执行工作流", type="primary", disabled=not uploaded, key="btn_run_workflow"):
+        if st.button(
+            "▶️ 执行工作流",
+            type="primary",
+            disabled=not uploaded,
+            key="btn_run_workflow",
+        ):
             import tempfile
+
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 tmp.write(uploaded.getbuffer())
                 tmp_path = tmp.name
 
             with st.spinner("执行中: parse → index → note → qa..."):
-                from app.agents.workflows.research_workflow import build_research_workflow
+                from app.agents.workflows.research_workflow import (
+                    build_research_workflow,
+                )
+
                 graph = build_research_workflow()
-                state = graph.invoke({
-                    "paper_id": "",
-                    "file_path": tmp_path,
-                    "question": question,
-                    "top_k": 5,
-                    "parsed": False,
-                    "indexed": False,
-                    "note_generated": False,
-                    "title": "",
-                    "sections_count": 0,
-                    "chars": 0,
-                    "chunks_indexed": 0,
-                    "note_path": "",
-                    "note_length": 0,
-                    "answer": "",
-                    "sources_count": 0,
-                    "error": "",
-                })
+                state = graph.invoke(
+                    {
+                        "paper_id": "",
+                        "file_path": tmp_path,
+                        "question": question,
+                        "top_k": 5,
+                        "parsed": False,
+                        "indexed": False,
+                        "note_generated": False,
+                        "title": "",
+                        "sections_count": 0,
+                        "chars": 0,
+                        "chunks_indexed": 0,
+                        "note_path": "",
+                        "note_length": 0,
+                        "answer": "",
+                        "sources_count": 0,
+                        "error": "",
+                    }
+                )
 
             if state.get("error"):
                 st.error(f"工作流执行失败: {state['error']}")
             else:
                 st.success(f"工作流完成: {state['paper_id']}")
-                st.metric("解析", f"{state.get('title', '-')} ({state.get('sections_count', 0)} 章节)")
+                st.metric(
+                    "解析",
+                    f"{state.get('title', '-')} ({state.get('sections_count', 0)} 章节)",
+                )
                 st.metric("索引", f"{state.get('chunks_indexed', 0)} chunks")
                 st.metric("笔记", f"{state.get('note_length', 0)} 字符")
 
@@ -640,6 +718,7 @@ elif tab == "🤖 Agent 助手":
 
             # Cleanup
             import os as _os
+
             _os.unlink(tmp_path)
 
     elif workflow_mode == "多论文对比工作流":
@@ -651,9 +730,15 @@ elif tab == "🤖 Agent 助手":
             key="agent_compare_upload",
         )
 
-        if st.button("▶️ 执行对比", type="primary", disabled=not uploaded_files or len(uploaded_files) < 2, key="btn_run_compare"):
-            import tempfile
+        if st.button(
+            "▶️ 执行对比",
+            type="primary",
+            disabled=not uploaded_files or len(uploaded_files) < 2,
+            key="btn_run_compare",
+        ):
             import os as _os
+            import tempfile
+
             tmp_paths = []
             for uf in uploaded_files:
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
@@ -661,20 +746,25 @@ elif tab == "🤖 Agent 助手":
                     tmp_paths.append(tmp.name)
 
             with st.spinner(f"对比 {len(tmp_paths)} 篇论文..."):
-                from app.agents.workflows.comparison_workflow import build_comparison_workflow
+                from app.agents.workflows.comparison_workflow import (
+                    build_comparison_workflow,
+                )
+
                 graph = build_comparison_workflow()
-                state = graph.invoke({
-                    "file_paths": tmp_paths,
-                    "paper_ids": [],
-                    "all_parsed": False,
-                    "compared": False,
-                    "exported": False,
-                    "titles": [],
-                    "output_path": "",
-                    "content_length": 0,
-                    "aspects_count": 0,
-                    "error": "",
-                })
+                state = graph.invoke(
+                    {
+                        "file_paths": tmp_paths,
+                        "paper_ids": [],
+                        "all_parsed": False,
+                        "compared": False,
+                        "exported": False,
+                        "titles": [],
+                        "output_path": "",
+                        "content_length": 0,
+                        "aspects_count": 0,
+                        "error": "",
+                    }
+                )
 
             if state.get("error"):
                 st.error(f"对比失败: {state['error']}")
@@ -693,6 +783,7 @@ elif tab == "🤖 Agent 助手":
     else:
         # Free conversation mode
         from ui.components.agent_chat import render_agent_chat
+
         render_agent_chat()
 
 
@@ -701,4 +792,5 @@ elif tab == "🤖 Agent 助手":
 
 elif tab == "🔍 Agent 监控":
     from ui.pages.agent_monitor import render_agent_monitor
+
     render_agent_monitor()

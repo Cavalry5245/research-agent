@@ -54,7 +54,12 @@ def list_conversations(limit: int = 50, offset: int = 0):
     convs = store.list_conversations(limit=limit, offset=offset)
     return ConversationListResponse(
         conversations=[
-            ConversationOut(id=c["id"], title=c["title"], created_at=c["created_at"], updated_at=c["updated_at"])
+            ConversationOut(
+                id=c["id"],
+                title=c["title"],
+                created_at=c["created_at"],
+                updated_at=c["updated_at"],
+            )
             for c in convs
         ],
         total=len(convs),
@@ -70,10 +75,18 @@ def get_conversation(conversation_id: str):
     messages = store.get_messages(conversation_id)
     return ConversationDetail(
         conversation=ConversationOut(
-            id=conv["id"], title=conv["title"], created_at=conv["created_at"], updated_at=conv["updated_at"]
+            id=conv["id"],
+            title=conv["title"],
+            created_at=conv["created_at"],
+            updated_at=conv["updated_at"],
         ),
         messages=[
-            MessageOut(id=m["id"], role=m["role"], content=m["content"], created_at=m["created_at"])
+            MessageOut(
+                id=m["id"],
+                role=m["role"],
+                content=m["content"],
+                created_at=m["created_at"],
+            )
             for m in messages
         ],
     )

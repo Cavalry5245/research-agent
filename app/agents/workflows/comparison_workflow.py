@@ -100,8 +100,12 @@ def build_comparison_workflow() -> StateGraph:
     workflow.add_node("export", export_node)
 
     workflow.set_entry_point("parse_papers")
-    workflow.add_conditional_edges("parse_papers", should_compare, {"compare": "compare", END: END})
-    workflow.add_conditional_edges("compare", should_export, {"export": "export", END: END})
+    workflow.add_conditional_edges(
+        "parse_papers", should_compare, {"compare": "compare", END: END}
+    )
+    workflow.add_conditional_edges(
+        "compare", should_export, {"export": "export", END: END}
+    )
     workflow.add_edge("export", END)
 
     return workflow.compile()

@@ -33,6 +33,7 @@ class SemanticMemory:
     def _get_embedding_client(self) -> Any:
         if self._embedding_client is None:
             from app.services.embedding_client import EmbeddingClient
+
             self._embedding_client = EmbeddingClient()
         return self._embedding_client
 
@@ -52,12 +53,18 @@ class SemanticMemory:
         facts = self._store.list_facts(limit=1000)
         scored: list[tuple[float, dict]] = []
         for fact in facts:
-            meta = json.loads(fact["metadata"]) if isinstance(fact["metadata"], str) else fact["metadata"]
+            meta = (
+                json.loads(fact["metadata"])
+                if isinstance(fact["metadata"], str)
+                else fact["metadata"]
+            )
             embedding = meta.get("embedding")
             if not embedding:
                 continue
             score = _cosine_similarity(query_embedding, embedding)
-            scored.append((score, {"id": fact["id"], "content": fact["content"], "score": score}))
+            scored.append(
+                (score, {"id": fact["id"], "content": fact["content"], "score": score})
+            )
 
         scored.sort(key=lambda x: x[0], reverse=True)
         return [item for _, item in scored[:top_k]]

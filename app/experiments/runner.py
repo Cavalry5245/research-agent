@@ -19,7 +19,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from app.experiments.config import ExperimentConfig, VariantConfig, load_experiment_config
+from app.experiments.config import (
+    ExperimentConfig,
+    VariantConfig,
+    load_experiment_config,
+)
 
 DEFAULT_SCENARIO_DIR = Path("app/experiments/scenarios")
 DEFAULT_REPORT_DIR = Path("app/experiments/reports")
@@ -46,7 +50,9 @@ class ComparisonReport:
 
 
 class ExperimentRunner:
-    def __init__(self, config: ExperimentConfig, variant_fn: VariantFn | None = None) -> None:
+    def __init__(
+        self, config: ExperimentConfig, variant_fn: VariantFn | None = None
+    ) -> None:
         self.config = config
         self.variant_fn = variant_fn or default_simulated_executor
 
@@ -57,12 +63,18 @@ class ExperimentRunner:
             # Optionally generate multiple samples for statistical testing
             samples: dict[str, list[float]] = {}
             for metric, value in metrics.items():
-                samples[metric] = _synthesize_samples(value, n=10, seed=hash((variant.variant, metric)) & 0xFFFFFFFF)
-            results.append(VariantResult(variant=variant.variant, metrics=metrics, samples=samples))
+                samples[metric] = _synthesize_samples(
+                    value, n=10, seed=hash((variant.variant, metric)) & 0xFFFFFFFF
+                )
+            results.append(
+                VariantResult(variant=variant.variant, metrics=metrics, samples=samples)
+            )
         return results
 
 
-def _synthesize_samples(mean_val: float, n: int = 10, seed: int = 0, noise_ratio: float = 0.08) -> list[float]:
+def _synthesize_samples(
+    mean_val: float, n: int = 10, seed: int = 0, noise_ratio: float = 0.08
+) -> list[float]:
     rng = random.Random(seed)
     noise = max(abs(mean_val) * noise_ratio, 1e-6)
     return [mean_val + rng.gauss(0, noise) for _ in range(n)]
@@ -167,7 +179,12 @@ def compare_variants(
         vb = b.metrics.get(metric, 0.0)
         delta = vb - va
         rel = (delta / va) if va not in (0, 0.0) else 0.0
-        deltas[metric] = {"variant_a": va, "variant_b": vb, "delta": delta, "relative_change": rel}
+        deltas[metric] = {
+            "variant_a": va,
+            "variant_b": vb,
+            "delta": delta,
+            "relative_change": rel,
+        }
 
         # Significance via t-test on synthesized samples if available
         samples_a = a.samples.get(metric, [])
@@ -178,7 +195,12 @@ def compare_variants(
                 from scipy import stats
 
                 t_stat, p_value = stats.ttest_ind(samples_a, samples_b, equal_var=False)
-                sig_payload = {"test": "welch_t", "t_stat": float(t_stat), "p_value": float(p_value), "significant_at_0.05": bool(p_value < 0.05)}
+                sig_payload = {
+                    "test": "welch_t",
+                    "t_stat": float(t_stat),
+                    "p_value": float(p_value),
+                    "significant_at_0.05": bool(p_value < 0.05),
+                }
         except Exception:  # pragma: no cover
             pass
         significance[metric] = sig_payload
@@ -193,7 +215,9 @@ def compare_variants(
     return deltas, significance, winner
 
 
-def generate_report(comparison: ComparisonReport, output_path: Path | None = None) -> str:
+def generate_report(
+    comparison: ComparisonReport, output_path: Path | None = None
+) -> str:
     lines: list[str] = []
     lines.append(f"# Experiment Report: {comparison.experiment_id}")
     lines.append("")
@@ -205,7 +229,9 @@ def generate_report(comparison: ComparisonReport, output_path: Path | None = Non
     headers = ["Metric"] + [f"Variant {r.variant}" for r in comparison.variant_results]
     lines.append("| " + " | ".join(headers) + " |")
     lines.append("|" + "|".join(["---"] * len(headers)) + "|")
-    metric_names = sorted({m for r in comparison.variant_results for m in r.metrics.keys()})
+    metric_names = sorted(
+        {m for r in comparison.variant_results for m in r.metrics.keys()}
+    )
     for metric in metric_names:
         row = [metric]
         for r in comparison.variant_results:
@@ -257,7 +283,9 @@ def run_full_experiment(
         variant_fn = make_real_executor(config.experiment_id)
     runner = ExperimentRunner(config, variant_fn=variant_fn)
     variant_results = runner.run_experiment()
-    deltas, significance, winner = compare_variants(variant_results, config.metric_keys, config.higher_is_better)
+    deltas, significance, winner = compare_variants(
+        variant_results, config.metric_keys, config.higher_is_better
+    )
     report = ComparisonReport(
         experiment_id=config.experiment_id,
         description=config.description,
@@ -293,21 +321,35 @@ def run_full_experiment(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run an A/B experiment and write Markdown + JSON reports.")
-    parser.add_argument("--experiment", type=str, required=True,
-                        help="Scenario name (file in app/experiments/scenarios/<name>.json) or absolute path.")
+    parser = argparse.ArgumentParser(
+        description="Run an A/B experiment and write Markdown + JSON reports."
+    )
+    parser.add_argument(
+        "--experiment",
+        type=str,
+        required=True,
+        help="Scenario name (file in app/experiments/scenarios/<name>.json) or absolute path.",
+    )
     parser.add_argument("--scenario-dir", type=Path, default=DEFAULT_SCENARIO_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_REPORT_DIR)
-    parser.add_argument("--executor", choices=["simulated", "real"], default="simulated",
-                        help="Use the simulated mock variant_fn (default, preserves test isolation) or the real per-scenario executor.")
+    parser.add_argument(
+        "--executor",
+        choices=["simulated", "real"],
+        default="simulated",
+        help="Use the simulated mock variant_fn (default, preserves test isolation) or the real per-scenario executor.",
+    )
     args = parser.parse_args()
 
     scenario_path = Path(args.experiment)
     if not scenario_path.exists():
         scenario_path = args.scenario_dir / f"{args.experiment}.json"
     config = load_experiment_config(scenario_path)
-    report = run_full_experiment(config, output_dir=args.output_dir, executor=args.executor)
-    print(f"Experiment '{config.experiment_id}' executor={args.executor} winner: {report.winner}")
+    report = run_full_experiment(
+        config, output_dir=args.output_dir, executor=args.executor
+    )
+    print(
+        f"Experiment '{config.experiment_id}' executor={args.executor} winner: {report.winner}"
+    )
     print(f"Reports written to: {args.output_dir}")
 
 

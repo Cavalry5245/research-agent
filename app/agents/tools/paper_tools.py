@@ -65,17 +65,21 @@ class UploadPaperTool(BaseTool):
 
             if not os.path.exists(pdf_path):
                 import shutil
+
                 shutil.copy2(file_path, pdf_path)
 
             result = parse_pdf(pdf_path, paper_id)
             save_parse_result(result, settings.metadata_dir)
 
-            return ToolResult(success=True, data={
-                "paper_id": paper_id,
-                "title": result.title,
-                "sections": len(result.sections),
-                "chars": len(result.full_text),
-            })
+            return ToolResult(
+                success=True,
+                data={
+                    "paper_id": paper_id,
+                    "title": result.title,
+                    "sections": len(result.sections),
+                    "chars": len(result.full_text),
+                },
+            )
         except Exception as e:
             logger.exception("Upload failed")
             return ToolResult(success=False, error=str(e))
@@ -105,13 +109,18 @@ class GenerateNoteTool(BaseTool):
             content = generate_note(paper_id, llm_client=llm_client)
             note_path = save_markdown(paper_id, content, settings.note_dir)
 
-            return ToolResult(success=True, data={
-                "paper_id": paper_id,
-                "note_path": note_path,
-                "content_length": len(content),
-            })
+            return ToolResult(
+                success=True,
+                data={
+                    "paper_id": paper_id,
+                    "note_path": note_path,
+                    "content_length": len(content),
+                },
+            )
         except FileNotFoundError:
-            return ToolResult(success=False, error=f"论文 {paper_id} 的解析结果不存在，请先上传并解析")
+            return ToolResult(
+                success=False, error=f"论文 {paper_id} 的解析结果不存在，请先上传并解析"
+            )
         except Exception as e:
             logger.exception("Note generation failed")
             return ToolResult(success=False, error=str(e))
@@ -150,11 +159,14 @@ class IndexPaperTool(BaseTool):
             vector_store = VectorStore()
             vector_store.add_chunks(chunks, embeddings)
 
-            return ToolResult(success=True, data={
-                "paper_id": paper_id,
-                "chunks_indexed": len(chunks),
-                "vector_backend": vector_store.backend_name(),
-            })
+            return ToolResult(
+                success=True,
+                data={
+                    "paper_id": paper_id,
+                    "chunks_indexed": len(chunks),
+                    "vector_backend": vector_store.backend_name(),
+                },
+            )
         except FileNotFoundError:
             return ToolResult(success=False, error=f"论文 {paper_id} 的解析结果不存在")
         except Exception as e:
@@ -212,10 +224,12 @@ class QATool(BaseTool):
             retriever = None
             if settings.retriever == "bm25":
                 from app.services.bm25_retriever import BM25Retriever
+
                 retriever = BM25Retriever(vector_store)
             elif settings.retriever == "hybrid":
                 from app.services.bm25_retriever import BM25Retriever
                 from app.services.hybrid_retriever import HybridRetriever
+
                 retriever = HybridRetriever(
                     vector_store=vector_store,
                     embedding_client=embedding_client,
@@ -236,19 +250,22 @@ class QATool(BaseTool):
                 retriever=retriever,
             )
 
-            return ToolResult(success=True, data={
-                "question": question,
-                "answer": result["answer"],
-                "sources_count": len(result["sources"]),
-                "sources": [
-                    {
-                        "paper_id": s["paper_id"],
-                        "title": s["title"],
-                        "section": s["section"],
-                    }
-                    for s in result["sources"]
-                ],
-            })
+            return ToolResult(
+                success=True,
+                data={
+                    "question": question,
+                    "answer": result["answer"],
+                    "sources_count": len(result["sources"]),
+                    "sources": [
+                        {
+                            "paper_id": s["paper_id"],
+                            "title": s["title"],
+                            "section": s["section"],
+                        }
+                        for s in result["sources"]
+                    ],
+                },
+            )
         except Exception as e:
             logger.exception("QA failed")
             return ToolResult(success=False, error=str(e))
@@ -284,12 +301,15 @@ class ComparePapersTool(BaseTool):
             )
             output_path = save_compare_result(comparison.markdown, settings.note_dir)
 
-            return ToolResult(success=True, data={
-                "paper_ids": paper_ids,
-                "output_path": output_path,
-                "content_length": len(comparison.markdown),
-                "aspects_count": len(comparison.aspects),
-            })
+            return ToolResult(
+                success=True,
+                data={
+                    "paper_ids": paper_ids,
+                    "output_path": output_path,
+                    "content_length": len(comparison.markdown),
+                    "aspects_count": len(comparison.aspects),
+                },
+            )
         except Exception as e:
             logger.exception("Compare failed")
             return ToolResult(success=False, error=str(e))
@@ -339,6 +359,7 @@ class ExportMarkdownTool(BaseTool):
 
             if content:
                 import uuid
+
                 filename = f"export_{uuid.uuid4().hex[:8]}.md"
                 full_path = os.path.join(settings.note_dir, filename)
                 os.makedirs(settings.note_dir, exist_ok=True)

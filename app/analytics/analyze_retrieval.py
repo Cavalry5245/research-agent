@@ -18,7 +18,9 @@ def load_retrieval_report(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def hit_at_k_curve(results: list[dict[str, Any]], ks: list[int] | None = None) -> dict[int, float]:
+def hit_at_k_curve(
+    results: list[dict[str, Any]], ks: list[int] | None = None
+) -> dict[int, float]:
     """Compute Hit@K for each K in `ks` over a list of retrieval result dicts."""
     if ks is None:
         ks = [1, 3, 5, 10]
@@ -71,11 +73,18 @@ def time_distribution(timings: list[float]) -> dict[str, float]:
 
 def summarize_aggregate(results: list[dict[str, Any]]) -> dict[str, float]:
     if not results:
-        return {"sample_count": 0, "hit_rate": 0.0, "mean_recall_at_k": 0.0, "mean_mrr": 0.0}
+        return {
+            "sample_count": 0,
+            "hit_rate": 0.0,
+            "mean_recall_at_k": 0.0,
+            "mean_mrr": 0.0,
+        }
     return {
         "sample_count": len(results),
         "hit_rate": sum(1 for r in results if r.get("hit_at_k")) / len(results),
-        "mean_recall_at_k": statistics.mean([float(r.get("recall_at_k", 0.0)) for r in results]),
+        "mean_recall_at_k": statistics.mean(
+            [float(r.get("recall_at_k", 0.0)) for r in results]
+        ),
         "mean_mrr": statistics.mean([float(r.get("mrr", 0.0)) for r in results]),
     }
 
@@ -112,18 +121,37 @@ def analyze_qa_event_retrieval_times(events_path: Path) -> dict[str, float]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analyze retrieval evaluation reports and event logs.")
-    parser.add_argument("--input", type=Path, default=Path("app/evaluation/reports/retrieval_eval_seed_report.json"))
-    parser.add_argument("--events", type=Path, default=Path("app/storage/analytics/events.jsonl"))
-    parser.add_argument("--output", type=Path, default=Path("app/analytics/reports/retrieval_analysis.json"))
+    parser = argparse.ArgumentParser(
+        description="Analyze retrieval evaluation reports and event logs."
+    )
+    parser.add_argument(
+        "--input",
+        type=Path,
+        default=Path("app/evaluation/reports/retrieval_eval_seed_report.json"),
+    )
+    parser.add_argument(
+        "--events", type=Path, default=Path("app/storage/analytics/events.jsonl")
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("app/analytics/reports/retrieval_analysis.json"),
+    )
     args = parser.parse_args()
 
     report = analyze_retrieval_report(args.input)
     report["live_retrieval_time"] = analyze_qa_event_retrieval_times(args.events)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"Generated retrieval analysis: {args.output}")
-    print(json.dumps({"summary": report["summary"], "hit_at_k_curve": report["hit_at_k_curve"]}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {"summary": report["summary"], "hit_at_k_curve": report["hit_at_k_curve"]},
+            ensure_ascii=False,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -38,11 +38,15 @@ def test_delete_paper_assets_removes_pdf_metadata_and_note():
         _write_file(note_path, "note")
         _write_file(
             metadata_path,
-            '{"paper_id":"paper_20260509_001","pdf_path":"' + pdf_path.replace('\\', '\\\\') + '","title":"T","abstract":"A","sections":[],"full_text":"F"}',
+            '{"paper_id":"paper_20260509_001","pdf_path":"'
+            + pdf_path.replace("\\", "\\\\")
+            + '","title":"T","abstract":"A","sections":[],"full_text":"F"}',
         )
 
         vector_store = DummyVectorStore()
-        result = delete_paper_assets(paper_id, upload_dir, metadata_dir, note_dir, vector_store)
+        result = delete_paper_assets(
+            paper_id, upload_dir, metadata_dir, note_dir, vector_store
+        )
 
         assert result["status"] == "deleted"
         assert result["paper_id"] == paper_id
@@ -67,7 +71,9 @@ def test_delete_paper_assets_ignores_missing_note_and_pdf():
         )
 
         vector_store = DummyVectorStore()
-        result = delete_paper_assets(paper_id, upload_dir, metadata_dir, note_dir, vector_store)
+        result = delete_paper_assets(
+            paper_id, upload_dir, metadata_dir, note_dir, vector_store
+        )
 
         assert result["deleted_chunks"] == 3
         assert not os.path.exists(metadata_path)

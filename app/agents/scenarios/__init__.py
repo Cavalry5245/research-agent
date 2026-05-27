@@ -12,7 +12,6 @@ from app.agents.specialists.extractor_agent import ExtractorAgent
 from app.agents.specialists.qa_agent import QAAgent
 from app.agents.specialists.summarizer_agent import SummarizerAgent
 
-
 # ── Scenario A: Full Paper Analysis ──────────────────────────────────────────
 
 
@@ -32,7 +31,9 @@ def _extract_step(state: PaperAnalysisState) -> dict:
 
 def _summarize_step(state: PaperAnalysisState) -> dict:
     agent = SummarizerAgent()
-    result = agent.execute("generate note", context={"paper_id": state.get("paper_id", "")})
+    result = agent.execute(
+        "generate note", context={"paper_id": state.get("paper_id", "")}
+    )
     return {"summarize_result": result}
 
 
@@ -43,7 +44,9 @@ def _qa_step(state: PaperAnalysisState) -> dict:
     answers = []
     for q in questions:
         result = agent.execute(q, context={"question": q, "paper_id": paper_id})
-        answers.append({"question": q, "answer": result.output, "success": result.success})
+        answers.append(
+            {"question": q, "answer": result.output, "success": result.success}
+        )
     return {"qa_results": answers}
 
 
@@ -59,9 +62,14 @@ def build_paper_analysis_graph() -> StateGraph:
     return graph
 
 
-def run_paper_analysis(paper_id: str, questions: list[str] | None = None) -> dict[str, Any]:
+def run_paper_analysis(
+    paper_id: str, questions: list[str] | None = None
+) -> dict[str, Any]:
     graph = build_paper_analysis_graph().compile()
-    state: PaperAnalysisState = {"paper_id": paper_id, "questions": questions or ["这篇论文的核心贡献是什么？"]}
+    state: PaperAnalysisState = {
+        "paper_id": paper_id,
+        "questions": questions or ["这篇论文的核心贡献是什么？"],
+    }
     result = graph.invoke(state)
     return {
         "paper_id": paper_id,
@@ -132,11 +140,13 @@ def run_interactive_session(messages: list[dict[str, str]]) -> dict[str, Any]:
         user_input = msg.get("content", "")
         context = msg.get("context", {})
         result = supervisor.run(user_input, context=context)
-        responses.append({
-            "input": user_input,
-            "task_type": result["task_type"],
-            "answer": result["answer"],
-            "error": result.get("error"),
-        })
+        responses.append(
+            {
+                "input": user_input,
+                "task_type": result["task_type"],
+                "answer": result["answer"],
+                "error": result.get("error"),
+            }
+        )
 
     return {"turns": len(responses), "responses": responses}

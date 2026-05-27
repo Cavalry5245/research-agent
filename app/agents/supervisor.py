@@ -13,7 +13,12 @@ from app.agents.specialists.comparator_agent import ComparatorAgent
 from app.agents.specialists.extractor_agent import ExtractorAgent
 from app.agents.specialists.qa_agent import QAAgent
 from app.agents.specialists.summarizer_agent import SummarizerAgent
-from app.agents.state import TASK_TYPE_TO_SPECIALIST, Delegation, SupervisorState, TaskType
+from app.agents.state import (
+    TASK_TYPE_TO_SPECIALIST,
+    Delegation,
+    SupervisorState,
+    TaskType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +54,9 @@ def route_node(state: SupervisorState) -> dict:
     user_input = state["user_input"]
     task_type = classify_intent(user_input)
     specialist_name = TASK_TYPE_TO_SPECIALIST.get(task_type, "qa")
-    delegation = Delegation(agent=specialist_name, task=user_input, context=state.get("context", {}))
+    delegation = Delegation(
+        agent=specialist_name, task=user_input, context=state.get("context", {})
+    )
     return {"task_type": task_type, "delegations": [delegation]}
 
 
@@ -68,21 +75,31 @@ def execute_node(state: SupervisorState) -> dict:
         agent_name = delegation["agent"]
         specialist = specialists.get(agent_name)
         if not specialist:
-            results.append({"success": False, "error": f"Unknown agent: {agent_name}", "agent_id": agent_name})
+            results.append(
+                {
+                    "success": False,
+                    "error": f"Unknown agent: {agent_name}",
+                    "agent_id": agent_name,
+                }
+            )
             continue
 
         started = time.perf_counter()
-        result = specialist.execute(delegation["task"], context=delegation.get("context"))
+        result = specialist.execute(
+            delegation["task"], context=delegation.get("context")
+        )
         duration_ms = (time.perf_counter() - started) * 1000
 
-        results.append({
-            "success": result.success,
-            "output": result.output,
-            "data": result.data,
-            "agent_id": result.agent_id,
-            "error": result.error,
-            "duration_ms": round(duration_ms, 2),
-        })
+        results.append(
+            {
+                "success": result.success,
+                "output": result.output,
+                "data": result.data,
+                "agent_id": result.agent_id,
+                "error": result.error,
+                "duration_ms": round(duration_ms, 2),
+            }
+        )
 
     return {"results": results}
 
@@ -90,7 +107,10 @@ def execute_node(state: SupervisorState) -> dict:
 def synthesize_node(state: SupervisorState) -> dict:
     results = state.get("results", [])
     if not results:
-        return {"final_answer": "无法处理该请求。", "error": "No results from specialists"}
+        return {
+            "final_answer": "无法处理该请求。",
+            "error": "No results from specialists",
+        }
 
     successful = [r for r in results if r.get("success")]
     if successful:
@@ -136,7 +156,9 @@ class SupervisorAgent:
     def specialists(self) -> dict[str, BaseSpecialist]:
         return self._specialists
 
-    def run(self, user_input: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
+    def run(
+        self, user_input: str, context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         initial_state: SupervisorState = {
             "user_input": user_input,
             "task_type": "unknown",
@@ -168,7 +190,9 @@ class SupervisorAgent:
 
         store = memory_store
         tracer = AgentTracer(store, conversation_id=conversation_id) if store else None
-        decision_logger = DecisionLogger(store, conversation_id=conversation_id) if store else None
+        decision_logger = (
+            DecisionLogger(store, conversation_id=conversation_id) if store else None
+        )
 
         # Route
         task_type = classify_intent(user_input)
@@ -200,14 +224,27 @@ class SupervisorAgent:
 
         specialist = specialists.get(specialist_name)
         if not specialist:
-            return {"answer": "", "task_type": task_type, "results": [], "error": f"Unknown agent: {specialist_name}"}
+            return {
+                "answer": "",
+                "task_type": task_type,
+                "results": [],
+                "error": f"Unknown agent: {specialist_name}",
+            }
 
         if tracer:
-            with tracer.span(specialist_name, "delegation", input_data={"task": user_input[:200], "context": context or {}}) as span:
+            with tracer.span(
+                specialist_name,
+                "delegation",
+                input_data={"task": user_input[:200], "context": context or {}},
+            ) as span:
                 started = time.perf_counter()
                 result = specialist.execute(user_input, context=context)
                 duration_ms = (time.perf_counter() - started) * 1000
-                span.output_data = {"success": result.success, "output_preview": result.output[:200] if result.output else "", "error": result.error}
+                span.output_data = {
+                    "success": result.success,
+                    "output_preview": result.output[:200] if result.output else "",
+                    "error": result.error,
+                }
         else:
             started = time.perf_counter()
             result = specialist.execute(user_input, context=context)
@@ -228,6 +265,14 @@ class SupervisorAgent:
         return {
             "answer": answer,
             "task_type": task_type,
-            "results": [{"success": result.success, "output": result.output, "agent_id": specialist_name, "error": result.error, "duration_ms": round(duration_ms, 2)}],
+            "results": [
+                {
+                    "success": result.success,
+                    "output": result.output,
+                    "agent_id": specialist_name,
+                    "error": result.error,
+                    "duration_ms": round(duration_ms, 2),
+                }
+            ],
             "error": error,
         }

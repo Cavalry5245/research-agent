@@ -52,7 +52,9 @@ def _normalize_sections(secs: list[str] | None) -> set[str]:
     return {s.strip().lower() for s in (secs or []) if s}
 
 
-def _score_retrieval(sample: dict, sources: list[dict], top_k: int = 5) -> tuple[float, float]:
+def _score_retrieval(
+    sample: dict, sources: list[dict], top_k: int = 5
+) -> tuple[float, float]:
     """Return (hit@top_k, RR) using paper_id match + case-insensitive section match."""
     paper_id = sample.get("paper_id")
     expected = _normalize_sections(sample.get("supporting_sections"))
@@ -105,7 +107,9 @@ class RealScenarioContext:
             self.cross_encoder = CrossEncoderReranker()
 
 
-def _vector_search(ctx: RealScenarioContext, question: str, paper_id: str | None, top_k: int) -> list[dict]:
+def _vector_search(
+    ctx: RealScenarioContext, question: str, paper_id: str | None, top_k: int
+) -> list[dict]:
     qe = ctx.embedding_client.embed_query(question)
     return ctx.vector_store.query(qe, top_k=top_k, paper_id=paper_id)
 
@@ -132,9 +136,13 @@ def _executor_rerank(ctx: RealScenarioContext):
         retrieval_times = []
         for s in samples:
             t0 = time.perf_counter()
-            results = _vector_search(ctx, s["question"], s.get("paper_id"), recall_top_k)
+            results = _vector_search(
+                ctx, s["question"], s.get("paper_id"), recall_top_k
+            )
             if reranker is not None and results:
-                results = reranker.rerank(question=s["question"], results=results, top_k=final_top_k)
+                results = reranker.rerank(
+                    question=s["question"], results=results, top_k=final_top_k
+                )
             else:
                 results = results[:final_top_k]
             retrieval_times.append(time.perf_counter() - t0)
@@ -175,7 +183,9 @@ def _executor_hybrid(ctx: RealScenarioContext):
 
             def do_search(question, paper_id):
                 return retriever.search(question, top_k=top_k, paper_id=paper_id)
+
         else:
+
             def do_search(question, paper_id):
                 return _vector_search(ctx, question, paper_id, top_k)
 
@@ -243,10 +253,11 @@ def _executor_chunk(ctx: RealScenarioContext):
     retrieval over the 168 samples. Uses hit@3 to match scenario metric_keys.
     Index lives only inside this executor, the persistent vector store is left untouched.
     """
+    import numpy as np
+
+    from app.schemas import PaperParseResult, Section
     from app.services.chunker import chunk_paper
     from app.services.pdf_parser import load_parsed_result
-    from app.schemas import PaperParseResult, Section
-    import numpy as np
 
     ctx.ensure_basic()
     samples = ctx.samples
@@ -279,13 +290,15 @@ def _executor_chunk(ctx: RealScenarioContext):
         all_chunks: list[dict] = []
         for parsed in parsed_cache.values():
             for ck in chunk_paper(parsed, chunk_size=chunk_size, chunk_overlap=overlap):
-                all_chunks.append({
-                    "paper_id": ck.paper_id,
-                    "title": ck.title,
-                    "section": ck.section,
-                    "content": ck.content,
-                    "chunk_id": ck.chunk_id,
-                })
+                all_chunks.append(
+                    {
+                        "paper_id": ck.paper_id,
+                        "title": ck.title,
+                        "section": ck.section,
+                        "content": ck.content,
+                        "chunk_id": ck.chunk_id,
+                    }
+                )
         if not all_chunks:
             return {"chunk_count": 0.0, "hit_at_3": 0.0, "indexing_time": 0.0}
 
@@ -304,7 +317,9 @@ def _executor_chunk(ctx: RealScenarioContext):
         hits = []
         for i, s in enumerate(samples):
             paper_id = s.get("paper_id")
-            paper_idx = [j for j, c in enumerate(all_chunks) if c["paper_id"] == paper_id]
+            paper_idx = [
+                j for j, c in enumerate(all_chunks) if c["paper_id"] == paper_id
+            ]
             if not paper_idx:
                 hits.append(0.0)
                 continue
@@ -332,15 +347,18 @@ def _executor_prompt(ctx: RealScenarioContext):
     """Prompt A/B: for each of 9 papers, generate a note with the configured
     prompt template, measure generation_time / content_length / section_coverage.
     """
-    from app.services.pdf_parser import load_parsed_result
     from importlib import import_module
+
+    from app.services.pdf_parser import load_parsed_result
 
     ctx.ensure_llm()
 
-    paper_ids = sorted({
-        p.name.removesuffix("_parsed.json")
-        for p in METADATA_DIR.glob("paper_*_parsed.json")
-    })
+    paper_ids = sorted(
+        {
+            p.name.removesuffix("_parsed.json")
+            for p in METADATA_DIR.glob("paper_*_parsed.json")
+        }
+    )
 
     def _generate_with_prompt(paper_id: str, prompt_module: str) -> tuple[float, str]:
         from app.services.note_generator import _build_paper_content

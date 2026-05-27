@@ -21,9 +21,27 @@ def test_tokenize_zh_returns_tokens():
 
 def test_bm25_retriever_returns_results_for_matching_query():
     chunks = [
-        {"chunk_id": "a", "content": "卷积神经网络在图像识别中表现优异", "paper_id": "p1", "title": "t", "section": "s"},
-        {"chunk_id": "b", "content": "强化学习用于机器人控制", "paper_id": "p1", "title": "t", "section": "s"},
-        {"chunk_id": "c", "content": "图像识别的卷积模型对比", "paper_id": "p1", "title": "t", "section": "s"},
+        {
+            "chunk_id": "a",
+            "content": "卷积神经网络在图像识别中表现优异",
+            "paper_id": "p1",
+            "title": "t",
+            "section": "s",
+        },
+        {
+            "chunk_id": "b",
+            "content": "强化学习用于机器人控制",
+            "paper_id": "p1",
+            "title": "t",
+            "section": "s",
+        },
+        {
+            "chunk_id": "c",
+            "content": "图像识别的卷积模型对比",
+            "paper_id": "p1",
+            "title": "t",
+            "section": "s",
+        },
     ]
     retriever = BM25Retriever(_fake_vector_store(chunks))
     results = retriever.search("卷积 图像识别", top_k=2)
@@ -41,7 +59,13 @@ def test_bm25_retriever_handles_empty_corpus():
 
 def test_bm25_retriever_filters_by_paper_id_via_vector_store():
     chunks_p2 = [
-        {"chunk_id": "x", "content": "transformer attention", "paper_id": "p2", "title": "t", "section": "s"},
+        {
+            "chunk_id": "x",
+            "content": "transformer attention",
+            "paper_id": "p2",
+            "title": "t",
+            "section": "s",
+        },
     ]
     store = MagicMock()
     store.list_chunks.return_value = chunks_p2
@@ -56,7 +80,16 @@ def test_bm25_retriever_filters_by_paper_id_via_vector_store():
 
 def test_bm25_retriever_preserves_all_fields_in_results():
     chunks = [
-        {"chunk_id": "c1", "content": "深度学习入门", "paper_id": "p1", "title": "Intro", "section": "1", "page_number": 3, "chunk_start": 0, "chunk_end": 100},
+        {
+            "chunk_id": "c1",
+            "content": "深度学习入门",
+            "paper_id": "p1",
+            "title": "Intro",
+            "section": "1",
+            "page_number": 3,
+            "chunk_start": 0,
+            "chunk_end": 100,
+        },
     ]
     retriever = BM25Retriever(_fake_vector_store(chunks))
     results = retriever.search("深度学习", top_k=1)

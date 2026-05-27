@@ -34,6 +34,7 @@ def _check_available() -> bool:
     try:
         import torch  # noqa: F401
         from sentence_transformers import SentenceTransformer  # noqa: F401
+
         _MODULE_AVAILABLE = True
     except Exception:
         _MODULE_AVAILABLE = False
@@ -68,7 +69,12 @@ def _is_closed_client_error(exc: Exception) -> bool:
 
 
 class EmbeddingClient:
-    def __init__(self, model_name: str | None = None, device: str | None = None, batch_size: int | None = None):
+    def __init__(
+        self,
+        model_name: str | None = None,
+        device: str | None = None,
+        batch_size: int | None = None,
+    ):
         self.model_name = model_name or settings.embedding_model
         self._resolved_model_name = _resolve_model_name(self.model_name)
         self.device = _resolve_device(device)
@@ -88,16 +94,24 @@ class EmbeddingClient:
         except ImportError as e:
             raise RuntimeError(f"sentence-transformers 未安装: {e}") from e
 
-        logger.info("Loading embedding model: %s on device=%s", self._resolved_model_name, self.device)
+        logger.info(
+            "Loading embedding model: %s on device=%s",
+            self._resolved_model_name,
+            self.device,
+        )
         last_error = None
         for attempt in range(1, EMBEDDING_LOAD_RETRIES + 1):
             try:
-                self._model = SentenceTransformer(self._resolved_model_name, device=self.device)
+                self._model = SentenceTransformer(
+                    self._resolved_model_name, device=self.device
+                )
                 break
             except Exception as e:
                 last_error = e
                 if _is_closed_client_error(e) and attempt < EMBEDDING_LOAD_RETRIES:
-                    sleep_seconds = EMBEDDING_LOAD_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                    sleep_seconds = EMBEDDING_LOAD_BACKOFF_SECONDS * (
+                        2 ** (attempt - 1)
+                    )
                     logger.warning(
                         "Embedding model loader client closed on attempt %d/%d: %s. Retry in %.1fs",
                         attempt,
@@ -126,13 +140,19 @@ class EmbeddingClient:
     def _encode_with_recovery(self, texts: list[str]):
         self._ensure_model()
         try:
-            return self._model.encode(texts, show_progress_bar=False, batch_size=self.batch_size)
+            return self._model.encode(
+                texts, show_progress_bar=False, batch_size=self.batch_size
+            )
         except RuntimeError as e:
             if not _is_closed_client_error(e):
                 raise
-            logger.warning("Embedding model encode hit closed client, rebuilding model and retrying once")
+            logger.warning(
+                "Embedding model encode hit closed client, rebuilding model and retrying once"
+            )
             self._rebuild_model()
-            return self._model.encode(texts, show_progress_bar=False, batch_size=self.batch_size)
+            return self._model.encode(
+                texts, show_progress_bar=False, batch_size=self.batch_size
+            )
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:

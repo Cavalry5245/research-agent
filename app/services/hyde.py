@@ -21,7 +21,9 @@ class HyDE:
             logger.warning("HyDE generation failed, fallback to query: %s", exc)
             return query
 
-    def search(self, query: str, top_k: int = 5, paper_id: str | None = None) -> list[dict]:
+    def search(
+        self, query: str, top_k: int = 5, paper_id: str | None = None
+    ) -> list[dict]:
         hypo = self.generate_hypothetical_doc(query) or query
         embedding = self._embedding.embed_query(hypo)
         return self._vector_store.query(embedding, top_k=top_k, paper_id=paper_id)

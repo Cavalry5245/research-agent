@@ -11,18 +11,24 @@ if str(REPO_ROOT) not in sys.path:
 
 from app.evaluation.metrics import load_qa_samples
 
-DEFAULT_RETRIEVAL_REPORT = Path("app/evaluation/reports/retrieval_eval_seed_report.json")
+DEFAULT_RETRIEVAL_REPORT = Path(
+    "app/evaluation/reports/retrieval_eval_seed_report.json"
+)
 DEFAULT_DATASET = Path("app/evaluation/datasets/qa_eval_seed.jsonl")
 DEFAULT_OUTPUT = Path("app/evaluation/reports/baseline_report.md")
 DEFAULT_ENVIRONMENT = "WSL + conda"
-DEFAULT_VALIDATION = "Offline deterministic retrieval baseline; real retrieval chain not yet wired."
+DEFAULT_VALIDATION = (
+    "Offline deterministic retrieval baseline; real retrieval chain not yet wired."
+)
 
 
 def _load_retrieval_report(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _build_failed_case_samples(results: list[dict[str, Any]], limit: int = 3) -> list[dict[str, Any]]:
+def _build_failed_case_samples(
+    results: list[dict[str, Any]], limit: int = 3
+) -> list[dict[str, Any]]:
     explicit_failures = [result for result in results if not result.get("hit_at_k")]
     selected = explicit_failures[:limit]
 
@@ -59,7 +65,9 @@ def build_baseline_report_payload(
     summary = retrieval_report["summary"]
 
     unique_papers = {sample.paper_id for sample in samples if sample.paper_id}
-    section_labels = sorted({section for sample in samples for section in sample.supporting_sections})
+    section_labels = sorted(
+        {section for sample in samples for section in sample.supporting_sections}
+    )
 
     return {
         "dataset_scale": {
@@ -121,7 +129,9 @@ def build_baseline_report_markdown(payload: dict[str, Any]) -> str:
             ]
         )
 
-    recommendation_lines = [f"{idx}. {item}" for idx, item in enumerate(recommendations, start=1)]
+    recommendation_lines = [
+        f"{idx}. {item}" for idx, item in enumerate(recommendations, start=1)
+    ]
 
     return "\n".join(
         [
@@ -156,8 +166,9 @@ def build_baseline_report_markdown(payload: dict[str, Any]) -> str:
     )
 
 
-
-def build_retrieval_upgrade_report_payload(comparison_report: dict[str, Any]) -> dict[str, Any]:
+def build_retrieval_upgrade_report_payload(
+    comparison_report: dict[str, Any],
+) -> dict[str, Any]:
     summary = comparison_report.get("summary", {})
     strategy_summaries = comparison_report.get("strategy_summaries", {})
     results_by_strategy = comparison_report.get("results_by_strategy", {})
@@ -186,7 +197,6 @@ def build_retrieval_upgrade_report_payload(comparison_report: dict[str, Any]) ->
         "failure_case_samples": failure_case_samples,
         "recommendations": recommendations,
     }
-
 
 
 def build_retrieval_upgrade_report_markdown(payload: dict[str, Any]) -> str:
@@ -232,7 +242,9 @@ def build_retrieval_upgrade_report_markdown(payload: dict[str, Any]) -> str:
                 ]
             )
 
-    recommendation_lines = [f"{idx}. {item}" for idx, item in enumerate(recommendations, start=1)]
+    recommendation_lines = [
+        f"{idx}. {item}" for idx, item in enumerate(recommendations, start=1)
+    ]
 
     return "\n".join(
         [
@@ -281,7 +293,9 @@ def build_comparison_report_payload(report: dict[str, Any]) -> dict[str, Any]:
         "overview": {
             "sample_count": summary.get("sample_count", len(results)),
             "mean_completeness": summary.get("mean_completeness", 0.0),
-            "mean_evidence_completeness": summary.get("mean_evidence_completeness", 0.0),
+            "mean_evidence_completeness": summary.get(
+                "mean_evidence_completeness", 0.0
+            ),
             "mean_evidence_quality": summary.get("mean_evidence_quality", 0.0),
             "mean_section_alignment": summary.get("mean_section_alignment", 0.0),
             "mean_paper_balance": summary.get("mean_paper_balance", 0.0),
@@ -303,20 +317,38 @@ def build_comparison_report_markdown(payload: dict[str, Any]) -> str:
     failure_lines = []
     for case in failure_case_samples:
         missing_aspects = ", ".join(case.get("missing_aspects", [])) or "无"
-        missing_evidence = ", ".join(case.get("aspects_with_missing_evidence", [])) or "无"
-        evidence_quality_issues = ", ".join(case.get("evidence_quality_issues", [])) or "无"
-        section_alignment_issues = ", ".join(case.get("section_alignment_issues", [])) or "无"
+        missing_evidence = (
+            ", ".join(case.get("aspects_with_missing_evidence", [])) or "无"
+        )
+        evidence_quality_issues = (
+            ", ".join(case.get("evidence_quality_issues", [])) or "无"
+        )
+        section_alignment_issues = (
+            ", ".join(case.get("section_alignment_issues", [])) or "无"
+        )
         paper_alignment = case.get("paper_alignment", {})
-        paper_alignment_display = ", ".join(
-            f"{paper_id}={score:.3f}" for paper_id, score in paper_alignment.items()
-        ) or "无"
+        paper_alignment_display = (
+            ", ".join(
+                f"{paper_id}={score:.3f}" for paper_id, score in paper_alignment.items()
+            )
+            or "无"
+        )
         paper_alignment_issues = case.get("paper_alignment_issues", {})
-        paper_alignment_issue_display = "; ".join(
-            f"{aspect}: {', '.join(paper_ids)}" for aspect, paper_ids in paper_alignment_issues.items()
-        ) or "无"
-        uncovered_papers = ", ".join(
-            paper_id for paper_id, covered in case.get("paper_coverage", {}).items() if not covered
-        ) or "无"
+        paper_alignment_issue_display = (
+            "; ".join(
+                f"{aspect}: {', '.join(paper_ids)}"
+                for aspect, paper_ids in paper_alignment_issues.items()
+            )
+            or "无"
+        )
+        uncovered_papers = (
+            ", ".join(
+                paper_id
+                for paper_id, covered in case.get("paper_coverage", {}).items()
+                if not covered
+            )
+            or "无"
+        )
         failure_lines.extend(
             [
                 f"### {case['sample_id']}",
@@ -338,7 +370,9 @@ def build_comparison_report_markdown(payload: dict[str, Any]) -> str:
             ]
         )
 
-    recommendation_lines = [f"{idx}. {item}" for idx, item in enumerate(recommendations, start=1)]
+    recommendation_lines = [
+        f"{idx}. {item}" for idx, item in enumerate(recommendations, start=1)
+    ]
 
     return "\n".join(
         [
@@ -365,8 +399,12 @@ def build_comparison_report_markdown(payload: dict[str, Any]) -> str:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Generate a Markdown baseline report for retrieval evaluation.")
-    parser.add_argument("--retrieval-report", type=Path, default=DEFAULT_RETRIEVAL_REPORT)
+    parser = argparse.ArgumentParser(
+        description="Generate a Markdown baseline report for retrieval evaluation."
+    )
+    parser.add_argument(
+        "--retrieval-report", type=Path, default=DEFAULT_RETRIEVAL_REPORT
+    )
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--top-k", type=int, default=3)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)

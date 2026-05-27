@@ -12,7 +12,9 @@ from app.services.llm_client import LLMClient
 
 class _FakeResponse:
     def __init__(self, content: str):
-        self.choices = [type("Choice", (), {"message": type("Msg", (), {"content": content})()})()]
+        self.choices = [
+            type("Choice", (), {"message": type("Msg", (), {"content": content})()})()
+        ]
 
 
 class _DummyChat:
@@ -35,13 +37,25 @@ class _DummyClient:
 
 
 def _make_internal_server_error(message: str = "Service temporarily unavailable"):
-    resp = type("Resp", (), {"request": None, "status_code": 503, "headers": {}, "text": message})()
-    return InternalServerError(message=message, response=resp, body={"error": {"message": message}})
+    resp = type(
+        "Resp",
+        (),
+        {"request": None, "status_code": 503, "headers": {}, "text": message},
+    )()
+    return InternalServerError(
+        message=message, response=resp, body={"error": {"message": message}}
+    )
 
 
 def _make_rate_limit_error(message: str = "rate limited"):
-    resp = type("Resp", (), {"request": None, "status_code": 429, "headers": {}, "text": message})()
-    return RateLimitError(message=message, response=resp, body={"error": {"message": message}})
+    resp = type(
+        "Resp",
+        (),
+        {"request": None, "status_code": 429, "headers": {}, "text": message},
+    )()
+    return RateLimitError(
+        message=message, response=resp, body={"error": {"message": message}}
+    )
 
 
 @pytest.fixture
@@ -64,12 +78,16 @@ def llm_env():
 
 
 def test_generate_text_retries_on_503_then_succeeds(llm_env):
-    fake_client = _DummyClient([
-        _make_internal_server_error(),
-        _FakeResponse("ok after retry"),
-    ])
+    fake_client = _DummyClient(
+        [
+            _make_internal_server_error(),
+            _FakeResponse("ok after retry"),
+        ]
+    )
 
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch("time.sleep") as sleep_mock:
+    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
+        "time.sleep"
+    ) as sleep_mock:
         client = LLMClient()
         result = client.generate_text("hello")
 
@@ -79,12 +97,16 @@ def test_generate_text_retries_on_503_then_succeeds(llm_env):
 
 
 def test_generate_text_retries_on_429_then_succeeds(llm_env):
-    fake_client = _DummyClient([
-        _make_rate_limit_error(),
-        _FakeResponse("ok after retry"),
-    ])
+    fake_client = _DummyClient(
+        [
+            _make_rate_limit_error(),
+            _FakeResponse("ok after retry"),
+        ]
+    )
 
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch("time.sleep") as sleep_mock:
+    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
+        "time.sleep"
+    ) as sleep_mock:
         client = LLMClient()
         result = client.generate_text("hello")
 
@@ -94,13 +116,21 @@ def test_generate_text_retries_on_429_then_succeeds(llm_env):
 
 
 def test_generate_text_retries_on_timeout_then_succeeds(llm_env):
-    request = type("Req", (), {"method": "POST", "url": "http://localhost:18080/v1/chat/completions"})()
-    fake_client = _DummyClient([
-        APITimeoutError(request=request),
-        _FakeResponse("ok after timeout retry"),
-    ])
+    request = type(
+        "Req",
+        (),
+        {"method": "POST", "url": "http://localhost:18080/v1/chat/completions"},
+    )()
+    fake_client = _DummyClient(
+        [
+            APITimeoutError(request=request),
+            _FakeResponse("ok after timeout retry"),
+        ]
+    )
 
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch("time.sleep") as sleep_mock:
+    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
+        "time.sleep"
+    ) as sleep_mock:
         client = LLMClient()
         result = client.generate_text("hello")
 
@@ -110,13 +140,17 @@ def test_generate_text_retries_on_timeout_then_succeeds(llm_env):
 
 
 def test_generate_text_raises_after_max_retries(llm_env):
-    fake_client = _DummyClient([
-        _make_internal_server_error("temporary outage 1"),
-        _make_internal_server_error("temporary outage 2"),
-        _make_internal_server_error("temporary outage 3"),
-    ])
+    fake_client = _DummyClient(
+        [
+            _make_internal_server_error("temporary outage 1"),
+            _make_internal_server_error("temporary outage 2"),
+            _make_internal_server_error("temporary outage 3"),
+        ]
+    )
 
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch("time.sleep") as sleep_mock:
+    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
+        "time.sleep"
+    ) as sleep_mock:
         client = LLMClient()
         with pytest.raises(RuntimeError) as exc_info:
             client.generate_text("hello")
@@ -127,11 +161,15 @@ def test_generate_text_raises_after_max_retries(llm_env):
 
 
 def test_generate_text_does_not_retry_on_value_error(llm_env):
-    fake_client = _DummyClient([
-        ValueError("non retryable failure"),
-    ])
+    fake_client = _DummyClient(
+        [
+            ValueError("non retryable failure"),
+        ]
+    )
 
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch("time.sleep") as sleep_mock:
+    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
+        "time.sleep"
+    ) as sleep_mock:
         client = LLMClient()
         with pytest.raises(RuntimeError) as exc_info:
             client.generate_text("hello")

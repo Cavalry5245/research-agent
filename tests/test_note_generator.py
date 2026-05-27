@@ -67,10 +67,19 @@ def _create_parsed_json(metadata_dir: str, paper_id: str) -> str:
         "title": "A Novel Approach to Infrared Small Target Detection",
         "abstract": "This paper presents a novel approach to infrared small target detection.",
         "sections": [
-            {"heading": "Introduction", "content": "Infrared small target detection is critical."},
-            {"heading": "Method", "content": "Our method uses VLM with spatial attention."},
+            {
+                "heading": "Introduction",
+                "content": "Infrared small target detection is critical.",
+            },
+            {
+                "heading": "Method",
+                "content": "Our method uses VLM with spatial attention.",
+            },
             {"heading": "Experiments", "content": "We evaluate on SIRST dataset."},
-            {"heading": "Conclusion", "content": "We present a novel VLM-based approach."},
+            {
+                "heading": "Conclusion",
+                "content": "We present a novel VLM-based approach.",
+            },
         ],
         "full_text": "A Novel Approach to Infrared Small Target Detection\n\nAbstract\nThis paper presents...\n\nIntroduction\nInfrared small target detection is critical...\n\nMethod\nOur method uses VLM...\n\nExperiments\nWe evaluate on SIRST...\n\nConclusion\nWe present a novel approach...",
     }

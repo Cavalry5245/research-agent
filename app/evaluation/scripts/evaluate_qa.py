@@ -83,7 +83,9 @@ def build_live_qa_predictions(
         try:
             question = query_rewriter.rewrite(question) or sample.question
         except Exception as exc:
-            logger.warning("Query rewrite failed for %s, using original: %s", sample.sample_id, exc)
+            logger.warning(
+                "Query rewrite failed for %s, using original: %s", sample.sample_id, exc
+            )
             question = sample.question
 
     try:
@@ -98,7 +100,9 @@ def build_live_qa_predictions(
             recall_top_k=recall_top_k,
         )
     except Exception as exc:
-        logger.exception("Live QA pipeline failed for sample %s: %s", sample.sample_id, exc)
+        logger.exception(
+            "Live QA pipeline failed for sample %s: %s", sample.sample_id, exc
+        )
         return {"predicted_answer": "", "citations": []}
 
     sources = result.get("sources", []) or []
@@ -139,10 +143,12 @@ def _build_optional_components(
     recall_top_k = None
     if enable_rerank:
         from app.services.reranker import CrossEncoderReranker
+
         reranker = CrossEncoderReranker()
         recall_top_k = rerank_recall_top_k
     if query_rewrite:
         from app.services.query_rewriter import QueryRewriter
+
         rewriter = QueryRewriter(llm_client)
     return reranker, rewriter, recall_top_k
 
@@ -156,8 +162,12 @@ def evaluate_qa_sample(
 ) -> QAEvaluationResult:
     predicted_answer = prediction.get("predicted_answer", "")
     citations = prediction.get("citations", [])
-    answer_result = answer_judge.evaluate(sample=sample, predicted_answer=predicted_answer, citations=citations)
-    citation_result = citation_judge.evaluate(sample=sample, citations=citations, predicted_answer=predicted_answer)
+    answer_result = answer_judge.evaluate(
+        sample=sample, predicted_answer=predicted_answer, citations=citations
+    )
+    citation_result = citation_judge.evaluate(
+        sample=sample, citations=citations, predicted_answer=predicted_answer
+    )
     return QAEvaluationResult(
         sample_id=sample.sample_id,
         question=sample.question,
@@ -169,7 +179,9 @@ def evaluate_qa_sample(
     )
 
 
-def summarize_qa_results(results: list[QAEvaluationResult], mode: str) -> dict[str, Any]:
+def summarize_qa_results(
+    results: list[QAEvaluationResult], mode: str
+) -> dict[str, Any]:
     sample_count = len(results)
     answer_scores = [result.answer_evaluation.score for result in results]
     citation_scores = [result.citation_evaluation.score for result in results]
@@ -205,7 +217,9 @@ def evaluate_qa_dataset(
     recall_top_k = None
     if use_live_pipeline:
         live_clients = _build_live_pipeline_clients()
-        logger.info("Live QA pipeline enabled: VectorStore + EmbeddingClient + LLMClient initialized")
+        logger.info(
+            "Live QA pipeline enabled: VectorStore + EmbeddingClient + LLMClient initialized"
+        )
         if enable_rerank or query_rewrite:
             _, _, lc = live_clients
             reranker, rewriter, recall_top_k = _build_optional_components(
@@ -213,15 +227,25 @@ def evaluate_qa_dataset(
                 query_rewrite=query_rewrite,
                 llm_client=lc,
             )
-            logger.info("Optional components: rerank=%s, query_rewrite=%s", enable_rerank, query_rewrite)
+            logger.info(
+                "Optional components: rerank=%s, query_rewrite=%s",
+                enable_rerank,
+                query_rewrite,
+            )
 
     results = []
     for sample in samples:
         if use_live_pipeline and live_clients is not None:
             vs, ec, lc = live_clients
             prediction = build_live_qa_predictions(
-                sample, vector_store=vs, embedding_client=ec, llm_client=lc, top_k=top_k,
-                reranker=reranker, query_rewriter=rewriter, recall_top_k=recall_top_k,
+                sample,
+                vector_store=vs,
+                embedding_client=ec,
+                llm_client=lc,
+                top_k=top_k,
+                reranker=reranker,
+                query_rewriter=rewriter,
+                recall_top_k=recall_top_k,
             )
         else:
             prediction = build_seed_qa_predictions(sample)
@@ -252,7 +276,9 @@ def evaluate_qa_dataset(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Evaluate offline QA answer/citation quality scaffolding.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate offline QA answer/citation quality scaffolding."
+    )
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--mode", type=str, default="rule_based")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
@@ -261,10 +287,25 @@ if __name__ == "__main__":
         action="store_true",
         help="Call the real paper_qa.answer_question pipeline instead of the deterministic stub.",
     )
-    parser.add_argument("--top-k", type=int, default=5, help="top_k for live retrieval (only used with --use-live-pipeline)")
-    parser.add_argument("--limit", type=int, default=None, help="Cap to first N samples (smoke test).")
-    parser.add_argument("--enable-rerank", action="store_true", help="Apply cross-encoder rerank post-retrieval.")
-    parser.add_argument("--query-rewrite", action="store_true", help="Apply LLM query rewrite pre-retrieval.")
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="top_k for live retrieval (only used with --use-live-pipeline)",
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Cap to first N samples (smoke test)."
+    )
+    parser.add_argument(
+        "--enable-rerank",
+        action="store_true",
+        help="Apply cross-encoder rerank post-retrieval.",
+    )
+    parser.add_argument(
+        "--query-rewrite",
+        action="store_true",
+        help="Apply LLM query rewrite pre-retrieval.",
+    )
     args = parser.parse_args()
 
     report = evaluate_qa_dataset(
@@ -277,6 +318,8 @@ if __name__ == "__main__":
         query_rewrite=args.query_rewrite,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"Generated QA evaluation report: {args.output}")
     print(json.dumps(report["summary"], ensure_ascii=False))

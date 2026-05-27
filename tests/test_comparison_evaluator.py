@@ -20,7 +20,6 @@ from app.schemas import (
 )
 from app.services.paper_compare import compare_papers_batch
 
-
 SCRIPT_PATH = Path("app/evaluation/scripts/evaluate_comparison.py")
 
 
@@ -89,14 +88,20 @@ def test_evaluate_comparison_dataset_flags_missing_aspects_and_evidence(tmp_path
                             {
                                 "name": "method",
                                 "summary": "A 用 Transformer，B 用 CNN。",
-                                "per_paper": {"paper_a": "Transformer", "paper_b": "未明确说明"},
+                                "per_paper": {
+                                    "paper_a": "Transformer",
+                                    "paper_b": "未明确说明",
+                                },
                                 "key_differences": [],
                                 "evidence": [],
                             },
                             {
                                 "name": "dataset",
                                 "summary": "只说明了 Paper A 的数据集。",
-                                "per_paper": {"paper_a": "CIFAR-10", "paper_b": "未明确说明"},
+                                "per_paper": {
+                                    "paper_a": "CIFAR-10",
+                                    "paper_b": "未明确说明",
+                                },
                                 "key_differences": [],
                                 "evidence": [
                                     {
@@ -126,7 +131,9 @@ def test_evaluate_comparison_dataset_flags_missing_aspects_and_evidence(tmp_path
     assert result["paper_balance"] == 0.5
 
 
-def test_evaluate_comparison_dataset_distinguishes_missing_evidence_from_section_mismatch(tmp_path: Path):
+def test_evaluate_comparison_dataset_distinguishes_missing_evidence_from_section_mismatch(
+    tmp_path: Path,
+):
     dataset_path = tmp_path / "comparison_eval_seed.jsonl"
     _write_jsonl(
         dataset_path,
@@ -149,7 +156,10 @@ def test_evaluate_comparison_dataset_distinguishes_missing_evidence_from_section
                             {
                                 "name": "method",
                                 "summary": "A 用 Transformer，B 用 CNN。",
-                                "per_paper": {"paper_a": "Transformer", "paper_b": "CNN"},
+                                "per_paper": {
+                                    "paper_a": "Transformer",
+                                    "paper_b": "CNN",
+                                },
                                 "key_differences": [],
                                 "evidence": [
                                     {
@@ -169,7 +179,10 @@ def test_evaluate_comparison_dataset_distinguishes_missing_evidence_from_section
                             {
                                 "name": "dataset",
                                 "summary": "A 使用 CIFAR-10，B 使用 ImageNet。",
-                                "per_paper": {"paper_a": "CIFAR-10", "paper_b": "ImageNet"},
+                                "per_paper": {
+                                    "paper_a": "CIFAR-10",
+                                    "paper_b": "ImageNet",
+                                },
                                 "key_differences": [],
                                 "evidence": [
                                     {
@@ -205,7 +218,9 @@ def test_evaluate_comparison_dataset_distinguishes_missing_evidence_from_section
     assert report["summary"]["mean_section_alignment"] == 0.5
 
 
-def test_evaluate_comparison_dataset_flags_semantic_evidence_mismatch_separately_from_section_alignment(tmp_path: Path):
+def test_evaluate_comparison_dataset_flags_semantic_evidence_mismatch_separately_from_section_alignment(
+    tmp_path: Path,
+):
     dataset_path = tmp_path / "comparison_eval_seed.jsonl"
     _write_jsonl(
         dataset_path,
@@ -228,7 +243,10 @@ def test_evaluate_comparison_dataset_flags_semantic_evidence_mismatch_separately
                             {
                                 "name": "dataset",
                                 "summary": "A 使用 CIFAR-10，B 使用 ImageNet。",
-                                "per_paper": {"paper_a": "CIFAR-10", "paper_b": "ImageNet"},
+                                "per_paper": {
+                                    "paper_a": "CIFAR-10",
+                                    "paper_b": "ImageNet",
+                                },
                                 "key_differences": [],
                                 "evidence": [
                                     {
@@ -265,8 +283,9 @@ def test_evaluate_comparison_dataset_flags_semantic_evidence_mismatch_separately
     assert report["summary"]["mean_evidence_quality"] == 0.0
 
 
-
-def test_evaluate_comparison_dataset_tracks_partial_section_alignment_per_paper(tmp_path: Path):
+def test_evaluate_comparison_dataset_tracks_partial_section_alignment_per_paper(
+    tmp_path: Path,
+):
     dataset_path = tmp_path / "comparison_eval_seed.jsonl"
     _write_jsonl(
         dataset_path,
@@ -289,7 +308,10 @@ def test_evaluate_comparison_dataset_tracks_partial_section_alignment_per_paper(
                             {
                                 "name": "dataset",
                                 "summary": "A 使用 CIFAR-10，B 使用 ImageNet。",
-                                "per_paper": {"paper_a": "CIFAR-10", "paper_b": "ImageNet"},
+                                "per_paper": {
+                                    "paper_a": "CIFAR-10",
+                                    "paper_b": "ImageNet",
+                                },
                                 "key_differences": [],
                                 "evidence": [
                                     {
@@ -430,9 +452,14 @@ def test_cli_generate_live_compare_with_real_metadata_generates_reports(tmp_path
     compatible_rows = [
         row
         for row in dataset_rows
-        if all((metadata_dir / f"{paper_id}_parsed.json").exists() for paper_id in row.get("paper_ids", []))
+        if all(
+            (metadata_dir / f"{paper_id}_parsed.json").exists()
+            for paper_id in row.get("paper_ids", [])
+        )
     ]
-    assert compatible_rows, "Expected comparison seed dataset rows that match real parsed metadata fixtures"
+    assert (
+        compatible_rows
+    ), "Expected comparison seed dataset rows that match real parsed metadata fixtures"
 
     dataset_path = tmp_path / "comparison_eval_seed_real_metadata.jsonl"
     compare_output_path = tmp_path / "comparison_eval_predictions.json"
@@ -468,7 +495,9 @@ def test_cli_generate_live_compare_with_real_metadata_generates_reports(tmp_path
     assert "Structured Comparison Evaluation Report" in markdown
 
 
-def test_cli_generate_live_compare_with_real_metadata_and_stubbed_llm_generates_live_report(tmp_path: Path):
+def test_cli_generate_live_compare_with_real_metadata_and_stubbed_llm_generates_live_report(
+    tmp_path: Path,
+):
     source_dataset = Path("app/evaluation/datasets/comparison_eval_seed.jsonl")
     dataset_rows = [
         json.loads(line)
@@ -480,9 +509,14 @@ def test_cli_generate_live_compare_with_real_metadata_and_stubbed_llm_generates_
     compatible_rows = [
         row
         for row in dataset_rows
-        if all((metadata_dir / f"{paper_id}_parsed.json").exists() for paper_id in row.get("paper_ids", []))
+        if all(
+            (metadata_dir / f"{paper_id}_parsed.json").exists()
+            for paper_id in row.get("paper_ids", [])
+        )
     ]
-    assert compatible_rows, "Expected comparison seed dataset rows that match real parsed metadata fixtures"
+    assert (
+        compatible_rows
+    ), "Expected comparison seed dataset rows that match real parsed metadata fixtures"
 
     dataset_path = tmp_path / "comparison_eval_seed_live_compare.jsonl"
     compare_output_path = tmp_path / "comparison_eval_predictions.json"
@@ -497,92 +531,96 @@ def test_cli_generate_live_compare_with_real_metadata_and_stubbed_llm_generates_
     original_extract = compare_papers_batch.__globals__["extract_paper_summaries"]
     original_compare = compare_papers_batch.__globals__["compare_papers"]
 
-    compare_papers_batch.__globals__["extract_paper_summaries"] = lambda paper_ids, metadata_dir, llm_client=None: {
-        paper_ids[0]: PaperStructuredSummary(
-            paper_id=paper_ids[0],
-            paper_title=paper_titles[0],
-            research_problem="研究问题A",
-            method="方法A",
-            backbone="骨干A",
-            dataset="数据集A",
-            metrics="指标A",
-            strengths="优势A",
-            limitations="局限A",
-            scenarios="场景A",
-            evidence=[],
-        ),
-        paper_ids[1]: PaperStructuredSummary(
-            paper_id=paper_ids[1],
-            paper_title=paper_titles[1],
-            research_problem="研究问题B",
-            method="方法B",
-            backbone="骨干B",
-            dataset="数据集B",
-            metrics="指标B",
-            strengths="优势B",
-            limitations="局限B",
-            scenarios="场景B",
-            evidence=[],
-        ),
-    }
-    compare_papers_batch.__globals__["compare_papers"] = lambda paper_ids, metadata_dir, llm_client=None: PaperComparisonResult.model_validate(
-        {
-            "overview": "已生成 live compare。",
-            "aspects": [
-                {
-                    "name": "dataset",
-                    "summary": "两篇论文使用不同数据集。",
-                    "per_paper": {
-                        paper_ids[0]: "数据集A",
-                        paper_ids[1]: "数据集B",
-                    },
-                    "key_differences": ["数据集不同"],
-                    "evidence": [
-                        {
-                            "paper_id": paper_ids[0],
-                            "paper_title": paper_titles[0],
-                            "section": row["supporting_sections"][paper_ids[0]][0],
-                            "snippet": f"{paper_titles[0]} dataset evidence",
-                        },
-                        {
-                            "paper_id": paper_ids[1],
-                            "paper_title": paper_titles[1],
-                            "section": row["supporting_sections"][paper_ids[1]][0],
-                            "snippet": f"{paper_titles[1]} dataset evidence",
-                        },
-                    ],
-                }
-            ],
-            "markdown": "# compare output",
-            "structured_summaries": {
-                paper_ids[0]: {
-                    "paper_id": paper_ids[0],
-                    "paper_title": paper_titles[0],
-                    "research_problem": "研究问题A",
-                    "method": "方法A",
-                    "backbone": "骨干A",
-                    "dataset": "数据集A",
-                    "metrics": "指标A",
-                    "strengths": "优势A",
-                    "limitations": "局限A",
-                    "scenarios": "场景A",
-                    "evidence": [],
-                },
-                paper_ids[1]: {
-                    "paper_id": paper_ids[1],
-                    "paper_title": paper_titles[1],
-                    "research_problem": "研究问题B",
-                    "method": "方法B",
-                    "backbone": "骨干B",
-                    "dataset": "数据集B",
-                    "metrics": "指标B",
-                    "strengths": "优势B",
-                    "limitations": "局限B",
-                    "scenarios": "场景B",
-                    "evidence": [],
-                },
-            },
+    compare_papers_batch.__globals__["extract_paper_summaries"] = (
+        lambda paper_ids, metadata_dir, llm_client=None: {
+            paper_ids[0]: PaperStructuredSummary(
+                paper_id=paper_ids[0],
+                paper_title=paper_titles[0],
+                research_problem="研究问题A",
+                method="方法A",
+                backbone="骨干A",
+                dataset="数据集A",
+                metrics="指标A",
+                strengths="优势A",
+                limitations="局限A",
+                scenarios="场景A",
+                evidence=[],
+            ),
+            paper_ids[1]: PaperStructuredSummary(
+                paper_id=paper_ids[1],
+                paper_title=paper_titles[1],
+                research_problem="研究问题B",
+                method="方法B",
+                backbone="骨干B",
+                dataset="数据集B",
+                metrics="指标B",
+                strengths="优势B",
+                limitations="局限B",
+                scenarios="场景B",
+                evidence=[],
+            ),
         }
+    )
+    compare_papers_batch.__globals__["compare_papers"] = (
+        lambda paper_ids, metadata_dir, llm_client=None: PaperComparisonResult.model_validate(
+            {
+                "overview": "已生成 live compare。",
+                "aspects": [
+                    {
+                        "name": "dataset",
+                        "summary": "两篇论文使用不同数据集。",
+                        "per_paper": {
+                            paper_ids[0]: "数据集A",
+                            paper_ids[1]: "数据集B",
+                        },
+                        "key_differences": ["数据集不同"],
+                        "evidence": [
+                            {
+                                "paper_id": paper_ids[0],
+                                "paper_title": paper_titles[0],
+                                "section": row["supporting_sections"][paper_ids[0]][0],
+                                "snippet": f"{paper_titles[0]} dataset evidence",
+                            },
+                            {
+                                "paper_id": paper_ids[1],
+                                "paper_title": paper_titles[1],
+                                "section": row["supporting_sections"][paper_ids[1]][0],
+                                "snippet": f"{paper_titles[1]} dataset evidence",
+                            },
+                        ],
+                    }
+                ],
+                "markdown": "# compare output",
+                "structured_summaries": {
+                    paper_ids[0]: {
+                        "paper_id": paper_ids[0],
+                        "paper_title": paper_titles[0],
+                        "research_problem": "研究问题A",
+                        "method": "方法A",
+                        "backbone": "骨干A",
+                        "dataset": "数据集A",
+                        "metrics": "指标A",
+                        "strengths": "优势A",
+                        "limitations": "局限A",
+                        "scenarios": "场景A",
+                        "evidence": [],
+                    },
+                    paper_ids[1]: {
+                        "paper_id": paper_ids[1],
+                        "paper_title": paper_titles[1],
+                        "research_problem": "研究问题B",
+                        "method": "方法B",
+                        "backbone": "骨干B",
+                        "dataset": "数据集B",
+                        "metrics": "指标B",
+                        "strengths": "优势B",
+                        "limitations": "局限B",
+                        "scenarios": "场景B",
+                        "evidence": [],
+                    },
+                },
+            }
+        )
     )
 
     try:
@@ -597,21 +635,37 @@ def test_cli_generate_live_compare_with_real_metadata_and_stubbed_llm_generates_
 
     updated_rows = inject_live_compare_predictions(dataset_path, compare_output_path)
     report = evaluate_comparison_dataset(dataset_path)
-    report_output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    report_output_path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     markdown_payload = build_comparison_report_payload(report)
-    markdown_output_path.write_text(build_comparison_report_markdown(markdown_payload), encoding="utf-8")
+    markdown_output_path.write_text(
+        build_comparison_report_markdown(markdown_payload), encoding="utf-8"
+    )
 
     assert result.total_samples == 1
-    assert updated_rows[0]["metadata"]["predicted_comparison"]["overview"] == "已生成 live compare。"
+    assert (
+        updated_rows[0]["metadata"]["predicted_comparison"]["overview"]
+        == "已生成 live compare。"
+    )
     assert report["summary"]["sample_count"] == 1
     assert report["results"][0]["comparison_source"] == "predicted_comparison"
     assert report["results"][0]["uses_structured_summaries"] is True
     compare_payload = json.loads(compare_output_path.read_text(encoding="utf-8"))
-    assert compare_payload["results"][0]["comparison"]["structured_summaries"][paper_ids[0]]["dataset"] == "数据集A"
-    assert "Structured Comparison Evaluation Report" in markdown_output_path.read_text(encoding="utf-8")
+    assert (
+        compare_payload["results"][0]["comparison"]["structured_summaries"][
+            paper_ids[0]
+        ]["dataset"]
+        == "数据集A"
+    )
+    assert "Structured Comparison Evaluation Report" in markdown_output_path.read_text(
+        encoding="utf-8"
+    )
 
 
-def test_cli_generate_live_compare_success_subprocess_with_injection_seam(tmp_path: Path):
+def test_cli_generate_live_compare_success_subprocess_with_injection_seam(
+    tmp_path: Path,
+):
     source_dataset = Path("app/evaluation/datasets/comparison_eval_seed.jsonl")
     dataset_rows = [
         json.loads(line)
@@ -622,9 +676,14 @@ def test_cli_generate_live_compare_success_subprocess_with_injection_seam(tmp_pa
     compatible_rows = [
         row
         for row in dataset_rows
-        if all((metadata_dir / f"{paper_id}_parsed.json").exists() for paper_id in row.get("paper_ids", []))
+        if all(
+            (metadata_dir / f"{paper_id}_parsed.json").exists()
+            for paper_id in row.get("paper_ids", [])
+        )
     ]
-    assert compatible_rows, "Expected comparison seed dataset rows that match real parsed metadata fixtures"
+    assert (
+        compatible_rows
+    ), "Expected comparison seed dataset rows that match real parsed metadata fixtures"
 
     row = compatible_rows[0]
     dataset_path = tmp_path / "comparison_eval_seed_live_compare_subprocess.jsonl"
@@ -735,8 +794,7 @@ def main() -> None:
 
 if __name__ == \"__main__\":
     main()
-""".strip()
-        + "\n",
+""".strip() + "\n",
         encoding="utf-8",
     )
 
@@ -759,24 +817,34 @@ if __name__ == \"__main__\":
     ]
     completed = subprocess.run(command, capture_output=True, text=True)
 
-    assert completed.returncode == 0, (
-        f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
-    )
+    assert (
+        completed.returncode == 0
+    ), f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
     report = json.loads(report_output_path.read_text(encoding="utf-8"))
     compare_payload = json.loads(compare_output_path.read_text(encoding="utf-8"))
     markdown = markdown_output_path.read_text(encoding="utf-8")
 
     assert "Generated comparison evaluation report" in completed.stdout
     assert "Generated comparison evaluation markdown" in completed.stdout
-    assert f"Generated live comparison payloads: {compare_output_path} (1 samples)" in completed.stdout
+    assert (
+        f"Generated live comparison payloads: {compare_output_path} (1 samples)"
+        in completed.stdout
+    )
     assert '"sample_count": 1' in completed.stdout
     assert report["results"][0]["comparison_source"] == "predicted_comparison"
     assert report["results"][0]["uses_structured_summaries"] is True
-    assert compare_payload["results"][0]["comparison"]["structured_summaries"][row["paper_ids"][0]]["dataset"] == "数据集A"
+    assert (
+        compare_payload["results"][0]["comparison"]["structured_summaries"][
+            row["paper_ids"][0]
+        ]["dataset"]
+        == "数据集A"
+    )
     assert "Structured Comparison Evaluation Report" in markdown
 
 
-def test_cli_generate_live_compare_surfaces_compare_stage_invalid_json_clearly(tmp_path: Path):
+def test_cli_generate_live_compare_surfaces_compare_stage_invalid_json_clearly(
+    tmp_path: Path,
+):
     source_dataset = Path("app/evaluation/datasets/comparison_eval_seed.jsonl")
     dataset_rows = [
         json.loads(line)
@@ -787,9 +855,14 @@ def test_cli_generate_live_compare_surfaces_compare_stage_invalid_json_clearly(t
     compatible_rows = [
         row
         for row in dataset_rows
-        if all((metadata_dir / f"{paper_id}_parsed.json").exists() for paper_id in row.get("paper_ids", []))
+        if all(
+            (metadata_dir / f"{paper_id}_parsed.json").exists()
+            for paper_id in row.get("paper_ids", [])
+        )
     ]
-    assert compatible_rows, "Expected comparison seed dataset rows that match real parsed metadata fixtures"
+    assert (
+        compatible_rows
+    ), "Expected comparison seed dataset rows that match real parsed metadata fixtures"
 
     row = compatible_rows[0]
     dataset_path = tmp_path / "comparison_eval_seed_invalid_json.jsonl"
@@ -813,8 +886,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-""".strip()
-        + "\n",
+""".strip() + "\n",
         encoding="utf-8",
     )
 
@@ -845,7 +917,9 @@ if __name__ == "__main__":
     assert "结构化对比结果解析失败" not in result.stderr
 
 
-def test_cli_generate_live_compare_helper_failure_surfaces_stdout_stderr_and_exit_code(tmp_path: Path):
+def test_cli_generate_live_compare_helper_failure_surfaces_stdout_stderr_and_exit_code(
+    tmp_path: Path,
+):
     source_dataset = Path("app/evaluation/datasets/comparison_eval_seed.jsonl")
     dataset_rows = [
         json.loads(line)
@@ -856,9 +930,14 @@ def test_cli_generate_live_compare_helper_failure_surfaces_stdout_stderr_and_exi
     compatible_rows = [
         row
         for row in dataset_rows
-        if all((metadata_dir / f"{paper_id}_parsed.json").exists() for paper_id in row.get("paper_ids", []))
+        if all(
+            (metadata_dir / f"{paper_id}_parsed.json").exists()
+            for paper_id in row.get("paper_ids", [])
+        )
     ]
-    assert compatible_rows, "Expected comparison seed dataset rows that match real parsed metadata fixtures"
+    assert (
+        compatible_rows
+    ), "Expected comparison seed dataset rows that match real parsed metadata fixtures"
 
     row = compatible_rows[0]
     dataset_path = tmp_path / "comparison_eval_seed_helper_failure.jsonl"
@@ -881,8 +960,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-""".strip()
-        + "\n",
+""".strip() + "\n",
         encoding="utf-8",
     )
 
@@ -916,7 +994,9 @@ if __name__ == "__main__":
     assert not markdown_output_path.exists()
 
 
-def test_cli_generate_live_compare_rejects_partial_batch_payload_clearly(tmp_path: Path):
+def test_cli_generate_live_compare_rejects_partial_batch_payload_clearly(
+    tmp_path: Path,
+):
     dataset_path = tmp_path / "comparison_eval_seed_partial.jsonl"
     compare_output_path = tmp_path / "comparison_eval_predictions_partial.json"
     _write_jsonl(
@@ -961,7 +1041,10 @@ def test_cli_generate_live_compare_rejects_partial_batch_payload_clearly(tmp_pat
                                 {
                                     "name": "method",
                                     "summary": "A 与 B 方法不同。",
-                                    "per_paper": {"paper_a": "方法A", "paper_b": "方法B"},
+                                    "per_paper": {
+                                        "paper_a": "方法A",
+                                        "paper_b": "方法B",
+                                    },
                                     "key_differences": ["结构不同"],
                                     "evidence": [
                                         {
@@ -991,17 +1074,23 @@ def test_cli_generate_live_compare_rejects_partial_batch_payload_clearly(tmp_pat
     )
 
     try:
-        inject_live_compare_predictions(dataset_path=dataset_path, compare_output_path=compare_output_path)
+        inject_live_compare_predictions(
+            dataset_path=dataset_path, compare_output_path=compare_output_path
+        )
     except ValueError as exc:
         error_message = str(exc)
     else:
         raise AssertionError("expected partial live compare payload injection to fail")
 
-    assert "Dataset contains sample_ids missing from live compare payload" in error_message
+    assert (
+        "Dataset contains sample_ids missing from live compare payload" in error_message
+    )
     assert "cmp-live-partial-002" in error_message
 
 
-def test_generate_live_compare_predictions_persists_batch_payload(tmp_path: Path, monkeypatch):
+def test_generate_live_compare_predictions_persists_batch_payload(
+    tmp_path: Path, monkeypatch
+):
     dataset_path = tmp_path / "comparison_eval_seed.jsonl"
     compare_output_path = tmp_path / "comparison_eval_predictions.json"
     _write_jsonl(
@@ -1104,10 +1193,17 @@ def test_generate_live_compare_predictions_persists_batch_payload(tmp_path: Path
     assert result.total_samples == 1
     assert saved_payload["total_samples"] == 1
     assert saved_payload["results"][0]["comparison"]["overview"] == "结构化对比已生成。"
-    assert saved_payload["results"][0]["comparison"]["structured_summaries"]["paper_a"]["dataset"] == "CIFAR-10"
+    assert (
+        saved_payload["results"][0]["comparison"]["structured_summaries"]["paper_a"][
+            "dataset"
+        ]
+        == "CIFAR-10"
+    )
 
 
-def test_cli_generate_live_compare_reports_missing_metadata_fixture_clearly(tmp_path: Path):
+def test_cli_generate_live_compare_reports_missing_metadata_fixture_clearly(
+    tmp_path: Path,
+):
     dataset_path = tmp_path / "comparison_eval_seed.jsonl"
     compare_output_path = tmp_path / "comparison_eval_predictions.json"
     report_output_path = tmp_path / "comparison_eval_seed_report.json"
@@ -1122,7 +1218,10 @@ def test_cli_generate_live_compare_reports_missing_metadata_fixture_clearly(tmp_
                 "paper_titles": ["Paper A", "Paper B"],
                 "expected_summary": "A 使用 CIFAR-10，B 使用 ImageNet。",
                 "comparison_aspects": ["dataset"],
-                "supporting_sections": {"paper_a": ["Experiments"], "paper_b": ["Results"]},
+                "supporting_sections": {
+                    "paper_a": ["Experiments"],
+                    "paper_b": ["Results"],
+                },
                 "metadata": {},
             }
         ],
@@ -1183,7 +1282,10 @@ def test_inject_live_compare_predictions_updates_dataset_metadata(tmp_path: Path
                                 {
                                     "name": "method",
                                     "summary": "A 用 Transformer，B 用 CNN。",
-                                    "per_paper": {"paper_a": "Transformer", "paper_b": "CNN"},
+                                    "per_paper": {
+                                        "paper_a": "Transformer",
+                                        "paper_b": "CNN",
+                                    },
                                     "key_differences": ["网络结构不同"],
                                     "evidence": [
                                         {
@@ -1239,14 +1341,24 @@ def test_inject_live_compare_predictions_updates_dataset_metadata(tmp_path: Path
     assert len(updated_rows) == 1
     injected = updated_rows[0]
     assert injected["sample_id"] == "cmp-live-001"
-    assert injected["metadata"]["predicted_comparison"]["overview"] == "结构化对比已生成。"
-    assert injected["metadata"]["predicted_comparison"]["structured_summaries"]["paper_b"]["dataset"] == "ImageNet"
+    assert (
+        injected["metadata"]["predicted_comparison"]["overview"] == "结构化对比已生成。"
+    )
+    assert (
+        injected["metadata"]["predicted_comparison"]["structured_summaries"]["paper_b"][
+            "dataset"
+        ]
+        == "ImageNet"
+    )
     persisted_rows = [
         json.loads(line)
         for line in dataset_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert persisted_rows[0]["metadata"]["predicted_comparison"]["overview"] == "结构化对比已生成。"
+    assert (
+        persisted_rows[0]["metadata"]["predicted_comparison"]["overview"]
+        == "结构化对比已生成。"
+    )
 
 
 def test_inject_live_compare_predictions_rejects_unknown_sample_ids(tmp_path: Path):
@@ -1300,7 +1412,9 @@ def test_inject_live_compare_predictions_rejects_unknown_sample_ids(tmp_path: Pa
         assert "cmp-live-999" in str(exc)
 
 
-def test_inject_live_compare_predictions_rejects_missing_prediction_sample_ids(tmp_path: Path):
+def test_inject_live_compare_predictions_rejects_missing_prediction_sample_ids(
+    tmp_path: Path,
+):
     dataset_path = tmp_path / "comparison_eval_seed.jsonl"
     compare_output_path = tmp_path / "comparison_eval_predictions.json"
     _write_jsonl(
@@ -1323,7 +1437,10 @@ def test_inject_live_compare_predictions_rejects_missing_prediction_sample_ids(t
                 "paper_titles": ["Paper A", "Paper B"],
                 "expected_summary": "A 与 B 使用不同数据集。",
                 "comparison_aspects": ["dataset"],
-                "supporting_sections": {"paper_a": ["Experiments"], "paper_b": ["Results"]},
+                "supporting_sections": {
+                    "paper_a": ["Experiments"],
+                    "paper_b": ["Results"],
+                },
                 "metadata": {},
             },
         ],
@@ -1438,7 +1555,9 @@ def test_compare_batch_returns_live_compare_payloads(tmp_path: Path, monkeypatch
         assert metadata_dir == "app/storage/metadata"
         return fake_comparison
 
-    monkeypatch.setattr("app.services.paper_compare.compare_papers", _fake_compare_papers)
+    monkeypatch.setattr(
+        "app.services.paper_compare.compare_papers", _fake_compare_papers
+    )
 
     batch_result = compare_papers_batch(str(dataset_path), "app/storage/metadata")
 
@@ -1450,10 +1569,15 @@ def test_compare_batch_returns_live_compare_payloads(tmp_path: Path, monkeypatch
         batch_result.results[0].comparison.structured_summaries["paper_a"],
         PaperStructuredSummary,
     )
-    assert batch_result.results[0].comparison.structured_summaries["paper_b"].dataset == "ImageNet"
+    assert (
+        batch_result.results[0].comparison.structured_summaries["paper_b"].dataset
+        == "ImageNet"
+    )
 
 
-def test_evaluate_comparison_dataset_uses_live_compare_payload_and_flags_misaligned_evidence(tmp_path: Path):
+def test_evaluate_comparison_dataset_uses_live_compare_payload_and_flags_misaligned_evidence(
+    tmp_path: Path,
+):
     dataset_path = tmp_path / "comparison_eval_seed.jsonl"
     _write_jsonl(
         dataset_path,
@@ -1476,7 +1600,10 @@ def test_evaluate_comparison_dataset_uses_live_compare_payload_and_flags_misalig
                             {
                                 "name": "method",
                                 "summary": "A 用 Transformer，B 用 CNN。",
-                                "per_paper": {"paper_a": "Transformer", "paper_b": "CNN"},
+                                "per_paper": {
+                                    "paper_a": "Transformer",
+                                    "paper_b": "CNN",
+                                },
                                 "key_differences": ["网络结构不同"],
                                 "evidence": [
                                     {
@@ -1496,7 +1623,10 @@ def test_evaluate_comparison_dataset_uses_live_compare_payload_and_flags_misalig
                             {
                                 "name": "dataset",
                                 "summary": "A 用 CIFAR-10，B 用 ImageNet。",
-                                "per_paper": {"paper_a": "CIFAR-10", "paper_b": "ImageNet"},
+                                "per_paper": {
+                                    "paper_a": "CIFAR-10",
+                                    "paper_b": "ImageNet",
+                                },
                                 "key_differences": ["训练数据规模不同"],
                                 "evidence": [
                                     {

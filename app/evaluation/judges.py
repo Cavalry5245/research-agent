@@ -22,13 +22,21 @@ class JudgeResult:
 
 
 class AnswerJudge(Protocol):
-    def evaluate(self, sample: QAEvalSample, predicted_answer: str, citations: list[dict[str, Any]] | None = None) -> JudgeResult:
-        ...
+    def evaluate(
+        self,
+        sample: QAEvalSample,
+        predicted_answer: str,
+        citations: list[dict[str, Any]] | None = None,
+    ) -> JudgeResult: ...
 
 
 class CitationJudge(Protocol):
-    def evaluate(self, sample: QAEvalSample, citations: list[dict[str, Any]], predicted_answer: str | None = None) -> JudgeResult:
-        ...
+    def evaluate(
+        self,
+        sample: QAEvalSample,
+        citations: list[dict[str, Any]],
+        predicted_answer: str | None = None,
+    ) -> JudgeResult: ...
 
 
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
@@ -62,7 +70,9 @@ class RuleBasedAnswerJudge:
         overlap = expected_tokens & predicted_tokens
 
         token_recall = len(overlap) / len(expected_tokens) if expected_tokens else 0.0
-        token_precision = len(overlap) / len(predicted_tokens) if predicted_tokens else 0.0
+        token_precision = (
+            len(overlap) / len(predicted_tokens) if predicted_tokens else 0.0
+        )
         if token_precision + token_recall:
             f1 = 2 * token_precision * token_recall / (token_precision + token_recall)
         else:
@@ -75,9 +85,13 @@ class RuleBasedAnswerJudge:
         if not predicted_tokens:
             reasons.append("Predicted answer was empty after normalization.")
         elif not passed:
-            reasons.append("Answer coverage is below the configured acceptance threshold.")
+            reasons.append(
+                "Answer coverage is below the configured acceptance threshold."
+            )
         else:
-            reasons.append("Answer achieved the minimum token-overlap coverage threshold.")
+            reasons.append(
+                "Answer achieved the minimum token-overlap coverage threshold."
+            )
 
         return JudgeResult(
             mode=self.mode,
@@ -107,11 +121,21 @@ class RuleBasedCitationJudge:
         citations: list[dict[str, Any]],
         predicted_answer: str | None = None,
     ) -> JudgeResult:
-        expected_sections = {_normalize_text(section) for section in sample.supporting_sections}
-        citation_sections = {_normalize_text(citation.get("section", "")) for citation in citations}
+        expected_sections = {
+            _normalize_text(section) for section in sample.supporting_sections
+        }
+        citation_sections = {
+            _normalize_text(citation.get("section", "")) for citation in citations
+        }
         matched_sections = sorted(expected_sections & citation_sections)
-        section_coverage = len(matched_sections) / len(expected_sections) if expected_sections else 0.0
-        matched_paper_id = any(citation.get("paper_id") == sample.paper_id for citation in citations) if sample.paper_id else True
+        section_coverage = (
+            len(matched_sections) / len(expected_sections) if expected_sections else 0.0
+        )
+        matched_paper_id = (
+            any(citation.get("paper_id") == sample.paper_id for citation in citations)
+            if sample.paper_id
+            else True
+        )
         passed = section_coverage >= self.min_section_coverage and matched_paper_id
 
         reasons = [
@@ -120,9 +144,13 @@ class RuleBasedCitationJudge:
         if not matched_paper_id:
             reasons.append("No citation matched the expected paper_id.")
         elif not passed:
-            reasons.append("Supporting section coverage is below the configured acceptance threshold.")
+            reasons.append(
+                "Supporting section coverage is below the configured acceptance threshold."
+            )
         else:
-            reasons.append("Citations cover the expected supporting sections for the sample.")
+            reasons.append(
+                "Citations cover the expected supporting sections for the sample."
+            )
 
         return JudgeResult(
             mode=self.mode,
@@ -143,7 +171,12 @@ class PlaceholderLLMJudge:
     def __init__(self):
         self.mode = "placeholder_llm"
 
-    def evaluate(self, sample: QAEvalSample, predicted_answer: str = "", citations: list[dict[str, Any]] | None = None) -> JudgeResult:
+    def evaluate(
+        self,
+        sample: QAEvalSample,
+        predicted_answer: str = "",
+        citations: list[dict[str, Any]] | None = None,
+    ) -> JudgeResult:
         return JudgeResult(
             mode=self.mode,
             score=0.0,
@@ -210,7 +243,9 @@ class LLMAnswerJudge:
     requiring LLM_API_KEY at module load time, which would break unit tests).
     """
 
-    def __init__(self, pass_threshold: float = 0.5, llm_call: Callable[[str], str] | None = None):
+    def __init__(
+        self, pass_threshold: float = 0.5, llm_call: Callable[[str], str] | None = None
+    ):
         self.mode = "llm"
         self.pass_threshold = pass_threshold
         self._llm_call = llm_call
@@ -240,7 +275,9 @@ class LLMAnswerJudge:
         try:
             raw = self._get_llm_call()(prompt)
         except Exception as exc:
-            logger.warning("LLM answer judge call failed for %s: %s", sample.sample_id, exc)
+            logger.warning(
+                "LLM answer judge call failed for %s: %s", sample.sample_id, exc
+            )
             return JudgeResult(
                 mode=self.mode,
                 score=0.0,
@@ -263,7 +300,11 @@ class LLMAnswerJudge:
 
         score = _coerce_score(parsed.get("score"))
         passed_raw = parsed.get("passed")
-        passed = bool(passed_raw) if isinstance(passed_raw, bool) else (score >= self.pass_threshold)
+        passed = (
+            bool(passed_raw)
+            if isinstance(passed_raw, bool)
+            else (score >= self.pass_threshold)
+        )
         reason = str(parsed.get("reason") or "").strip()
         reasons = [reason] if reason else [f"LLM judge score={score:.3f}"]
 
@@ -288,7 +329,9 @@ class LLMCitationJudge:
     Shares the same `llm_call` injection pattern as LLMAnswerJudge.
     """
 
-    def __init__(self, pass_threshold: float = 0.5, llm_call: Callable[[str], str] | None = None):
+    def __init__(
+        self, pass_threshold: float = 0.5, llm_call: Callable[[str], str] | None = None
+    ):
         self.mode = "llm"
         self.pass_threshold = pass_threshold
         self._llm_call = llm_call
@@ -320,7 +363,9 @@ class LLMCitationJudge:
         try:
             raw = self._get_llm_call()(prompt)
         except Exception as exc:
-            logger.warning("LLM citation judge call failed for %s: %s", sample.sample_id, exc)
+            logger.warning(
+                "LLM citation judge call failed for %s: %s", sample.sample_id, exc
+            )
             return JudgeResult(
                 mode=self.mode,
                 score=0.0,
@@ -343,7 +388,11 @@ class LLMCitationJudge:
 
         score = _coerce_score(parsed.get("score"))
         passed_raw = parsed.get("passed")
-        passed = bool(passed_raw) if isinstance(passed_raw, bool) else (score >= self.pass_threshold)
+        passed = (
+            bool(passed_raw)
+            if isinstance(passed_raw, bool)
+            else (score >= self.pass_threshold)
+        )
         reason = str(parsed.get("reason") or "").strip()
         reasons = [reason] if reason else [f"LLM citation judge score={score:.3f}"]
 

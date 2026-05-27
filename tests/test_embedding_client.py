@@ -46,18 +46,22 @@ def fake_sentence_transformers_module(loader=FakeSentenceTransformer):
 def test_embedding_client_rewrites_bge_short_name_to_baaai_repo():
     fake_module = MagicMock()
     fake_module.SentenceTransformer = FakeSentenceTransformer
-    with patch("app.services.embedding_client._check_available", return_value=True), patch.dict(
-        sys.modules, {"sentence_transformers": fake_module}
-    ):
+    with patch(
+        "app.services.embedding_client._check_available", return_value=True
+    ), patch.dict(sys.modules, {"sentence_transformers": fake_module}):
         client = EmbeddingClient(model_name="bge-small-zh-v1.5")
         client._ensure_model()
         assert client._model.model_name == "BAAI/bge-small-zh-v1.5"
 
 
 def test_embedding_client_prefers_cuda_when_available_and_device_auto():
-    with patch("app.services.embedding_client._check_available", return_value=True), patch(
+    with patch(
+        "app.services.embedding_client._check_available", return_value=True
+    ), patch(
         "app.services.embedding_client._resolve_device", return_value="cuda"
-    ), patch.dict(sys.modules, {"sentence_transformers": fake_sentence_transformers_module()}):
+    ), patch.dict(
+        sys.modules, {"sentence_transformers": fake_sentence_transformers_module()}
+    ):
         client = EmbeddingClient(model_name="BAAI/bge-small-zh-v1.5")
         client._ensure_model()
         assert client.device == "cuda"
@@ -65,7 +69,9 @@ def test_embedding_client_prefers_cuda_when_available_and_device_auto():
 
 
 def test_embedding_client_preserves_full_repo_id():
-    with patch("app.services.embedding_client._check_available", return_value=True), patch.dict(
+    with patch(
+        "app.services.embedding_client._check_available", return_value=True
+    ), patch.dict(
         sys.modules, {"sentence_transformers": fake_sentence_transformers_module()}
     ):
         client = EmbeddingClient(model_name="BAAI/bge-small-zh-v1.5")
@@ -75,8 +81,11 @@ def test_embedding_client_preserves_full_repo_id():
 
 def test_embedding_client_retries_when_loader_client_was_closed():
     loader = ClosedModelLoader()
-    with patch("app.services.embedding_client._check_available", return_value=True), patch.dict(
-        sys.modules, {"sentence_transformers": fake_sentence_transformers_module(loader)}
+    with patch(
+        "app.services.embedding_client._check_available", return_value=True
+    ), patch.dict(
+        sys.modules,
+        {"sentence_transformers": fake_sentence_transformers_module(loader)},
     ):
         client = EmbeddingClient(model_name="BAAI/bge-small-zh-v1.5")
         client._ensure_model()
@@ -87,12 +96,17 @@ def test_embedding_client_retries_when_loader_client_was_closed():
 def test_embedding_client_rebuilds_model_when_encode_hits_closed_client_error():
     first_model = MagicMock()
     first_model.get_embedding_dimension.return_value = 3
-    first_model.encode.side_effect = RuntimeError("Cannot send a request, as the client has been closed.")
+    first_model.encode.side_effect = RuntimeError(
+        "Cannot send a request, as the client has been closed."
+    )
     second_model = FakeSentenceTransformer("BAAI/bge-small-zh-v1.5")
 
     loader = MagicMock(side_effect=[first_model, second_model])
-    with patch("app.services.embedding_client._check_available", return_value=True), patch.dict(
-        sys.modules, {"sentence_transformers": fake_sentence_transformers_module(loader)}
+    with patch(
+        "app.services.embedding_client._check_available", return_value=True
+    ), patch.dict(
+        sys.modules,
+        {"sentence_transformers": fake_sentence_transformers_module(loader)},
     ):
         client = EmbeddingClient(model_name="BAAI/bge-small-zh-v1.5")
 
@@ -105,8 +119,15 @@ def test_embedding_client_wraps_model_lookup_error_with_clear_message():
     def raise_lookup_error(model_name: str, device: str | None = None):
         raise OSError("not a valid model identifier")
 
-    with patch("app.services.embedding_client._check_available", return_value=True), patch.dict(
-        sys.modules, {"sentence_transformers": fake_sentence_transformers_module(raise_lookup_error)}
+    with patch(
+        "app.services.embedding_client._check_available", return_value=True
+    ), patch.dict(
+        sys.modules,
+        {
+            "sentence_transformers": fake_sentence_transformers_module(
+                raise_lookup_error
+            )
+        },
     ):
         client = EmbeddingClient(model_name="missing-model")
         with pytest.raises(RuntimeError, match="Embedding 模型加载失败"):
