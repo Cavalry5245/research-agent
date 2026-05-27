@@ -2,9 +2,9 @@ import logging
 import os
 import time
 
+from app.prompts.paper_note_prompt import build_note_prompt
 from app.services.llm_client import LLMClient
 from app.services.pdf_parser import load_parsed_result
-from app.prompts.paper_note_prompt import build_note_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ def generate_note(
 ) -> str:
     if metadata_dir is None:
         from app.config import settings
+
         metadata_dir = settings.metadata_dir
 
     if llm_client is None:
@@ -53,7 +54,9 @@ def generate_note(
     paper_content = _build_paper_content(parsed)
     prompt = build_note_prompt(title, paper_content)
 
-    logger.info("Generating note for %s, content_chars=%d", paper_id, len(paper_content))
+    logger.info(
+        "Generating note for %s, content_chars=%d", paper_id, len(paper_content)
+    )
     llm_start = time.perf_counter()
     markdown = llm_client.generate_text(prompt)
     llm_seconds = time.perf_counter() - llm_start
@@ -66,7 +69,9 @@ def generate_note(
             "ra_content_length": len(markdown or ""),
         },
     )
-    _emit_note_event(paper_id=paper_id, llm_time=llm_seconds, content_length=len(markdown or ""))
+    _emit_note_event(
+        paper_id=paper_id, llm_time=llm_seconds, content_length=len(markdown or "")
+    )
     return markdown
 
 
@@ -75,6 +80,8 @@ def _emit_note_event(paper_id: str, llm_time: float, content_length: int) -> Non
     try:
         from app.analytics import get_collector
 
-        get_collector().log_note(paper_id=paper_id, llm_time=llm_time, content_length=content_length)
+        get_collector().log_note(
+            paper_id=paper_id, llm_time=llm_time, content_length=content_length
+        )
     except Exception as exc:
         logger.debug("Analytics emit skipped: %s", exc)

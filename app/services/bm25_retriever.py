@@ -7,8 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 class RetrieverProtocol(Protocol):
-    def search(self, query: str, top_k: int, paper_id: str | None = None) -> list[dict]:
-        ...
+    def search(
+        self, query: str, top_k: int, paper_id: str | None = None
+    ) -> list[dict]: ...
 
 
 def tokenize_zh(text: str) -> list[str]:
@@ -43,7 +44,9 @@ class BM25Retriever:
     def invalidate(self) -> None:
         self._built = False
 
-    def search(self, query: str, top_k: int = 5, paper_id: str | None = None) -> list[dict]:
+    def search(
+        self, query: str, top_k: int = 5, paper_id: str | None = None
+    ) -> list[dict]:
         self._build_index(paper_id=paper_id)
         if not self._bm25 or not self._corpus_chunks:
             return []
@@ -54,15 +57,17 @@ class BM25Retriever:
         results: list[dict] = []
         for i in ranked_idx:
             chunk = self._corpus_chunks[i]
-            results.append({
-                "chunk_id": chunk.get("chunk_id"),
-                "content": chunk.get("content", ""),
-                "paper_id": chunk.get("paper_id"),
-                "title": chunk.get("title"),
-                "section": chunk.get("section"),
-                "page_number": chunk.get("page_number"),
-                "chunk_start": chunk.get("chunk_start"),
-                "chunk_end": chunk.get("chunk_end"),
-                "score": float(scores[i]),
-            })
+            results.append(
+                {
+                    "chunk_id": chunk.get("chunk_id"),
+                    "content": chunk.get("content", ""),
+                    "paper_id": chunk.get("paper_id"),
+                    "title": chunk.get("title"),
+                    "section": chunk.get("section"),
+                    "page_number": chunk.get("page_number"),
+                    "chunk_start": chunk.get("chunk_start"),
+                    "chunk_end": chunk.get("chunk_end"),
+                    "score": float(scores[i]),
+                }
+            )
         return results

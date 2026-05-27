@@ -10,9 +10,13 @@ class StubVectorStore:
 
 def test_health_endpoint_reports_runtime_checks(monkeypatch, tmp_path):
     client = TestClient(app)
-    monkeypatch.setattr("app.main._resolve_upload_dir", lambda: str(tmp_path / "papers"))
+    monkeypatch.setattr(
+        "app.main._resolve_upload_dir", lambda: str(tmp_path / "papers")
+    )
     monkeypatch.setattr("app.main._resolve_note_dir", lambda: str(tmp_path / "notes"))
-    monkeypatch.setattr("app.main._resolve_metadata_dir", lambda: str(tmp_path / "metadata"))
+    monkeypatch.setattr(
+        "app.main._resolve_metadata_dir", lambda: str(tmp_path / "metadata")
+    )
     monkeypatch.setattr("app.main._get_vector_store", lambda: StubVectorStore())
 
     response = client.get("/health")
@@ -25,11 +29,17 @@ def test_health_endpoint_reports_runtime_checks(monkeypatch, tmp_path):
     assert "llm_configured" in body["config"]
 
 
-def test_health_endpoint_reports_degraded_when_vector_store_unavailable(monkeypatch, tmp_path):
+def test_health_endpoint_reports_degraded_when_vector_store_unavailable(
+    monkeypatch, tmp_path
+):
     client = TestClient(app)
-    monkeypatch.setattr("app.main._resolve_upload_dir", lambda: str(tmp_path / "papers"))
+    monkeypatch.setattr(
+        "app.main._resolve_upload_dir", lambda: str(tmp_path / "papers")
+    )
     monkeypatch.setattr("app.main._resolve_note_dir", lambda: str(tmp_path / "notes"))
-    monkeypatch.setattr("app.main._resolve_metadata_dir", lambda: str(tmp_path / "metadata"))
+    monkeypatch.setattr(
+        "app.main._resolve_metadata_dir", lambda: str(tmp_path / "metadata")
+    )
 
     def fail_vector_store():
         raise RuntimeError("vector unavailable")

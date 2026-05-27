@@ -128,8 +128,12 @@ def test_parse_saved_files_runs_only_when_called():
 
 
 def test_merge_pending_uploads_appends_instead_of_overwriting():
-    existing = [{"paper_id": "paper_1", "filename": "a.pdf", "storage_path": "/tmp/a.pdf"}]
-    new_items = [{"paper_id": "paper_2", "filename": "b.pdf", "storage_path": "/tmp/b.pdf"}]
+    existing = [
+        {"paper_id": "paper_1", "filename": "a.pdf", "storage_path": "/tmp/a.pdf"}
+    ]
+    new_items = [
+        {"paper_id": "paper_2", "filename": "b.pdf", "storage_path": "/tmp/b.pdf"}
+    ]
 
     merged = _merge_pending_uploads(existing, new_items)
 

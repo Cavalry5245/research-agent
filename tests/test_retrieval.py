@@ -56,9 +56,13 @@ def test_vector_store_add_and_count():
     with tempfile.TemporaryDirectory() as tmpdir:
         store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
         chunks = [
-            _make_chunk("paper_A", "Introduction", "infrared detection is critical.", 1),
+            _make_chunk(
+                "paper_A", "Introduction", "infrared detection is critical.", 1
+            ),
             _make_chunk("paper_A", "Method", "We propose a vl attention method.", 2),
-            _make_chunk("paper_A", "Experiments", "experiment shows detection results.", 3),
+            _make_chunk(
+                "paper_A", "Experiments", "experiment shows detection results.", 3
+            ),
         ]
         embeddings = [_keyword_embedding(c.content) for c in chunks]
         added = store.add_chunks(chunks, embeddings)
@@ -70,7 +74,9 @@ def test_vector_store_query_all_papers():
     with tempfile.TemporaryDirectory() as tmpdir:
         store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
         chunks = [
-            _make_chunk("paper_A", "Introduction", "infrared detection introduction.", 1),
+            _make_chunk(
+                "paper_A", "Introduction", "infrared detection introduction.", 1
+            ),
             _make_chunk("paper_A", "Method", "vl attention method for detection.", 2),
             _make_chunk("paper_B", "Introduction", "model compression survey.", 3),
             _make_chunk("paper_B", "Method", "prune parameters in model.", 4),
@@ -104,7 +110,9 @@ def test_vector_store_query_by_paper_id():
         ]
         store.add_chunks(chunks, [_keyword_embedding(c.content) for c in chunks])
 
-        results = store.query(_keyword_embedding("model compression"), top_k=5, paper_id="paper_B")
+        results = store.query(
+            _keyword_embedding("model compression"), top_k=5, paper_id="paper_B"
+        )
         assert len(results) >= 1
         assert all(r["paper_id"] == "paper_B" for r in results)
 
@@ -136,7 +144,9 @@ def test_vector_store_persists_across_instances():
         persist_dir = os.path.join(tmpdir, "vectors")
         store = VectorStore(persist_dir=persist_dir)
         chunks = [
-            _make_chunk("paper_A", "Introduction", "infrared detection introduction.", 1),
+            _make_chunk(
+                "paper_A", "Introduction", "infrared detection introduction.", 1
+            ),
             _make_chunk("paper_A", "Method", "vl attention method for detection.", 2),
         ]
         store.add_chunks(chunks, [_keyword_embedding(c.content) for c in chunks])
@@ -181,7 +191,9 @@ def test_vector_store_semantic_ranking():
     with tempfile.TemporaryDirectory() as tmpdir:
         store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
         chunks = [
-            _make_chunk("paper_A", "Introduction", "infrared detection is important.", 1),
+            _make_chunk(
+                "paper_A", "Introduction", "infrared detection is important.", 1
+            ),
             _make_chunk("paper_A", "Results", "the weather today is sunny.", 2),
             _make_chunk("paper_A", "Method", "vl model with detection pipeline.", 3),
         ]
@@ -197,14 +209,18 @@ def _check_torch_available() -> bool:
     """Check if torch can be imported without crashing."""
     result = subprocess.run(
         [sys.executable, "-c", "import torch"],
-        capture_output=True, text=True, timeout=15,
+        capture_output=True,
+        text=True,
+        timeout=15,
     )
     return result.returncode == 0
 
 
 def test_embedding_client_import():
     if not _check_torch_available():
-        pytest.skip("torch / sentence-transformers not available (missing VC++ runtime)")
+        pytest.skip(
+            "torch / sentence-transformers not available (missing VC++ runtime)"
+        )
     from app.config import settings
     from app.services.embedding_client import EmbeddingClient, _resolve_model_name
 
@@ -215,7 +231,9 @@ def test_embedding_client_import():
 
 def test_embedding_client_with_model():
     if not _check_torch_available():
-        pytest.skip("torch / sentence-transformers not available (missing VC++ runtime)")
+        pytest.skip(
+            "torch / sentence-transformers not available (missing VC++ runtime)"
+        )
     from app.services.embedding_client import EmbeddingClient
 
     client = EmbeddingClient(model_name="all-MiniLM-L6-v2")

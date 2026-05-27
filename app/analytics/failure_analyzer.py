@@ -98,11 +98,15 @@ def analyze_comparison_failures(cases: list[dict[str, Any]]) -> dict[str, Any]:
                 pass
     summary = {"total": sum(sub_types.values()), "sub_type_counts": dict(sub_types)}
     if completeness_scores:
-        summary["mean_completeness_in_failures"] = sum(completeness_scores) / len(completeness_scores)
+        summary["mean_completeness_in_failures"] = sum(completeness_scores) / len(
+            completeness_scores
+        )
     return summary
 
 
-def top_failure_modes(cases: list[dict[str, Any]], n: int = 10) -> list[tuple[str, int]]:
+def top_failure_modes(
+    cases: list[dict[str, Any]], n: int = 10
+) -> list[tuple[str, int]]:
     counter: Counter[str] = Counter()
     for case in cases:
         ft = _failure_type(case)
@@ -162,8 +166,12 @@ def render_markdown_report(report: dict[str, Any]) -> str:
             for word, count in section_data["top_query_words"]:
                 lines.append(f"  - `{word}`: {count}")
         if section_name == "QA":
-            lines.append(f"- Empty-answer failures: {section_data.get('empty_answer_count', 0)}")
-            lines.append(f"- Long-answer failures (>800 chars): {section_data.get('long_answer_count', 0)}")
+            lines.append(
+                f"- Empty-answer failures: {section_data.get('empty_answer_count', 0)}"
+            )
+            lines.append(
+                f"- Long-answer failures (>800 chars): {section_data.get('long_answer_count', 0)}"
+            )
         lines.append("")
 
     lines.append("## Optimization Suggestions")
@@ -172,7 +180,9 @@ def render_markdown_report(report: dict[str, Any]) -> str:
     for s in suggestions:
         lines.append(f"- {s}")
     if not suggestions:
-        lines.append("_No specific suggestions at this volume; collect more failure data._")
+        lines.append(
+            "_No specific suggestions at this volume; collect more failure data._"
+        )
     return "\n".join(lines)
 
 
@@ -184,34 +194,64 @@ def _suggest_optimizations(report: dict[str, Any]) -> list[str]:
             "Increase retrieval recall: try smaller chunk_size, add hybrid (BM25) retrieval, or expand embedding model."
         )
     if r.get("sub_type_counts", {}).get("retrieval_low_score", 0) > 0:
-        suggestions.append("Add a reranker (Phase 4) to lift top-K relevance, and tune the score threshold.")
+        suggestions.append(
+            "Add a reranker (Phase 4) to lift top-K relevance, and tune the score threshold."
+        )
     q = report.get("qa", {})
     if q.get("sub_type_counts", {}).get("qa_empty_answer", 0) > 0:
-        suggestions.append("Audit LLM error handling — empty answers often hide silent client closures.")
+        suggestions.append(
+            "Audit LLM error handling — empty answers often hide silent client closures."
+        )
     if q.get("sub_type_counts", {}).get("qa_low_score", 0) > 0:
-        suggestions.append("Tighten the QA prompt with explicit citation requirements and few-shot exemplars.")
+        suggestions.append(
+            "Tighten the QA prompt with explicit citation requirements and few-shot exemplars."
+        )
     if q.get("sub_type_counts", {}).get("qa_bad_citation", 0) > 0:
-        suggestions.append("Improve citation post-processing — verify each cited section actually appears in the retrieved chunks.")
+        suggestions.append(
+            "Improve citation post-processing — verify each cited section actually appears in the retrieved chunks."
+        )
     c = report.get("comparison", {})
     if c.get("sub_type_counts", {}).get("comparison_incomplete", 0) > 0:
-        suggestions.append("Reduce comparison aspect count or feed structured summaries to improve completeness.")
+        suggestions.append(
+            "Reduce comparison aspect count or feed structured summaries to improve completeness."
+        )
     return suggestions
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Analyze failure cases and emit a Markdown report.")
-    parser.add_argument("--failures", type=Path, default=Path("app/storage/analytics/failures.jsonl"))
-    parser.add_argument("--output", type=Path, default=Path("app/analytics/reports/failure_analysis.md"))
-    parser.add_argument("--json-output", type=Path, default=Path("app/analytics/reports/failure_analysis.json"))
+    parser = argparse.ArgumentParser(
+        description="Analyze failure cases and emit a Markdown report."
+    )
+    parser.add_argument(
+        "--failures", type=Path, default=Path("app/storage/analytics/failures.jsonl")
+    )
+    parser.add_argument(
+        "--output", type=Path, default=Path("app/analytics/reports/failure_analysis.md")
+    )
+    parser.add_argument(
+        "--json-output",
+        type=Path,
+        default=Path("app/analytics/reports/failure_analysis.json"),
+    )
     args = parser.parse_args()
 
     report = build_failure_report(args.failures)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(render_markdown_report(report), encoding="utf-8")
     args.json_output.parent.mkdir(parents=True, exist_ok=True)
-    args.json_output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.json_output.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"Generated failure analysis: {args.output}")
-    print(json.dumps({"total_failures": report["total_failures"], "top_failure_modes": report["top_failure_modes"]}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "total_failures": report["total_failures"],
+                "top_failure_modes": report["top_failure_modes"],
+            },
+            ensure_ascii=False,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -47,7 +47,11 @@ def build_seed_retrieval_results(dataset_path: Path, top_k: int) -> dict[str, An
                         "score": max(0.0, 1.0 - (rank * 0.1)),
                     }
                 )
-        results.append(evaluate_retrieval_sample(sample=sample, retrieved_chunks=retrieved_chunks, top_k=top_k))
+        results.append(
+            evaluate_retrieval_sample(
+                sample=sample, retrieved_chunks=retrieved_chunks, top_k=top_k
+            )
+        )
 
     summary = summarize_retrieval_results(results, top_k=top_k)
     return {
@@ -55,7 +59,6 @@ def build_seed_retrieval_results(dataset_path: Path, top_k: int) -> dict[str, An
         "summary": summary,
         "results": [result.model_dump() for result in results],
     }
-
 
 
 def _comparison_chunks(sample, top_k: int) -> dict[str, list[dict[str, Any]]]:
@@ -196,14 +199,17 @@ def _comparison_chunks(sample, top_k: int) -> dict[str, list[dict[str, Any]]]:
     }
 
 
-
-def build_seed_retrieval_comparison_results(dataset_path: Path, top_k: int) -> dict[str, Any]:
+def build_seed_retrieval_comparison_results(
+    dataset_path: Path, top_k: int
+) -> dict[str, Any]:
     samples = load_qa_samples(str(dataset_path))
     retrieved_by_strategy = {
         sample.sample_id: _comparison_chunks(sample=sample, top_k=top_k)
         for sample in samples
     }
-    report = build_retrieval_variant_results(samples=samples, retrieved_by_strategy=retrieved_by_strategy, top_k=top_k)
+    report = build_retrieval_variant_results(
+        samples=samples, retrieved_by_strategy=retrieved_by_strategy, top_k=top_k
+    )
     report["dataset"] = str(dataset_path)
     report["strategies"] = list(RETRIEVAL_STRATEGIES)
     return report
@@ -212,7 +218,9 @@ def build_seed_retrieval_comparison_results(dataset_path: Path, top_k: int) -> d
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Evaluate retrieval metrics on the seed QA benchmark dataset.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate retrieval metrics on the seed QA benchmark dataset."
+    )
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--mode", choices=("baseline", "compare"), default="baseline")
@@ -224,6 +232,8 @@ if __name__ == "__main__":
     else:
         report = build_seed_retrieval_results(args.dataset, args.top_k)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"Generated retrieval evaluation report: {args.output}")
     print(json.dumps(report["summary"], ensure_ascii=False))

@@ -61,8 +61,12 @@ class AnalyticsCollector:
 
     def log_event(self, event_type: str, **payload: Any) -> AnalyticsEvent:
         if event_type not in EVENT_TYPES:
-            raise ValueError(f"Unknown event_type '{event_type}'. Expected one of {sorted(EVENT_TYPES)}")
-        event = AnalyticsEvent(event_type=event_type, timestamp=utc_now_iso(), payload=payload)
+            raise ValueError(
+                f"Unknown event_type '{event_type}'. Expected one of {sorted(EVENT_TYPES)}"
+            )
+        event = AnalyticsEvent(
+            event_type=event_type, timestamp=utc_now_iso(), payload=payload
+        )
         try:
             self._append(self._events_path, event)
         except OSError as exc:
@@ -157,7 +161,9 @@ class AnalyticsCollector:
         reason: str | None = None,
     ) -> AnalyticsEvent:
         payload = {"failure_type": failure_type, "reason": reason, "context": context}
-        event = AnalyticsEvent(event_type="failure", timestamp=utc_now_iso(), payload=payload)
+        event = AnalyticsEvent(
+            event_type="failure", timestamp=utc_now_iso(), payload=payload
+        )
         try:
             self._append(self._failures_path, event)
         except OSError as exc:
@@ -173,7 +179,9 @@ class AnalyticsCollector:
             return list(events)
         return [e for e in events if e.payload.get("failure_type") == failure_type]
 
-    def _iter_events(self, path: Path, event_type: str | None) -> Iterable[AnalyticsEvent]:
+    def _iter_events(
+        self, path: Path, event_type: str | None
+    ) -> Iterable[AnalyticsEvent]:
         if not path.exists():
             return
         for line in path.read_text(encoding="utf-8").splitlines():
@@ -208,8 +216,12 @@ def get_collector() -> AnalyticsCollector:
     global _collector_singleton
     if _collector_singleton is None:
         events_path = os.environ.get("ANALYTICS_EVENTS_PATH", str(DEFAULT_EVENTS_PATH))
-        failures_path = os.environ.get("ANALYTICS_FAILURES_PATH", str(DEFAULT_FAILURES_PATH))
-        _collector_singleton = AnalyticsCollector(events_path=events_path, failures_path=failures_path)
+        failures_path = os.environ.get(
+            "ANALYTICS_FAILURES_PATH", str(DEFAULT_FAILURES_PATH)
+        )
+        _collector_singleton = AnalyticsCollector(
+            events_path=events_path, failures_path=failures_path
+        )
     return _collector_singleton
 
 

@@ -1,7 +1,7 @@
 """Tests for /api/conversations endpoints."""
 
-import sys
 import os
+import sys
 import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -9,9 +9,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import pytest
 from fastapi.testclient import TestClient
 
-from app.services.memory_store import MemoryStore
-from app.routers.conversations import set_memory_store
 from app.main import app
+from app.routers.conversations import set_memory_store
+from app.services.memory_store import MemoryStore
 
 
 @pytest.fixture(autouse=True)

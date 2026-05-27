@@ -11,10 +11,19 @@ def test_task_routes_have_openapi_descriptions():
 
     assert paths["/tasks"]["get"]["summary"] == "List background tasks"
     assert paths["/tasks/{job_id}"]["get"]["summary"] == "Get background task status"
-    assert paths["/tasks/{job_id}/result"]["get"]["summary"] == "Get background task result"
+    assert (
+        paths["/tasks/{job_id}/result"]["get"]["summary"]
+        == "Get background task result"
+    )
     assert paths["/tasks/{job_id}"]["delete"]["summary"] == "Cancel background task"
-    assert paths["/tasks/{job_id}/retry"]["post"]["summary"] == "Retry failed background task"
-    assert paths["/tasks/note/{paper_id}"]["post"]["summary"] == "Submit note generation task"
+    assert (
+        paths["/tasks/{job_id}/retry"]["post"]["summary"]
+        == "Retry failed background task"
+    )
+    assert (
+        paths["/tasks/note/{paper_id}"]["post"]["summary"]
+        == "Submit note generation task"
+    )
     assert paths["/tasks/compare"]["post"]["summary"] == "Submit paper comparison task"
 
 

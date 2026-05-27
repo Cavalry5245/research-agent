@@ -13,7 +13,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from app.evaluation.schemas import ComparisonEvalSample, QAEvalSample
 
-
 DEFAULT_METADATA_DIR = Path("app/storage/metadata")
 DEFAULT_OUTPUT_DIR = Path("app/evaluation/datasets")
 SECTION_PRIORITY = (
@@ -77,7 +76,9 @@ def _pick_sections(paper: PaperRecord, max_sections: int = 2) -> list[dict]:
             continue
         item = {"heading": heading, "content": content}
         normalized = _normalize_heading(heading)
-        if any(token in normalized for token in SECTION_PRIORITY if token != "abstract"):
+        if any(
+            token in normalized for token in SECTION_PRIORITY if token != "abstract"
+        ):
             preferred.append(item)
         else:
             remaining.append(item)
@@ -85,7 +86,9 @@ def _pick_sections(paper: PaperRecord, max_sections: int = 2) -> list[dict]:
     return ordered[:max_sections]
 
 
-def build_qa_samples(papers: Iterable[PaperRecord], max_sections_per_paper: int = 2) -> list[QAEvalSample]:
+def build_qa_samples(
+    papers: Iterable[PaperRecord], max_sections_per_paper: int = 2
+) -> list[QAEvalSample]:
     samples: list[QAEvalSample] = []
     question_templates = [
         "According to the '{section}' section of '{title}', what key information is highlighted?",
@@ -136,7 +139,9 @@ def build_qa_samples(papers: Iterable[PaperRecord], max_sections_per_paper: int 
                 samples.append(
                     QAEvalSample(
                         sample_id=f"{paper.paper_id}-section-{index}-v{template_idx + 1}",
-                        question=template.format(section=section["heading"], title=paper.title),
+                        question=template.format(
+                            section=section["heading"], title=paper.title
+                        ),
                         expected_answer=_clean_text(section["content"], max_length=320),
                         paper_id=paper.paper_id,
                         paper_title=paper.title,
@@ -156,7 +161,8 @@ def build_qa_samples(papers: Iterable[PaperRecord], max_sections_per_paper: int 
 
 def build_hard_qa_samples(papers: Iterable[PaperRecord]) -> list[QAEvalSample]:
     """Generate intentionally harder samples to expose real misses (e.g. cross-section synthesis,
-    out-of-scope queries). These yield non-perfect metrics so the evaluation reports become useful."""
+    out-of-scope queries). These yield non-perfect metrics so the evaluation reports become useful.
+    """
     samples: list[QAEvalSample] = []
     out_of_scope_topics = [
         "blockchain consensus protocols",
@@ -168,7 +174,11 @@ def build_hard_qa_samples(papers: Iterable[PaperRecord]) -> list[QAEvalSample]:
             QAEvalSample(
                 sample_id=f"{paper.paper_id}-hard-synthesis",
                 question=f"Compare the methodology and the reported main results in '{paper.title}', focusing on quantitative metrics.",
-                expected_answer=_clean_text(paper.abstract, max_length=320) if paper.abstract else "Detailed methodology and metrics required.",
+                expected_answer=(
+                    _clean_text(paper.abstract, max_length=320)
+                    if paper.abstract
+                    else "Detailed methodology and metrics required."
+                ),
                 paper_id=paper.paper_id,
                 paper_title=paper.title,
                 supporting_sections=["Method", "Results"],
@@ -212,7 +222,9 @@ def build_comparison_samples(papers: list[PaperRecord]) -> list[ComparisonEvalSa
     expected_summary_parts = []
     supporting_sections: dict[str, list[str]] = {}
     for paper in selected:
-        section_names = [section["heading"] for section in _pick_sections(paper)] or ["Abstract"]
+        section_names = [section["heading"] for section in _pick_sections(paper)] or [
+            "Abstract"
+        ]
         supporting_sections[paper.paper_id] = section_names
         expected_summary_parts.append(
             f"{paper.title}: {_clean_text(paper.abstract, max_length=180) or 'No abstract available.'}"
@@ -236,7 +248,9 @@ def build_comparison_samples(papers: list[PaperRecord]) -> list[ComparisonEvalSa
     return [sample]
 
 
-def _write_jsonl(path: Path, rows: Iterable[QAEvalSample | ComparisonEvalSample]) -> None:
+def _write_jsonl(
+    path: Path, rows: Iterable[QAEvalSample | ComparisonEvalSample]
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         for row in rows:
@@ -269,7 +283,9 @@ def build_seed_dataset(
 
     comparison_samples = build_comparison_samples(papers)
     if not qa_samples or not comparison_samples:
-        raise RuntimeError("Unable to build the minimal seed dataset from available metadata")
+        raise RuntimeError(
+            "Unable to build the minimal seed dataset from available metadata"
+        )
 
     qa_path = output_dir / "qa_eval_seed.jsonl"
     comparison_path = output_dir / "comparison_eval_seed.jsonl"
@@ -281,11 +297,20 @@ def build_seed_dataset(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Build a minimal benchmark seed dataset from parsed metadata.")
+    parser = argparse.ArgumentParser(
+        description="Build a minimal benchmark seed dataset from parsed metadata."
+    )
     parser.add_argument("--metadata-dir", type=Path, default=DEFAULT_METADATA_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--target-size", type=int, default=None, help="Target QA sample count (auto-scales sections per paper).")
-    parser.add_argument("--no-hard-samples", action="store_true", help="Skip hard/out-of-scope samples.")
+    parser.add_argument(
+        "--target-size",
+        type=int,
+        default=None,
+        help="Target QA sample count (auto-scales sections per paper).",
+    )
+    parser.add_argument(
+        "--no-hard-samples", action="store_true", help="Skip hard/out-of-scope samples."
+    )
     args = parser.parse_args()
 
     qa_path, comparison_path = build_seed_dataset(

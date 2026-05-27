@@ -1,7 +1,7 @@
 import json
+import logging
 import time
 from datetime import datetime
-import logging
 from pathlib import Path
 
 from app.evaluation.metrics import load_comparison_samples
@@ -117,13 +117,22 @@ def _normalize_paper_summary(
         strengths=_normalize_summary_field(raw.get("strengths")),
         limitations=_normalize_summary_field(raw.get("limitations")),
         scenarios=_normalize_summary_field(raw.get("scenarios")),
-        evidence=_normalize_summary_evidence(raw.get("evidence", []), paper_id, paper_title),
+        evidence=_normalize_summary_evidence(
+            raw.get("evidence", []), paper_id, paper_title
+        ),
     )
 
 
-def _build_structured_summaries_text(summaries: dict[str, PaperStructuredSummary]) -> str:
-    payload = {paper_id: summary.model_dump(mode="json") for paper_id, summary in summaries.items()}
-    return "## Structured Paper Summaries\n" + json.dumps(payload, ensure_ascii=False, indent=2)
+def _build_structured_summaries_text(
+    summaries: dict[str, PaperStructuredSummary],
+) -> str:
+    payload = {
+        paper_id: summary.model_dump(mode="json")
+        for paper_id, summary in summaries.items()
+    }
+    return "## Structured Paper Summaries\n" + json.dumps(
+        payload, ensure_ascii=False, indent=2
+    )
 
 
 def _infer_aspect_evidence(
@@ -193,7 +202,9 @@ def _normalize_compare_aspect_name(value: object) -> str:
     return normalized
 
 
-def _normalize_comparison_result(raw: dict, paper_ids: list[str], summaries: dict[str, PaperStructuredSummary]) -> PaperComparisonResult:
+def _normalize_comparison_result(
+    raw: dict, paper_ids: list[str], summaries: dict[str, PaperStructuredSummary]
+) -> PaperComparisonResult:
     aspects = []
     for item in _normalize_compare_aspects(raw.get("aspects", [])):
         aspect_name = _normalize_compare_aspect_name(item.get("name"))
@@ -201,7 +212,8 @@ def _normalize_comparison_result(raw: dict, paper_ids: list[str], summaries: dic
         if not isinstance(raw_per_paper, dict):
             raw_per_paper = {}
         per_paper = {
-            pid: _normalize_summary_field(raw_per_paper.get(pid, "未明确说明")) for pid in paper_ids
+            pid: _normalize_summary_field(raw_per_paper.get(pid, "未明确说明"))
+            for pid in paper_ids
         }
         evidence = _normalize_compare_evidence(item.get("evidence", []))
         if not evidence:
@@ -210,7 +222,9 @@ def _normalize_comparison_result(raw: dict, paper_ids: list[str], summaries: dic
             CompareAspect(
                 name=aspect_name,
                 summary=_normalize_summary_field(item.get("summary", "未明确说明")),
-                key_differences=_normalize_compare_key_differences(item.get("key_differences", [])),
+                key_differences=_normalize_compare_key_differences(
+                    item.get("key_differences", [])
+                ),
                 per_paper=per_paper,
                 evidence=evidence,
             )
@@ -222,9 +236,10 @@ def _normalize_comparison_result(raw: dict, paper_ids: list[str], summaries: dic
         markdown="",
         structured_summaries=summaries,
     )
-    comparison.markdown = _build_comparison_markdown(comparison, raw.get("paper_titles", {}), paper_ids)
+    comparison.markdown = _build_comparison_markdown(
+        comparison, raw.get("paper_titles", {}), paper_ids
+    )
     return comparison
-
 
 
 def _escape_markdown_table_cell(value: object) -> str:
@@ -241,7 +256,9 @@ def _build_comparison_markdown(
     paper_titles: dict[str, str],
     paper_ids: list[str],
 ) -> str:
-    ordered_titles = [_escape_markdown_table_cell(paper_titles.get(pid, pid)) for pid in paper_ids]
+    ordered_titles = [
+        _escape_markdown_table_cell(paper_titles.get(pid, pid)) for pid in paper_ids
+    ]
     lines = ["# 多论文结构化对比", "", "## 总览", comparison.overview, ""]
 
     header = "| 维度 | " + " | ".join(ordered_titles) + " | 总结 |"
@@ -253,19 +270,33 @@ def _build_comparison_markdown(
         aspect = aspect_map.get(aspect_name)
         if aspect is None:
             continue
-        row = [_escape_markdown_table_cell(COMPARE_ASPECT_LABELS.get(aspect_name, aspect_name))]
+        row = [
+            _escape_markdown_table_cell(
+                COMPARE_ASPECT_LABELS.get(aspect_name, aspect_name)
+            )
+        ]
         for pid in paper_ids:
-            row.append(_escape_markdown_table_cell(aspect.per_paper.get(pid, "未明确说明")))
+            row.append(
+                _escape_markdown_table_cell(aspect.per_paper.get(pid, "未明确说明"))
+            )
         row.append(_escape_markdown_table_cell(aspect.summary))
         lines.append("| " + " | ".join(row) + " |")
 
     remaining_aspects = [
-        aspect for aspect in comparison.aspects if aspect.name not in COMPARE_ASPECT_ORDER
+        aspect
+        for aspect in comparison.aspects
+        if aspect.name not in COMPARE_ASPECT_ORDER
     ]
     for aspect in remaining_aspects:
-        row = [_escape_markdown_table_cell(COMPARE_ASPECT_LABELS.get(aspect.name, aspect.name))]
+        row = [
+            _escape_markdown_table_cell(
+                COMPARE_ASPECT_LABELS.get(aspect.name, aspect.name)
+            )
+        ]
         for pid in paper_ids:
-            row.append(_escape_markdown_table_cell(aspect.per_paper.get(pid, "未明确说明")))
+            row.append(
+                _escape_markdown_table_cell(aspect.per_paper.get(pid, "未明确说明"))
+            )
         row.append(_escape_markdown_table_cell(aspect.summary))
         lines.append("| " + " | ".join(row) + " |")
 
@@ -290,7 +321,6 @@ def _build_comparison_markdown(
         lines.append("")
 
     return "\n".join(lines).strip() + "\n"
-
 
 
 def extract_paper_summaries(
@@ -319,10 +349,11 @@ def extract_paper_summaries(
         raise RuntimeError("单篇结构化抽取结果解析失败")
 
     return {
-        pid: _normalize_paper_summary(pid, paper_titles[pid], parsed_result.get(pid, {}))
+        pid: _normalize_paper_summary(
+            pid, paper_titles[pid], parsed_result.get(pid, {})
+        )
         for pid in paper_ids
     }
-
 
 
 def compare_papers(
@@ -374,12 +405,16 @@ def compare_papers(
             "ra_aspects_count": len(result.aspects),
         },
     )
-    _emit_comparison_event(paper_ids=paper_ids, generation_time=generation_seconds, result=result)
+    _emit_comparison_event(
+        paper_ids=paper_ids, generation_time=generation_seconds, result=result
+    )
 
     return result
 
 
-def _emit_comparison_event(paper_ids: list[str], generation_time: float, result: PaperComparisonResult) -> None:
+def _emit_comparison_event(
+    paper_ids: list[str], generation_time: float, result: PaperComparisonResult
+) -> None:
     """Best-effort analytics emit for compare_papers."""
     try:
         from app.analytics import get_collector
@@ -394,7 +429,6 @@ def _emit_comparison_event(paper_ids: list[str], generation_time: float, result:
         )
     except Exception as exc:
         logger.debug("Analytics emit skipped: %s", exc)
-
 
 
 def compare_papers_batch(
@@ -428,7 +462,6 @@ def compare_papers_batch(
     )
 
 
-
 def save_compare_batch_result(result: CompareBatchRunResult, output_path: str) -> str:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -437,7 +470,6 @@ def save_compare_batch_result(result: CompareBatchRunResult, output_path: str) -
         encoding="utf-8",
     )
     return str(path)
-
 
 
 def save_compare_result(markdown: str, note_dir: str) -> str:

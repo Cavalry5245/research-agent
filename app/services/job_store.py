@@ -24,7 +24,9 @@ class InMemoryJobStore:
 
     def list(self) -> list[JobStatusResponse]:
         with self._lock:
-            return sorted(self._jobs.values(), key=lambda job: job.created_at, reverse=True)
+            return sorted(
+                self._jobs.values(), key=lambda job: job.created_at, reverse=True
+            )
 
     def clear(self) -> None:
         with self._lock:
@@ -68,7 +70,11 @@ class FileJobStore:
         payload = json.loads(raw)
         jobs: dict[str, JobStatusResponse] = {}
         for item in payload.get("jobs", []):
-            model = IndexJobStatusResponse if item.get("job_type") == "paper_index" else JobStatusResponse
+            model = (
+                IndexJobStatusResponse
+                if item.get("job_type") == "paper_index"
+                else JobStatusResponse
+            )
             job = model.model_validate(item)
             jobs[job.job_id] = job
         return jobs

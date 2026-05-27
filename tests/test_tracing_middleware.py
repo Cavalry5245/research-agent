@@ -24,7 +24,9 @@ def test_request_id_header_preserves_incoming_value():
 def test_request_id_header_rejects_malformed_incoming_value():
     client = TestClient(app)
 
-    response = client.get("/health", headers={"X-Request-ID": "bad id with spaces and \n newline"})
+    response = client.get(
+        "/health", headers={"X-Request-ID": "bad id with spaces and \n newline"}
+    )
 
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] != "bad id with spaces and \n newline"

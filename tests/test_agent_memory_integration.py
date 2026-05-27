@@ -1,7 +1,7 @@
 """Integration test: PaperResearchAgent with memory persistence."""
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -22,6 +22,7 @@ def _make_mock_agent():
     with patch("app.agents.paper_research_agent.create_agent", return_value=mock_graph):
         with patch("app.agents.paper_research_agent.ChatOpenAI"):
             from app.agents.paper_research_agent import PaperResearchAgent
+
             agent = PaperResearchAgent(memory_store=store)
 
     return agent, store, mock_graph

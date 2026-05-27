@@ -31,7 +31,9 @@ class ExperimentConfig(BaseModel):
         for v in self.variants:
             if v.variant == name:
                 return v
-        raise KeyError(f"Variant '{name}' not found in experiment '{self.experiment_id}'")
+        raise KeyError(
+            f"Variant '{name}' not found in experiment '{self.experiment_id}'"
+        )
 
     def variant_names(self) -> list[str]:
         return [v.variant for v in self.variants]
@@ -49,5 +51,7 @@ def load_experiment_config(path: str | Path) -> ExperimentConfig:
 
             data = yaml.safe_load(raw)
         except ImportError as exc:  # pragma: no cover
-            raise RuntimeError("PyYAML required to parse non-JSON experiment configs") from exc
+            raise RuntimeError(
+                "PyYAML required to parse non-JSON experiment configs"
+            ) from exc
     return ExperimentConfig.model_validate(data)

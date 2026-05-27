@@ -1,13 +1,15 @@
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.schemas import PaperParseResult, Section, Chunk
+from app.schemas import Chunk, PaperParseResult, Section
 from app.services.chunker import chunk_paper
 
 
-def _make_parsed(sections: list[Section] | None = None, title: str = "Test Paper") -> PaperParseResult:
+def _make_parsed(
+    sections: list[Section] | None = None, title: str = "Test Paper"
+) -> PaperParseResult:
     if sections is None:
         sections = []
     full_text = "\n\n".join(f"{s.heading}\n{s.content}" for s in sections)
@@ -21,9 +23,14 @@ def _make_parsed(sections: list[Section] | None = None, title: str = "Test Paper
 
 
 def test_chunk_single_short_section():
-    parsed = _make_parsed([
-        Section(heading="Introduction", content="This is a short introduction paragraph."),
-    ])
+    parsed = _make_parsed(
+        [
+            Section(
+                heading="Introduction",
+                content="This is a short introduction paragraph.",
+            ),
+        ]
+    )
     chunks = chunk_paper(parsed)
     assert len(chunks) == 1
     assert chunks[0].chunk_id == "paper_test_001_chunk_0001"
@@ -36,9 +43,11 @@ def test_chunk_single_short_section():
 def test_chunk_long_section_splits():
     # 2000 chars should produce 3 chunks with size=800, overlap=100
     long_text = "x" * 2000
-    parsed = _make_parsed([
-        Section(heading="Method", content=long_text),
-    ])
+    parsed = _make_parsed(
+        [
+            Section(heading="Method", content=long_text),
+        ]
+    )
     chunks = chunk_paper(parsed, chunk_size=800, chunk_overlap=100)
     assert len(chunks) == 3
     assert all(c.section == "Method" for c in chunks)
@@ -53,11 +62,13 @@ def test_chunk_long_section_splits():
 
 
 def test_chunk_multiple_sections():
-    parsed = _make_parsed([
-        Section(heading="Introduction", content="x" * 500),
-        Section(heading="Method", content="y" * 1500),
-        Section(heading="Conclusion", content="z" * 300),
-    ])
+    parsed = _make_parsed(
+        [
+            Section(heading="Introduction", content="x" * 500),
+            Section(heading="Method", content="y" * 1500),
+            Section(heading="Conclusion", content="z" * 300),
+        ]
+    )
     chunks = chunk_paper(parsed, chunk_size=800, chunk_overlap=100)
 
     intro_chunks = [c for c in chunks if c.section == "Introduction"]
@@ -80,12 +91,17 @@ def test_chunk_multiple_sections():
 
 
 def test_chunk_empty_section_skipped():
-    parsed = _make_parsed([
-        Section(heading="Introduction", content="This is a valid introduction section with enough text."),
-        Section(heading="Empty", content=""),
-        Section(heading="Short", content="ab"),
-        Section(heading="Method", content="x" * 500),
-    ])
+    parsed = _make_parsed(
+        [
+            Section(
+                heading="Introduction",
+                content="This is a valid introduction section with enough text.",
+            ),
+            Section(heading="Empty", content=""),
+            Section(heading="Short", content="ab"),
+            Section(heading="Method", content="x" * 500),
+        ]
+    )
     chunks = chunk_paper(parsed)
     headings = {c.section for c in chunks}
     assert "Empty" not in headings
@@ -95,9 +111,11 @@ def test_chunk_empty_section_skipped():
 
 
 def test_chunk_all_empty_falls_back_to_full_text():
-    parsed = _make_parsed([
-        Section(heading="Empty", content="   "),
-    ])
+    parsed = _make_parsed(
+        [
+            Section(heading="Empty", content="   "),
+        ]
+    )
     # full_text will contain "Empty\n   "
     # But that's too short (< 20 chars), so no chunks
     chunks = chunk_paper(parsed)
@@ -108,7 +126,8 @@ def test_chunk_all_empty_falls_back_to_full_text():
         title="Fallback",
         abstract="",
         sections=[Section(heading="Empty", content="")],
-        full_text="This is the full text content that should be chunked as fallback. " * 20,
+        full_text="This is the full text content that should be chunked as fallback. "
+        * 20,
     )
     chunks2 = chunk_paper(parsed2)
     assert len(chunks2) > 0
@@ -117,9 +136,11 @@ def test_chunk_all_empty_falls_back_to_full_text():
 
 
 def test_chunk_metadata_complete():
-    parsed = _make_parsed([
-        Section(heading="Results", content="x" * 1000, page_number=4),
-    ])
+    parsed = _make_parsed(
+        [
+            Section(heading="Results", content="x" * 1000, page_number=4),
+        ]
+    )
     chunks = chunk_paper(parsed)
     for c in chunks:
         assert c.chunk_id
@@ -135,9 +156,11 @@ def test_chunk_metadata_complete():
 
 def test_chunk_exact_boundary():
     # 800 chars exactly should produce 1 chunk
-    parsed = _make_parsed([
-        Section(heading="Method", content="x" * 800),
-    ])
+    parsed = _make_parsed(
+        [
+            Section(heading="Method", content="x" * 800),
+        ]
+    )
     chunks = chunk_paper(parsed)
     assert len(chunks) == 1
     assert len(chunks[0].content) == 800
@@ -146,9 +169,11 @@ def test_chunk_exact_boundary():
 def test_chunk_overlap_content():
     # Verify actual overlap: text with distinct patterns
     content = "ABCDEFGHIJ" * 200  # 2000 chars, each 10-char pattern
-    parsed = _make_parsed([
-        Section(heading="Method", content=content),
-    ])
+    parsed = _make_parsed(
+        [
+            Section(heading="Method", content=content),
+        ]
+    )
     chunks = chunk_paper(parsed, chunk_size=800, chunk_overlap=100)
 
     assert len(chunks) == 3
@@ -164,8 +189,8 @@ def test_chunk_emits_abstract_when_present():
         paper_id="paper_abs_001",
         title="Abstract Test",
         abstract="This paper proposes a novel method for infrared small target detection. "
-                  "We construct a large-scale IRDST dataset of 142727 frames and benchmark "
-                  "existing methods. The new dataset alleviates data scarcity and class imbalance.",
+        "We construct a large-scale IRDST dataset of 142727 frames and benchmark "
+        "existing methods. The new dataset alleviates data scarcity and class imbalance.",
         sections=[Section(heading="Method", content="x" * 500)],
         full_text="ignored",
     )
@@ -196,7 +221,10 @@ def test_chunk_does_not_duplicate_abstract_already_in_sections():
         title="Already has abstract section",
         abstract="dup-source abstract text long enough to be chunkable.",
         sections=[
-            Section(heading="Abstract", content="from-sections abstract text long enough to be chunkable."),
+            Section(
+                heading="Abstract",
+                content="from-sections abstract text long enough to be chunkable.",
+            ),
             Section(heading="Method", content="x" * 500),
         ],
         full_text="ignored",

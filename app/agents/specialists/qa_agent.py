@@ -28,7 +28,9 @@ class QAAgent(BaseSpecialist):
 
         return self._answer_question(question, paper_id=paper_id, top_k=top_k)
 
-    def _answer_question(self, question: str, paper_id: str | None = None, top_k: int = 5) -> AgentResult:
+    def _answer_question(
+        self, question: str, paper_id: str | None = None, top_k: int = 5
+    ) -> AgentResult:
         from app.services.embedding_client import EmbeddingClient
         from app.services.llm_client import LLMClient
         from app.services.paper_qa import answer_question
@@ -42,11 +44,13 @@ class QAAgent(BaseSpecialist):
             kwargs: dict[str, Any] = {}
             if self._enable_rerank:
                 from app.services.reranker import CrossEncoderReranker
+
                 kwargs["reranker"] = CrossEncoderReranker()
                 kwargs["recall_top_k"] = 20
 
             if self._enable_query_rewrite:
                 from app.services.query_rewriter import QueryRewriter
+
                 rewriter = QueryRewriter(llm)
                 rewritten = rewriter.rewrite(question)
                 if rewritten:
@@ -76,4 +80,6 @@ class QAAgent(BaseSpecialist):
             )
         except Exception as e:
             logger.exception("QAAgent failed")
-            return AgentResult(success=False, output="", agent_id=self.name, error=str(e))
+            return AgentResult(
+                success=False, output="", agent_id=self.name, error=str(e)
+            )

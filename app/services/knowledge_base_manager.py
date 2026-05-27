@@ -21,14 +21,26 @@ class KnowledgeBaseManager:
 
     def _load(self) -> dict:
         if not self._path.exists():
-            return {"knowledge_bases": {DEFAULT_KB: {"id": DEFAULT_KB, "name": "默认知识库", "description": "", "paper_ids": [], "created_at": utc_now_iso()}}}
+            return {
+                "knowledge_bases": {
+                    DEFAULT_KB: {
+                        "id": DEFAULT_KB,
+                        "name": "默认知识库",
+                        "description": "",
+                        "paper_ids": [],
+                        "created_at": utc_now_iso(),
+                    }
+                }
+            }
         try:
             return json.loads(self._path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return {"knowledge_bases": {}}
 
     def _save(self, data: dict) -> None:
-        self._path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     def create_kb(self, kb_id: str, name: str, description: str = "") -> dict:
         with self._lock:

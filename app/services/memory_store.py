@@ -117,7 +117,9 @@ class MemoryStore:
 
     def get_conversation(self, conv_id: str) -> dict | None:
         conn = self._get_conn()
-        row = conn.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM conversations WHERE id = ?", (conv_id,)
+        ).fetchone()
         return dict(row) if row else None
 
     def delete_conversation(self, conv_id: str) -> bool:
@@ -128,7 +130,9 @@ class MemoryStore:
 
     # ── Messages ─────────────────────────────────────────────────────────
 
-    def add_message(self, conversation_id: str, role: str, content: str, metadata: str = "{}") -> str:
+    def add_message(
+        self, conversation_id: str, role: str, content: str, metadata: str = "{}"
+    ) -> str:
         msg_id = str(uuid.uuid4())
         now = time.time()
         conn = self._get_conn()
@@ -136,11 +140,16 @@ class MemoryStore:
             "INSERT INTO messages (id, conversation_id, role, content, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?)",
             (msg_id, conversation_id, role, content, now, metadata),
         )
-        conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conversation_id))
+        conn.execute(
+            "UPDATE conversations SET updated_at = ? WHERE id = ?",
+            (now, conversation_id),
+        )
         conn.commit()
         return msg_id
 
-    def get_messages(self, conversation_id: str, limit: int = 100, offset: int = 0) -> list[dict]:
+    def get_messages(
+        self, conversation_id: str, limit: int = 100, offset: int = 0
+    ) -> list[dict]:
         conn = self._get_conn()
         rows = conn.execute(
             "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?",
@@ -150,7 +159,10 @@ class MemoryStore:
 
     def count_messages(self, conversation_id: str) -> int:
         conn = self._get_conn()
-        row = conn.execute("SELECT COUNT(*) as cnt FROM messages WHERE conversation_id = ?", (conversation_id,)).fetchone()
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM messages WHERE conversation_id = ?",
+            (conversation_id,),
+        ).fetchone()
         return row["cnt"]
 
     # ── User Preferences ─────────────────────────────────────────────────
@@ -165,7 +177,9 @@ class MemoryStore:
 
     def get_preference(self, key: str) -> str | None:
         conn = self._get_conn()
-        row = conn.execute("SELECT value FROM user_preferences WHERE key = ?", (key,)).fetchone()
+        row = conn.execute(
+            "SELECT value FROM user_preferences WHERE key = ?", (key,)
+        ).fetchone()
         return row["value"] if row else None
 
     def list_preferences(self) -> dict[str, str]:
@@ -175,7 +189,9 @@ class MemoryStore:
 
     # ── Reading History ──────────────────────────────────────────────────
 
-    def add_reading_event(self, paper_id: str, action: str, metadata: str = "{}") -> str:
+    def add_reading_event(
+        self, paper_id: str, action: str, metadata: str = "{}"
+    ) -> str:
         event_id = str(uuid.uuid4())
         conn = self._get_conn()
         conn.execute(
@@ -185,7 +201,9 @@ class MemoryStore:
         conn.commit()
         return event_id
 
-    def get_reading_history(self, limit: int = 50, paper_id: str | None = None) -> list[dict]:
+    def get_reading_history(
+        self, limit: int = 50, paper_id: str | None = None
+    ) -> list[dict]:
         conn = self._get_conn()
         if paper_id:
             rows = conn.execute(
@@ -194,7 +212,8 @@ class MemoryStore:
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM reading_history ORDER BY created_at DESC LIMIT ?", (limit,)
+                "SELECT * FROM reading_history ORDER BY created_at DESC LIMIT ?",
+                (limit,),
             ).fetchall()
         return [dict(r) for r in rows]
 
@@ -212,7 +231,9 @@ class MemoryStore:
 
     def list_facts(self, limit: int = 100) -> list[dict]:
         conn = self._get_conn()
-        rows = conn.execute("SELECT * FROM semantic_facts ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        rows = conn.execute(
+            "SELECT * FROM semantic_facts ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
         return [dict(r) for r in rows]
 
     def delete_fact(self, fact_id: str) -> bool:
@@ -237,12 +258,27 @@ class MemoryStore:
         conn = self._get_conn()
         conn.execute(
             "INSERT INTO agent_traces (id, conversation_id, agent_id, action, input_data, output_data, duration_ms, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (trace_id, conversation_id, agent_id, action, input_data, output_data, duration_ms, time.time(), metadata),
+            (
+                trace_id,
+                conversation_id,
+                agent_id,
+                action,
+                input_data,
+                output_data,
+                duration_ms,
+                time.time(),
+                metadata,
+            ),
         )
         conn.commit()
         return trace_id
 
-    def get_traces(self, conversation_id: str | None = None, agent_id: str | None = None, limit: int = 100) -> list[dict]:
+    def get_traces(
+        self,
+        conversation_id: str | None = None,
+        agent_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict]:
         conn = self._get_conn()
         conditions = []
         params: list[Any] = []
@@ -254,5 +290,8 @@ class MemoryStore:
             params.append(agent_id)
         where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         params.append(limit)
-        rows = conn.execute(f"SELECT * FROM agent_traces {where} ORDER BY created_at DESC LIMIT ?", params).fetchall()
+        rows = conn.execute(
+            f"SELECT * FROM agent_traces {where} ORDER BY created_at DESC LIMIT ?",
+            params,
+        ).fetchall()
         return [dict(r) for r in rows]

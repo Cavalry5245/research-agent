@@ -16,7 +16,6 @@ from app.agents.tools.paper_tools import (
 )
 from app.agents.tools.registry import ToolRegistry
 
-
 # ── Mock tool for testing ─────────────────────────────────────────────────────
 
 
@@ -131,6 +130,7 @@ def test_registry_empty_name():
             return ToolResult(success=True)
 
     import pytest
+
     with pytest.raises(ValueError, match="must have a name"):
         registry.register(NoNameTool())
 
@@ -229,7 +229,13 @@ def test_index_missing_paper_id():
 @patch("app.agents.tools.paper_tools.EmbeddingClient")
 @patch("app.agents.tools.paper_tools.VectorStore")
 def test_index_success(mock_vs, mock_emb, mock_chunk, mock_load):
-    mock_load.return_value = {"paper_id": "paper_A", "title": "Test", "abstract": "", "sections": [], "full_text": "content"}
+    mock_load.return_value = {
+        "paper_id": "paper_A",
+        "title": "Test",
+        "abstract": "",
+        "sections": [],
+        "full_text": "content",
+    }
     mock_chunk.return_value = [MagicMock(content="chunk1"), MagicMock(content="chunk2")]
     mock_emb_instance = MagicMock()
     mock_emb_instance.embed_texts.return_value = [[0.1], [0.2]]

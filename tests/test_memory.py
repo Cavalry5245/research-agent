@@ -1,14 +1,14 @@
 """Tests for the memory subsystem: short-term, long-term, and semantic memory."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.services.memory_store import MemoryStore
-from app.agents.memory.short_term import ShortTermMemory
 from app.agents.memory.long_term import LongTermMemory
 from app.agents.memory.semantic import SemanticMemory
+from app.agents.memory.short_term import ShortTermMemory
+from app.services.memory_store import MemoryStore
 
 
 def _make_store():
@@ -141,7 +141,10 @@ class TestSemantic:
 
         results = sm.recall("retrieval and generation", top_k=2)
         assert len(results) == 2
-        assert "RAG" in results[0]["content"] or "retrieval" in results[0]["content"].lower()
+        assert (
+            "RAG" in results[0]["content"]
+            or "retrieval" in results[0]["content"].lower()
+        )
 
     def test_delete_fact(self):
         store = _make_store()

@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 def test_research_workflow_state():
     from app.agents.workflows.research_workflow import ResearchWorkflowState
+
     fields = ResearchWorkflowState.__annotations__
     assert "paper_id" in fields
     assert "file_path" in fields
@@ -22,14 +23,21 @@ def test_research_workflow_state():
 
 def test_research_graph_compiles():
     from app.agents.workflows.research_workflow import build_research_workflow
+
     graph = build_research_workflow()
     assert graph is not None
 
 
 def test_research_mermaid_export():
     from app.agents.workflows.research_workflow import export_mermaid
+
     mermaid = export_mermaid()
-    assert "graph" in mermaid.lower() or "---" in mermaid or "flowchart" in mermaid.lower() or len(mermaid) > 0
+    assert (
+        "graph" in mermaid.lower()
+        or "---" in mermaid
+        or "flowchart" in mermaid.lower()
+        or len(mermaid) > 0
+    )
 
 
 def test_parse_node():
@@ -256,6 +264,7 @@ def test_qa_node_skips_without_question():
 
 def test_should_continue_qa_with_question():
     from app.agents.workflows.research_workflow import should_continue_qa
+
     state = {
         "paper_id": "",
         "file_path": "",
@@ -279,8 +288,10 @@ def test_should_continue_qa_with_question():
 
 
 def test_should_continue_qa_without_question():
-    from app.agents.workflows.research_workflow import should_continue_qa
     from langgraph.graph import END
+
+    from app.agents.workflows.research_workflow import should_continue_qa
+
     state = {
         "paper_id": "",
         "file_path": "",
@@ -324,24 +335,26 @@ def test_research_workflow_full(mock_note, mock_index, mock_upload):
     )
 
     graph = build_research_workflow()
-    result = graph.invoke({
-        "paper_id": "",
-        "file_path": "/tmp/test.pdf",
-        "question": "",
-        "top_k": 5,
-        "parsed": False,
-        "indexed": False,
-        "note_generated": False,
-        "title": "",
-        "sections_count": 0,
-        "chars": 0,
-        "chunks_indexed": 0,
-        "note_path": "",
-        "note_length": 0,
-        "answer": "",
-        "sources_count": 0,
-        "error": "",
-    })
+    result = graph.invoke(
+        {
+            "paper_id": "",
+            "file_path": "/tmp/test.pdf",
+            "question": "",
+            "top_k": 5,
+            "parsed": False,
+            "indexed": False,
+            "note_generated": False,
+            "title": "",
+            "sections_count": 0,
+            "chars": 0,
+            "chunks_indexed": 0,
+            "note_path": "",
+            "note_length": 0,
+            "answer": "",
+            "sources_count": 0,
+            "error": "",
+        }
+    )
 
     assert result["parsed"] is True
     assert result["indexed"] is True
@@ -371,24 +384,26 @@ def test_research_workflow_with_qa(mock_qa, mock_note, mock_index, mock_upload):
     )
 
     graph = build_research_workflow()
-    result = graph.invoke({
-        "paper_id": "",
-        "file_path": "/tmp/test.pdf",
-        "question": "核心创新是什么？",
-        "top_k": 3,
-        "parsed": False,
-        "indexed": False,
-        "note_generated": False,
-        "title": "",
-        "sections_count": 0,
-        "chars": 0,
-        "chunks_indexed": 0,
-        "note_path": "",
-        "note_length": 0,
-        "answer": "",
-        "sources_count": 0,
-        "error": "",
-    })
+    result = graph.invoke(
+        {
+            "paper_id": "",
+            "file_path": "/tmp/test.pdf",
+            "question": "核心创新是什么？",
+            "top_k": 3,
+            "parsed": False,
+            "indexed": False,
+            "note_generated": False,
+            "title": "",
+            "sections_count": 0,
+            "chars": 0,
+            "chunks_indexed": 0,
+            "note_path": "",
+            "note_length": 0,
+            "answer": "",
+            "sources_count": 0,
+            "error": "",
+        }
+    )
 
     assert result["parsed"] is True
     assert result["indexed"] is True
@@ -402,6 +417,7 @@ def test_research_workflow_with_qa(mock_qa, mock_note, mock_index, mock_upload):
 
 def test_comparison_workflow_state():
     from app.agents.workflows.comparison_workflow import ComparisonWorkflowState
+
     fields = ComparisonWorkflowState.__annotations__
     assert "file_paths" in fields
     assert "paper_ids" in fields
@@ -412,12 +428,14 @@ def test_comparison_workflow_state():
 
 def test_comparison_graph_compiles():
     from app.agents.workflows.comparison_workflow import build_comparison_workflow
+
     graph = build_comparison_workflow()
     assert graph is not None
 
 
 def test_comparison_mermaid_export():
     from app.agents.workflows.comparison_workflow import export_comparison_mermaid
+
     mermaid = export_comparison_mermaid()
     assert len(mermaid) > 0
 
@@ -442,18 +460,20 @@ def test_comparison_workflow_full(mock_compare, mock_upload):
     )
 
     graph = build_comparison_workflow()
-    result = graph.invoke({
-        "file_paths": ["/tmp/p1.pdf", "/tmp/p2.pdf"],
-        "paper_ids": [],
-        "all_parsed": False,
-        "compared": False,
-        "exported": False,
-        "titles": [],
-        "output_path": "",
-        "content_length": 0,
-        "aspects_count": 0,
-        "error": "",
-    })
+    result = graph.invoke(
+        {
+            "file_paths": ["/tmp/p1.pdf", "/tmp/p2.pdf"],
+            "paper_ids": [],
+            "all_parsed": False,
+            "compared": False,
+            "exported": False,
+            "titles": [],
+            "output_path": "",
+            "content_length": 0,
+            "aspects_count": 0,
+            "error": "",
+        }
+    )
 
     assert result["all_parsed"] is True
     assert result["compared"] is True
@@ -489,6 +509,7 @@ def test_workflow_state_serializable():
     }
 
     import json
+
     serialized = json.dumps(state)
     restored = json.loads(serialized)
     assert restored["paper_id"] == "paper_A"

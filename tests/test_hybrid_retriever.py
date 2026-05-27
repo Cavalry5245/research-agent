@@ -19,6 +19,7 @@ def _setup(dense_results, sparse_results):
 
 def test_hybrid_retriever_rejects_invalid_alpha():
     import pytest
+
     vs, ec, bm = _setup([], [])
     with pytest.raises(ValueError):
         HybridRetriever(vs, ec, bm, alpha=1.5)
@@ -26,12 +27,40 @@ def test_hybrid_retriever_rejects_invalid_alpha():
 
 def test_hybrid_retriever_merges_dense_and_sparse_results():
     dense = [
-        {"chunk_id": "a", "content": "x", "paper_id": "p", "title": "t", "section": "s", "score": 0.9},
-        {"chunk_id": "b", "content": "y", "paper_id": "p", "title": "t", "section": "s", "score": 0.6},
+        {
+            "chunk_id": "a",
+            "content": "x",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 0.9,
+        },
+        {
+            "chunk_id": "b",
+            "content": "y",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 0.6,
+        },
     ]
     sparse = [
-        {"chunk_id": "b", "content": "y", "paper_id": "p", "title": "t", "section": "s", "score": 3.0},
-        {"chunk_id": "c", "content": "z", "paper_id": "p", "title": "t", "section": "s", "score": 1.5},
+        {
+            "chunk_id": "b",
+            "content": "y",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 3.0,
+        },
+        {
+            "chunk_id": "c",
+            "content": "z",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 1.5,
+        },
     ]
     vs, ec, bm = _setup(dense, sparse)
     r = HybridRetriever(vs, ec, bm, alpha=0.5, recall_top_k=20)
@@ -46,12 +75,40 @@ def test_hybrid_retriever_merges_dense_and_sparse_results():
 
 def test_hybrid_retriever_alpha_weights_apply():
     dense = [
-        {"chunk_id": "a", "content": "x", "paper_id": "p", "title": "t", "section": "s", "score": 1.0},
-        {"chunk_id": "b", "content": "y", "paper_id": "p", "title": "t", "section": "s", "score": 0.0},
+        {
+            "chunk_id": "a",
+            "content": "x",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 1.0,
+        },
+        {
+            "chunk_id": "b",
+            "content": "y",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 0.0,
+        },
     ]
     sparse = [
-        {"chunk_id": "a", "content": "x", "paper_id": "p", "title": "t", "section": "s", "score": 0.0},
-        {"chunk_id": "b", "content": "y", "paper_id": "p", "title": "t", "section": "s", "score": 1.0},
+        {
+            "chunk_id": "a",
+            "content": "x",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 0.0,
+        },
+        {
+            "chunk_id": "b",
+            "content": "y",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 1.0,
+        },
     ]
     vs, ec, bm = _setup(dense, sparse)
 
@@ -71,7 +128,17 @@ def test_hybrid_retriever_empty_returns_empty():
 
 
 def test_hybrid_retriever_respects_top_k():
-    dense = [{"chunk_id": f"c{i}", "content": "x", "paper_id": "p", "title": "t", "section": "s", "score": 1.0 - i*0.1} for i in range(5)]
+    dense = [
+        {
+            "chunk_id": f"c{i}",
+            "content": "x",
+            "paper_id": "p",
+            "title": "t",
+            "section": "s",
+            "score": 1.0 - i * 0.1,
+        }
+        for i in range(5)
+    ]
     sparse = []
     vs, ec, bm = _setup(dense, sparse)
     r = HybridRetriever(vs, ec, bm, alpha=1.0)

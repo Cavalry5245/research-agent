@@ -16,7 +16,9 @@ def _reset_job_store():
     _get_job_store().clear()
 
 
-def test_submit_compare_task_runs_in_background_and_stores_result(monkeypatch, tmp_path):
+def test_submit_compare_task_runs_in_background_and_stores_result(
+    monkeypatch, tmp_path
+):
     _reset_job_store()
     client = TestClient(app)
 

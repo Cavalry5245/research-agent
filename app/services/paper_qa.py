@@ -2,10 +2,10 @@ import logging
 import time
 from typing import Protocol
 
+from app.prompts.qa_prompt import build_qa_prompt
 from app.services.embedding_client import EmbeddingClient
 from app.services.llm_client import LLMClient
 from app.services.vector_store import VectorStore
-from app.prompts.qa_prompt import build_qa_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +17,15 @@ CLOSED_CLIENT_MARKERS = (
 
 
 class RerankerProtocol(Protocol):
-    def rerank(self, question: str, results: list[dict], top_k: int | None = None) -> list[dict]:
-        ...
+    def rerank(
+        self, question: str, results: list[dict], top_k: int | None = None
+    ) -> list[dict]: ...
 
 
 class RetrieverProtocol(Protocol):
-    def search(self, query: str, top_k: int, paper_id: str | None = None) -> list[dict]:
-        ...
+    def search(
+        self, query: str, top_k: int, paper_id: str | None = None
+    ) -> list[dict]: ...
 
 
 def _build_context(results: list[dict]) -> str:
@@ -82,7 +84,9 @@ def answer_question(
     recall_top_k: int | None = None,
     retriever: RetrieverProtocol | None = None,
 ) -> dict:
-    logger.info("QA: question='%s', paper_id=%s, top_k=%d", question[:80], paper_id, top_k)
+    logger.info(
+        "QA: question='%s', paper_id=%s, top_k=%d", question[:80], paper_id, top_k
+    )
 
     if llm_client_factory is None:
         llm_client_factory = LLMClient
@@ -91,22 +95,35 @@ def answer_question(
 
     retrieval_start = time.perf_counter()
     if retriever is not None:
-        results = retriever.search(query=question, top_k=effective_recall_top_k, paper_id=paper_id)
+        results = retriever.search(
+            query=question, top_k=effective_recall_top_k, paper_id=paper_id
+        )
     else:
         query_emb = embedding_client.embed_query(question)
-        results = vector_store.query(query_emb, top_k=effective_recall_top_k, paper_id=paper_id)
+        results = vector_store.query(
+            query_emb, top_k=effective_recall_top_k, paper_id=paper_id
+        )
     retrieval_seconds = time.perf_counter() - retrieval_start
 
     if not results:
-        _emit_qa_event(question=question, paper_id=paper_id, top_k=top_k,
-                       answer="", retrieval_time=retrieval_seconds, llm_time=0.0, sources=[])
+        _emit_qa_event(
+            question=question,
+            paper_id=paper_id,
+            top_k=top_k,
+            answer="",
+            retrieval_time=retrieval_seconds,
+            llm_time=0.0,
+            sources=[],
+        )
         return {
             "question": question,
             "answer": "当前知识库中没有检索到相关内容。请先上传并索引论文。",
             "sources": [],
         }
 
-    results = _apply_reranker(question=question, results=results, reranker=reranker, top_k=top_k)
+    results = _apply_reranker(
+        question=question, results=results, reranker=reranker, top_k=top_k
+    )
     context = _build_context(results)
     prompt = build_qa_prompt(question, context)
 
@@ -115,7 +132,9 @@ def answer_question(
         answer = llm_client.generate_text(prompt)
     except RuntimeError as e:
         if _is_closed_client_error(e):
-            logger.warning("LLM client was closed during QA, recreating client and retrying once")
+            logger.warning(
+                "LLM client was closed during QA, recreating client and retrying once"
+            )
             answer = llm_client_factory().generate_text(prompt)
         else:
             raise
@@ -146,9 +165,15 @@ def answer_question(
             "ra_llm_ms": round(llm_seconds * 1000, 2),
         },
     )
-    _emit_qa_event(question=question, paper_id=paper_id, top_k=top_k,
-                   answer=answer, retrieval_time=retrieval_seconds, llm_time=llm_seconds,
-                   sources=sources)
+    _emit_qa_event(
+        question=question,
+        paper_id=paper_id,
+        top_k=top_k,
+        answer=answer,
+        retrieval_time=retrieval_seconds,
+        llm_time=llm_seconds,
+        sources=sources,
+    )
 
     return {
         "question": question,

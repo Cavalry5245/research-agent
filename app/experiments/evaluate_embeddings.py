@@ -81,7 +81,10 @@ def _load_chunks(vector_store_path: Path) -> tuple[list[dict], np.ndarray | None
         chunks.append(c)
         embs.append(e)
     if dropped:
-        print(f"[_load_chunks] dropped {dropped} entries with non-majority embedding dim", file=sys.stderr)
+        print(
+            f"[_load_chunks] dropped {dropped} entries with non-majority embedding dim",
+            file=sys.stderr,
+        )
     cached = np.asarray(embs, dtype=np.float32) if embs else None
     return chunks, cached
 
@@ -173,7 +176,9 @@ def evaluate_model(
         paper_hits.append(m["paper_hit"])
         scoped_counts.append(m["scoped_chunks"])
 
-    per_query_retrieval_seconds = (query_embed_seconds + sim_seconds) / max(1, len(samples))
+    per_query_retrieval_seconds = (query_embed_seconds + sim_seconds) / max(
+        1, len(samples)
+    )
 
     return {
         "model": model_name,
@@ -193,14 +198,24 @@ def evaluate_model(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Real evaluation of one or more embedding models.")
-    parser.add_argument("--models", nargs="+", default=["bge-small-zh-v1.5", "bge-large-zh-v1.5", "m3e-base"])
+    parser = argparse.ArgumentParser(
+        description="Real evaluation of one or more embedding models."
+    )
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        default=["bge-small-zh-v1.5", "bge-large-zh-v1.5", "m3e-base"],
+    )
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--vector-store", type=Path, default=DEFAULT_VECTOR_STORE)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--top-k", type=int, default=5)
-    parser.add_argument("--cache-model", type=str, default="bge-small-zh-v1.5",
-                        help="Model name whose cached embeddings in --vector-store should be reused.")
+    parser.add_argument(
+        "--cache-model",
+        type=str,
+        default="bge-small-zh-v1.5",
+        help="Model name whose cached embeddings in --vector-store should be reused.",
+    )
     args = parser.parse_args()
 
     samples = _load_dataset(args.dataset)
@@ -213,21 +228,30 @@ def main() -> None:
         print(f"No chunks loaded from {args.vector_store}", file=sys.stderr)
         sys.exit(2)
 
-    print(f"Loaded {len(samples)} samples and {len(chunks)} chunks "
-          f"({'cached embeddings available' if cached_emb is not None else 'no cache'})",
-          file=sys.stderr)
+    print(
+        f"Loaded {len(samples)} samples and {len(chunks)} chunks "
+        f"({'cached embeddings available' if cached_emb is not None else 'no cache'})",
+        file=sys.stderr,
+    )
 
     records = []
     for m in args.models:
-        cache_compatible = (m == args.cache_model)
-        print(f"\n[evaluate_embeddings] Model={m} cache_compatible={cache_compatible}", file=sys.stderr)
+        cache_compatible = m == args.cache_model
+        print(
+            f"\n[evaluate_embeddings] Model={m} cache_compatible={cache_compatible}",
+            file=sys.stderr,
+        )
         t0 = time.perf_counter()
-        record = evaluate_model(m, samples, chunks, cached_emb, cache_compatible, top_k=args.top_k)
-        print(f"  ↳ hit@{args.top_k}={record['metrics']['hit_at_5']:.4f}, "
-              f"mrr={record['metrics']['mrr']:.4f}, "
-              f"retrieval_time={record['metrics']['retrieval_time']:.4f}s, "
-              f"elapsed={time.perf_counter()-t0:.1f}s",
-              file=sys.stderr)
+        record = evaluate_model(
+            m, samples, chunks, cached_emb, cache_compatible, top_k=args.top_k
+        )
+        print(
+            f"  ↳ hit@{args.top_k}={record['metrics']['hit_at_5']:.4f}, "
+            f"mrr={record['metrics']['mrr']:.4f}, "
+            f"retrieval_time={record['metrics']['retrieval_time']:.4f}s, "
+            f"elapsed={time.perf_counter()-t0:.1f}s",
+            file=sys.stderr,
+        )
         records.append(record)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)

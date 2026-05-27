@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 def test_agent_creation():
     from app.agents.paper_research_agent import PaperResearchAgent
+
     agent = PaperResearchAgent()
     assert agent.tool_count == 6
     assert "qa" in agent.tool_names
@@ -38,10 +39,10 @@ def test_agent_creation_with_extra_tools():
 
 
 def test_get_agent_singleton():
-    from app.agents.paper_research_agent import PaperResearchAgent, get_agent
-
     # Reset singleton
     import app.agents.paper_research_agent as mod
+    from app.agents.paper_research_agent import PaperResearchAgent, get_agent
+
     mod._agent_instance = None
 
     a1 = get_agent()
@@ -94,9 +95,11 @@ def test_agent_stream(mock_create_agent):
     from app.agents.paper_research_agent import PaperResearchAgent
 
     mock_graph = MagicMock()
-    mock_graph.stream.return_value = iter([
-        {"agent": {"messages": [MagicMock()]}},
-    ])
+    mock_graph.stream.return_value = iter(
+        [
+            {"agent": {"messages": [MagicMock()]}},
+        ]
+    )
     mock_create_agent.return_value = mock_graph
 
     agent = PaperResearchAgent()

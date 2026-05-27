@@ -28,7 +28,9 @@ def base_sample() -> QAEvalSample:
     )
 
 
-def test_rule_based_answer_judge_scores_overlap_and_exposes_reasons(base_sample: QAEvalSample):
+def test_rule_based_answer_judge_scores_overlap_and_exposes_reasons(
+    base_sample: QAEvalSample,
+):
     from app.evaluation.judges import RuleBasedAnswerJudge
 
     judge = RuleBasedAnswerJudge()
@@ -45,11 +47,15 @@ def test_rule_based_answer_judge_scores_overlap_and_exposes_reasons(base_sample:
     assert result.reasons
 
 
-def test_rule_based_answer_judge_fails_when_overlap_is_too_low(base_sample: QAEvalSample):
+def test_rule_based_answer_judge_fails_when_overlap_is_too_low(
+    base_sample: QAEvalSample,
+):
     from app.evaluation.judges import RuleBasedAnswerJudge
 
     judge = RuleBasedAnswerJudge(min_token_recall=0.5)
-    result = judge.evaluate(sample=base_sample, predicted_answer="This discusses unrelated experiments.")
+    result = judge.evaluate(
+        sample=base_sample, predicted_answer="This discusses unrelated experiments."
+    )
 
     assert result.mode == "rule_based"
     assert result.passed is False
@@ -77,7 +83,9 @@ def test_rule_based_citation_judge_scores_section_coverage(base_sample: QAEvalSa
     assert result.metadata["matched_paper_id"] is True
 
 
-def test_rule_based_citation_judge_handles_missing_expected_sections(base_sample: QAEvalSample):
+def test_rule_based_citation_judge_handles_missing_expected_sections(
+    base_sample: QAEvalSample,
+):
     from app.evaluation.judges import RuleBasedCitationJudge
 
     judge = RuleBasedCitationJudge(min_section_coverage=0.75)
@@ -92,7 +100,9 @@ def test_rule_based_citation_judge_handles_missing_expected_sections(base_sample
     assert "supporting section coverage" in " ".join(result.reasons).lower()
 
 
-def test_placeholder_llm_judge_returns_extension_friendly_stub(base_sample: QAEvalSample):
+def test_placeholder_llm_judge_returns_extension_friendly_stub(
+    base_sample: QAEvalSample,
+):
     from app.evaluation.judges import PlaceholderLLMJudge
 
     judge = PlaceholderLLMJudge()
@@ -110,7 +120,12 @@ def test_placeholder_llm_judge_returns_extension_friendly_stub(base_sample: QAEv
 
 
 def test_build_judges_supports_rule_based_and_placeholder_modes():
-    from app.evaluation.judges import PlaceholderLLMJudge, RuleBasedAnswerJudge, RuleBasedCitationJudge, build_judges
+    from app.evaluation.judges import (
+        PlaceholderLLMJudge,
+        RuleBasedAnswerJudge,
+        RuleBasedCitationJudge,
+        build_judges,
+    )
 
     answer_judge, citation_judge = build_judges(mode="rule_based")
     assert isinstance(answer_judge, RuleBasedAnswerJudge)
@@ -141,7 +156,9 @@ def test_llm_answer_judge_parses_clean_json(base_sample: QAEvalSample):
 
     canned = '{"score": 0.85, "passed": true, "reason": "Covers main contribution", "missing_points": [], "incorrect_points": []}'
     judge = LLMAnswerJudge(llm_call=lambda prompt: canned)
-    result = judge.evaluate(base_sample, predicted_answer="A retrieval augmentation method with citations.")
+    result = judge.evaluate(
+        base_sample, predicted_answer="A retrieval augmentation method with citations."
+    )
     assert result.mode == "llm"
     assert result.score == 0.85
     assert result.passed is True
@@ -179,13 +196,19 @@ def test_llm_answer_judge_clamps_out_of_range_scores(base_sample: QAEvalSample):
     assert judge_low.evaluate(base_sample, "x").score == 0.0
 
 
-def test_llm_answer_judge_derives_passed_from_threshold_when_missing(base_sample: QAEvalSample):
+def test_llm_answer_judge_derives_passed_from_threshold_when_missing(
+    base_sample: QAEvalSample,
+):
     from app.evaluation.judges import LLMAnswerJudge
 
-    judge = LLMAnswerJudge(pass_threshold=0.5, llm_call=lambda p: '{"score": 0.6, "reason": "ok"}')
+    judge = LLMAnswerJudge(
+        pass_threshold=0.5, llm_call=lambda p: '{"score": 0.6, "reason": "ok"}'
+    )
     assert judge.evaluate(base_sample, "x").passed is True
 
-    judge2 = LLMAnswerJudge(pass_threshold=0.5, llm_call=lambda p: '{"score": 0.4, "reason": "weak"}')
+    judge2 = LLMAnswerJudge(
+        pass_threshold=0.5, llm_call=lambda p: '{"score": 0.4, "reason": "weak"}'
+    )
     assert judge2.evaluate(base_sample, "x").passed is False
 
 
@@ -209,7 +232,9 @@ def test_llm_citation_judge_parses_full_payload(base_sample: QAEvalSample):
     canned = '{"score": 0.75, "passed": true, "reason": "Citations are relevant", "irrelevant_citations": [], "missing_evidence": ["E1"]}'
     judge = LLMCitationJudge(llm_call=lambda prompt: canned)
     citations = [{"paper_id": "paper-1", "section": "Abstract", "score": 0.9}]
-    result = judge.evaluate(base_sample, citations=citations, predicted_answer="The paper proposes ...")
+    result = judge.evaluate(
+        base_sample, citations=citations, predicted_answer="The paper proposes ..."
+    )
     assert result.score == 0.75
     assert result.passed is True
     assert result.metadata["citation_count"] == 1
@@ -232,12 +257,19 @@ def test_llm_citation_judge_handles_empty_citations(base_sample: QAEvalSample):
 
 
 def test_judge_prompt_builders_produce_expected_keys():
-    from app.evaluation.prompts import build_answer_judge_prompt, build_citation_judge_prompt
+    from app.evaluation.prompts import (
+        build_answer_judge_prompt,
+        build_citation_judge_prompt,
+    )
 
     ans_prompt = build_answer_judge_prompt(
         question="Q?", expected_answer="E", predicted_answer="P"
     )
-    assert "【问题】" in ans_prompt and "【参考答案】" in ans_prompt and "【模型答案】" in ans_prompt
+    assert (
+        "【问题】" in ans_prompt
+        and "【参考答案】" in ans_prompt
+        and "【模型答案】" in ans_prompt
+    )
     assert "score" in ans_prompt and "passed" in ans_prompt
 
     cite_prompt = build_citation_judge_prompt(

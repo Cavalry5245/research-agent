@@ -58,7 +58,9 @@ passed 的判断标准：score >= 0.5 即为 true。
 """
 
 
-def build_answer_judge_prompt(question: str, expected_answer: str, predicted_answer: str) -> str:
+def build_answer_judge_prompt(
+    question: str, expected_answer: str, predicted_answer: str
+) -> str:
     return ANSWER_JUDGE_PROMPT.format(
         question=(question or "").strip(),
         expected_answer=(expected_answer or "").strip() or "(空)",
@@ -79,8 +81,12 @@ def build_citation_judge_prompt(
             paper_id = c.get("paper_id", "?")
             section = c.get("section", "?")
             score = c.get("score")
-            score_str = f" (score={score:.3f})" if isinstance(score, (int, float)) else ""
-            citation_lines.append(f"  {i}. paper_id={paper_id} | section={section}{score_str}")
+            score_str = (
+                f" (score={score:.3f})" if isinstance(score, (int, float)) else ""
+            )
+            citation_lines.append(
+                f"  {i}. paper_id={paper_id} | section={section}{score_str}"
+            )
         citations_text = "\n".join(citation_lines)
     else:
         citations_text = "(无引用)"
@@ -88,6 +94,8 @@ def build_citation_judge_prompt(
         question=(question or "").strip(),
         predicted_answer=(predicted_answer or "").strip() or "(空)",
         citations_text=citations_text,
-        expected_sections=", ".join(expected_sections) if expected_sections else "(未指定)",
+        expected_sections=(
+            ", ".join(expected_sections) if expected_sections else "(未指定)"
+        ),
         expected_paper_id=expected_paper_id or "(未指定)",
     )

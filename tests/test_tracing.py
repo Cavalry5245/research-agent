@@ -106,9 +106,15 @@ class TestAgentTracer:
         assert timeline[0]["started_at"] <= timeline[1]["started_at"]
 
     def test_get_tool_call_stats(self, tracer):
-        tracer.record("search", "tool_call", input_data={"tool": "search"}, duration_ms=50)
-        tracer.record("search", "tool_call", input_data={"tool": "search"}, duration_ms=70)
-        tracer.record("index", "tool_call", input_data={"tool": "index"}, duration_ms=200)
+        tracer.record(
+            "search", "tool_call", input_data={"tool": "search"}, duration_ms=50
+        )
+        tracer.record(
+            "search", "tool_call", input_data={"tool": "search"}, duration_ms=70
+        )
+        tracer.record(
+            "index", "tool_call", input_data={"tool": "index"}, duration_ms=200
+        )
         tracer.record("supervisor", "route", duration_ms=10)
 
         stats = tracer.get_tool_call_stats()

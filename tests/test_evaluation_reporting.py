@@ -14,7 +14,9 @@ from app.evaluation.reporting import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RETRIEVAL_REPORT = REPO_ROOT / "app" / "evaluation" / "reports" / "retrieval_eval_seed_report.json"
+RETRIEVAL_REPORT = (
+    REPO_ROOT / "app" / "evaluation" / "reports" / "retrieval_eval_seed_report.json"
+)
 QA_DATASET = REPO_ROOT / "app" / "evaluation" / "datasets" / "qa_eval_seed.jsonl"
 REPORTING_SCRIPT = REPO_ROOT / "app" / "evaluation" / "reporting.py"
 PYTHON_EXECUTABLE = sys.executable
@@ -93,7 +95,6 @@ def test_reporting_script_generates_markdown_report(tmp_path: Path):
     assert "Failed Case Samples" in content
 
 
-
 def test_build_retrieval_upgrade_report_payload_summarizes_strategy_deltas():
     comparison_report = {
         "summary": {
@@ -119,10 +120,38 @@ def test_build_retrieval_upgrade_report_payload_summarizes_strategy_deltas():
             },
         },
         "strategy_summaries": {
-            "dense": {"sample_count": 2, "hit_rate": 1.0, "mean_recall": 0.5, "mrr": 0.5, "hits": 2, "misses": 0},
-            "dense_rerank": {"sample_count": 2, "hit_rate": 1.0, "mean_recall": 1.0, "mrr": 1.0, "hits": 2, "misses": 0},
-            "hybrid": {"sample_count": 2, "hit_rate": 1.0, "mean_recall": 0.5, "mrr": 0.75, "hits": 2, "misses": 0},
-            "hybrid_rerank": {"sample_count": 2, "hit_rate": 1.0, "mean_recall": 1.0, "mrr": 1.0, "hits": 2, "misses": 0},
+            "dense": {
+                "sample_count": 2,
+                "hit_rate": 1.0,
+                "mean_recall": 0.5,
+                "mrr": 0.5,
+                "hits": 2,
+                "misses": 0,
+            },
+            "dense_rerank": {
+                "sample_count": 2,
+                "hit_rate": 1.0,
+                "mean_recall": 1.0,
+                "mrr": 1.0,
+                "hits": 2,
+                "misses": 0,
+            },
+            "hybrid": {
+                "sample_count": 2,
+                "hit_rate": 1.0,
+                "mean_recall": 0.5,
+                "mrr": 0.75,
+                "hits": 2,
+                "misses": 0,
+            },
+            "hybrid_rerank": {
+                "sample_count": 2,
+                "hit_rate": 1.0,
+                "mean_recall": 1.0,
+                "mrr": 1.0,
+                "hits": 2,
+                "misses": 0,
+            },
         },
         "results_by_strategy": {
             "dense": [
@@ -134,8 +163,22 @@ def test_build_retrieval_upgrade_report_payload_summarizes_strategy_deltas():
                     "recall_at_k": 0.5,
                     "mrr": 0.5,
                     "retrieved_chunks": [
-                        {"chunk_id": "dense-d1", "paper_id": "paper-1", "section": "Conclusion", "score": 0.96, "rank": 1, "is_relevant": False},
-                        {"chunk_id": "dense-g1", "paper_id": "paper-1", "section": "Abstract", "score": 0.81, "rank": 2, "is_relevant": True},
+                        {
+                            "chunk_id": "dense-d1",
+                            "paper_id": "paper-1",
+                            "section": "Conclusion",
+                            "score": 0.96,
+                            "rank": 1,
+                            "is_relevant": False,
+                        },
+                        {
+                            "chunk_id": "dense-g1",
+                            "paper_id": "paper-1",
+                            "section": "Abstract",
+                            "score": 0.81,
+                            "rank": 2,
+                            "is_relevant": True,
+                        },
                     ],
                 }
             ],
@@ -148,7 +191,14 @@ def test_build_retrieval_upgrade_report_payload_summarizes_strategy_deltas():
                     "recall_at_k": 1.0,
                     "mrr": 1.0,
                     "retrieved_chunks": [
-                        {"chunk_id": "dense-r1", "paper_id": "paper-1", "section": "Abstract", "score": 0.98, "rank": 1, "is_relevant": True},
+                        {
+                            "chunk_id": "dense-r1",
+                            "paper_id": "paper-1",
+                            "section": "Abstract",
+                            "score": 0.98,
+                            "rank": 1,
+                            "is_relevant": True,
+                        },
                     ],
                 }
             ],
@@ -166,7 +216,6 @@ def test_build_retrieval_upgrade_report_payload_summarizes_strategy_deltas():
     assert payload["recommendations"]
 
 
-
 def test_build_retrieval_upgrade_report_markdown_renders_required_sections():
     comparison_report = {
         "summary": {
@@ -182,8 +231,22 @@ def test_build_retrieval_upgrade_report_markdown_renders_required_sections():
             },
         },
         "strategy_summaries": {
-            "dense": {"sample_count": 2, "hit_rate": 1.0, "mean_recall": 0.5, "mrr": 0.5, "hits": 2, "misses": 0},
-            "dense_rerank": {"sample_count": 2, "hit_rate": 1.0, "mean_recall": 1.0, "mrr": 1.0, "hits": 2, "misses": 0},
+            "dense": {
+                "sample_count": 2,
+                "hit_rate": 1.0,
+                "mean_recall": 0.5,
+                "mrr": 0.5,
+                "hits": 2,
+                "misses": 0,
+            },
+            "dense_rerank": {
+                "sample_count": 2,
+                "hit_rate": 1.0,
+                "mean_recall": 1.0,
+                "mrr": 1.0,
+                "hits": 2,
+                "misses": 0,
+            },
         },
         "results_by_strategy": {"dense": [], "dense_rerank": []},
     }

@@ -4,7 +4,12 @@ import json
 from statistics import mean
 from typing import Any
 
-from app.evaluation.schemas import ComparisonEvalSample, QAEvalSample, RetrievalEvalResult, RetrievalMatch
+from app.evaluation.schemas import (
+    ComparisonEvalSample,
+    QAEvalSample,
+    RetrievalEvalResult,
+    RetrievalMatch,
+)
 
 RETRIEVAL_STRATEGIES = ("dense", "dense_rerank", "hybrid", "hybrid_rerank")
 
@@ -48,7 +53,9 @@ def evaluate_retrieval_sample(
     retrieved_chunks: list[dict[str, Any]],
     top_k: int,
 ) -> RetrievalEvalResult:
-    relevant_sections = {normalize_section_name(section) for section in sample.supporting_sections}
+    relevant_sections = {
+        normalize_section_name(section) for section in sample.supporting_sections
+    }
     relevant_chunk_ids: set[str] = set()
     matches: list[RetrievalMatch] = []
     matched_relevant_sections: set[str] = set()
@@ -56,9 +63,8 @@ def evaluate_retrieval_sample(
     for rank, chunk in enumerate(retrieved_chunks[:top_k], start=1):
         normalized_section = normalize_section_name(chunk.get("section", ""))
         is_relevant = (
-            (sample.paper_id is None or chunk.get("paper_id") == sample.paper_id)
-            and normalized_section in relevant_sections
-        )
+            sample.paper_id is None or chunk.get("paper_id") == sample.paper_id
+        ) and normalized_section in relevant_sections
         if is_relevant and chunk.get("chunk_id"):
             relevant_chunk_ids.add(chunk["chunk_id"])
             matched_relevant_sections.add(normalized_section)
@@ -80,7 +86,11 @@ def evaluate_retrieval_sample(
     )
 
     relevant_section_count = len(relevant_sections)
-    recall_at_k = len(matched_relevant_sections) / relevant_section_count if relevant_section_count else 0.0
+    recall_at_k = (
+        len(matched_relevant_sections) / relevant_section_count
+        if relevant_section_count
+        else 0.0
+    )
 
     return RetrievalEvalResult(
         sample_id=sample.sample_id,
@@ -93,7 +103,9 @@ def evaluate_retrieval_sample(
     )
 
 
-def summarize_retrieval_results(results: list[RetrievalEvalResult], top_k: int) -> dict[str, Any]:
+def summarize_retrieval_results(
+    results: list[RetrievalEvalResult], top_k: int
+) -> dict[str, Any]:
     sample_count = len(results)
     hit_values = [1.0 if result.hit_at_k else 0.0 for result in results]
     recall_values = [result.recall_at_k for result in results]
@@ -116,7 +128,9 @@ def build_retrieval_variant_results(
     retrieved_by_strategy: dict[str, dict[str, list[dict[str, Any]]]],
     top_k: int,
 ) -> dict[str, Any]:
-    results_by_strategy: dict[str, list[RetrievalEvalResult]] = {strategy: [] for strategy in RETRIEVAL_STRATEGIES}
+    results_by_strategy: dict[str, list[RetrievalEvalResult]] = {
+        strategy: [] for strategy in RETRIEVAL_STRATEGIES
+    }
 
     for sample in samples:
         strategy_results = retrieved_by_strategy.get(sample.sample_id, {})
@@ -125,7 +139,9 @@ def build_retrieval_variant_results(
             if not retrieved_chunks:
                 continue
             results_by_strategy[strategy].append(
-                evaluate_retrieval_sample(sample=sample, retrieved_chunks=retrieved_chunks, top_k=top_k)
+                evaluate_retrieval_sample(
+                    sample=sample, retrieved_chunks=retrieved_chunks, top_k=top_k
+                )
             )
 
     strategy_summaries = {
@@ -135,14 +151,18 @@ def build_retrieval_variant_results(
     }
 
     baseline_strategy = "dense"
-    baseline_summary = strategy_summaries.get(baseline_strategy, {"hit_rate": 0.0, "mean_recall": 0.0, "mrr": 0.0})
+    baseline_summary = strategy_summaries.get(
+        baseline_strategy, {"hit_rate": 0.0, "mean_recall": 0.0, "mrr": 0.0}
+    )
     improvements: dict[str, dict[str, float]] = {}
     for strategy, summary in strategy_summaries.items():
         if strategy == baseline_strategy:
             continue
         improvements[strategy] = {
-            "hit_rate_delta_vs_dense": summary["hit_rate"] - baseline_summary["hit_rate"],
-            "mean_recall_delta_vs_dense": summary["mean_recall"] - baseline_summary["mean_recall"],
+            "hit_rate_delta_vs_dense": summary["hit_rate"]
+            - baseline_summary["hit_rate"],
+            "mean_recall_delta_vs_dense": summary["mean_recall"]
+            - baseline_summary["mean_recall"],
             "mrr_delta_vs_dense": summary["mrr"] - baseline_summary["mrr"],
         }
 
@@ -150,7 +170,11 @@ def build_retrieval_variant_results(
     if strategy_summaries:
         best_strategy = max(
             strategy_summaries.items(),
-            key=lambda item: (item[1]["mrr"], item[1]["mean_recall"], item[1]["hit_rate"]),
+            key=lambda item: (
+                item[1]["mrr"],
+                item[1]["mean_recall"],
+                item[1]["hit_rate"],
+            ),
         )[0]
 
     return {

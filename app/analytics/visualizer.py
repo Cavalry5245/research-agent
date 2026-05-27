@@ -45,7 +45,14 @@ def plot_hit_at_k_curve(
     ax.set_ylim(0, 1.05)
     ax.set_title(title)
     for k, v in zip(ks, values):
-        ax.annotate(f"{v:.2f}", (k, v), textcoords="offset points", xytext=(0, 8), ha="center", fontsize=9)
+        ax.annotate(
+            f"{v:.2f}",
+            (k, v),
+            textcoords="offset points",
+            xytext=(0, 8),
+            ha="center",
+            fontsize=9,
+        )
     return _save_or_return(fig, output_path)
 
 
@@ -60,7 +67,9 @@ def plot_response_time_distribution(
         ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
     else:
         sns.histplot(arr, kde=arr.size > 1, ax=ax, color="steelblue")
-        ax.axvline(arr.mean(), color="red", linestyle="--", label=f"mean={arr.mean():.3f}s")
+        ax.axvline(
+            arr.mean(), color="red", linestyle="--", label=f"mean={arr.mean():.3f}s"
+        )
         ax.legend()
     ax.set_xlabel("Seconds")
     ax.set_ylabel("Frequency")
@@ -75,19 +84,36 @@ def plot_failure_case_heatmap(
 ) -> plt.Figure:
     """failure_matrix: {paper_id: {section: count}}"""
     papers = sorted(failure_matrix.keys())
-    all_sections = sorted({s for sections in failure_matrix.values() for s in sections.keys()}) or ["__no_data__"]
+    all_sections = sorted(
+        {s for sections in failure_matrix.values() for s in sections.keys()}
+    ) or ["__no_data__"]
     data = np.zeros((len(papers), len(all_sections)), dtype=int)
     for i, paper in enumerate(papers):
         for j, section in enumerate(all_sections):
             data[i, j] = failure_matrix.get(paper, {}).get(section, 0)
 
-    fig, ax = plt.subplots(figsize=(max(6, len(all_sections) * 0.8), max(3, len(papers) * 0.4)))
+    fig, ax = plt.subplots(
+        figsize=(max(6, len(all_sections) * 0.8), max(3, len(papers) * 0.4))
+    )
     if not papers:
-        ax.text(0.5, 0.5, "No failure data", ha="center", va="center", transform=ax.transAxes)
+        ax.text(
+            0.5,
+            0.5,
+            "No failure data",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
     else:
         sns.heatmap(
-            data, annot=True, fmt="d", cmap="Reds",
-            xticklabels=all_sections, yticklabels=papers, ax=ax, cbar_kws={"label": "failures"},
+            data,
+            annot=True,
+            fmt="d",
+            cmap="Reds",
+            xticklabels=all_sections,
+            yticklabels=papers,
+            ax=ax,
+            cbar_kws={"label": "failures"},
         )
     ax.set_xlabel("Section")
     ax.set_ylabel("Paper")
@@ -102,7 +128,9 @@ def plot_metric_comparison_bar(
 ) -> plt.Figure:
     """variants: {variant_name: {metric: value}}"""
     variant_names = list(variants.keys())
-    metric_names = sorted({m for v in variants.values() for m in v.keys()}) or ["__no_metric__"]
+    metric_names = sorted({m for v in variants.values() for m in v.keys()}) or [
+        "__no_metric__"
+    ]
     n_metrics = len(metric_names)
     n_variants = len(variant_names)
     width = 0.8 / max(1, n_variants)
@@ -129,14 +157,20 @@ def plot_token_cost_trend(
     points: list[tuple[str, float]] = []
     for event in events:
         ts = event.get("timestamp") or ""
-        t = event.get("payload", {}).get("total_time") or event.get("payload", {}).get("llm_time") or 0.0
+        t = (
+            event.get("payload", {}).get("total_time")
+            or event.get("payload", {}).get("llm_time")
+            or 0.0
+        )
         if ts:
             points.append((ts, float(t)))
     points.sort(key=lambda p: p[0])
 
     fig, ax = plt.subplots(figsize=(7, 4))
     if not points:
-        ax.text(0.5, 0.5, "No event data", ha="center", va="center", transform=ax.transAxes)
+        ax.text(
+            0.5, 0.5, "No event data", ha="center", va="center", transform=ax.transAxes
+        )
     else:
         ys = np.cumsum([p[1] for p in points])
         ax.plot(range(len(points)), ys, marker=".", linewidth=1.5, color="darkorange")

@@ -128,7 +128,9 @@ def test_job_store_snapshot_interface_exposes_replaceable_contract_for_future_pe
     assert latest.status == "completed"
 
 
-def test_job_store_protocol_accepts_persistent_style_implementations_for_route_contract(monkeypatch):
+def test_job_store_protocol_accepts_persistent_style_implementations_for_route_contract(
+    monkeypatch,
+):
     _reset_job_store()
     client = TestClient(app)
 
@@ -167,7 +169,9 @@ def test_job_store_protocol_accepts_persistent_style_implementations_for_route_c
             return self._jobs.get(job_id)
 
         def list(self):
-            return sorted(self._jobs.values(), key=lambda job: job.created_at, reverse=True)
+            return sorted(
+                self._jobs.values(), key=lambda job: job.created_at, reverse=True
+            )
 
         def clear(self):
             self._jobs.clear()
@@ -192,7 +196,9 @@ def test_job_store_protocol_accepts_persistent_style_implementations_for_route_c
     assert detail["chunks_indexed"] == 2
 
 
-def test_get_job_store_uses_in_memory_store_by_default_and_can_switch_to_file_store(tmp_path, monkeypatch):
+def test_get_job_store_uses_in_memory_store_by_default_and_can_switch_to_file_store(
+    tmp_path, monkeypatch
+):
     from app.main import _get_job_store
     from app.services.job_store import FileJobStore, InMemoryJobStore
 
@@ -271,7 +277,9 @@ def test_index_job_submission_persists_to_file_backed_job_store_when_env_configu
     monkeypatch.setenv("RESEARCH_AGENT_JOB_STORE_PATH", str(store_path))
     monkeypatch.setattr("app.main._vector_store", VectorStore())
     monkeypatch.setattr("app.main._embedding_client", FakeEmbeddingClient())
-    monkeypatch.setattr("app.main.load_parsed_result", lambda paper_id, _: _make_parsed_result(paper_id))
+    monkeypatch.setattr(
+        "app.main.load_parsed_result", lambda paper_id, _: _make_parsed_result(paper_id)
+    )
 
     response = client.post("/papers/paper_FILE_BACKED_SUBMISSION/index?force=true")
 
@@ -290,7 +298,6 @@ def test_index_job_submission_persists_to_file_backed_job_store_when_env_configu
     detail_response = client.get(f"/jobs/{queued_job['job_id']}")
     assert detail_response.status_code == 200
     assert detail_response.json()["status"] == "completed"
-
 
 
 def test_job_routes_accept_file_backed_job_store_contract(monkeypatch, tmp_path):
@@ -903,7 +910,9 @@ def test_index_job_list_endpoint_returns_all_current_job_states_sorted_by_create
             if paper_id == "paper_LIST_DONE":
                 return parsed_done
             if paper_id == "paper_LIST_FAIL":
-                raise FileNotFoundError("论文 paper_LIST_FAIL 的解析结果不存在，请先解析 PDF")
+                raise FileNotFoundError(
+                    "论文 paper_LIST_FAIL 的解析结果不存在，请先解析 PDF"
+                )
             raise AssertionError(f"unexpected paper_id: {paper_id}")
 
         with patch("app.main._vector_store", store), patch(
@@ -967,7 +976,9 @@ def test_index_job_list_endpoint_returns_all_current_job_states_sorted_by_create
     queued_job = next(job for job in body["jobs"] if job["job_id"] == queued_job_id)
     running_job = next(job for job in body["jobs"] if job["job_id"] == running_job_id)
     failed_job = next(job for job in body["jobs"] if job["job_id"] == failed_job_id)
-    completed_job = next(job for job in body["jobs"] if job["job_id"] == completed_job_id)
+    completed_job = next(
+        job for job in body["jobs"] if job["job_id"] == completed_job_id
+    )
 
     assert queued_job["created_at"] > running_job["created_at"]
     assert failed_job["created_at"] > completed_job["created_at"]
@@ -998,7 +1009,9 @@ def test_index_job_list_endpoint_returns_failed_and_completed_jobs_sorted_by_cre
             if paper_id == "paper_LIST_OK":
                 return parsed_ok
             if paper_id == "paper_LIST_FAIL":
-                raise FileNotFoundError("论文 paper_LIST_FAIL 的解析结果不存在，请先解析 PDF")
+                raise FileNotFoundError(
+                    "论文 paper_LIST_FAIL 的解析结果不存在，请先解析 PDF"
+                )
             raise AssertionError(f"unexpected paper_id: {paper_id}")
 
         with patch("app.main._vector_store", store), patch(
@@ -1018,9 +1031,15 @@ def test_index_job_list_endpoint_returns_failed_and_completed_jobs_sorted_by_cre
     body = response.json()
     assert body["count"] == 2
     assert [job["job_id"] for job in body["jobs"]] == [second_job_id, first_job_id]
-    assert [job["paper_id"] for job in body["jobs"]] == ["paper_LIST_FAIL", "paper_LIST_OK"]
+    assert [job["paper_id"] for job in body["jobs"]] == [
+        "paper_LIST_FAIL",
+        "paper_LIST_OK",
+    ]
     assert [job["status"] for job in body["jobs"]] == ["failed", "completed"]
-    assert body["jobs"][0]["error"] == "论文 paper_LIST_FAIL 的解析结果不存在，请先解析 PDF"
+    assert (
+        body["jobs"][0]["error"]
+        == "论文 paper_LIST_FAIL 的解析结果不存在，请先解析 PDF"
+    )
     assert body["jobs"][1]["error"] is None
     assert body["jobs"][0]["created_at"] >= body["jobs"][1]["created_at"]
 
@@ -1199,7 +1218,9 @@ def test_index_job_status_endpoint_returns_failed_job_when_parsed_metadata_missi
 
         with patch("app.main._vector_store", store), patch(
             "app.main.load_parsed_result",
-            side_effect=FileNotFoundError("论文 paper_MISSING 的解析结果不存在，请先解析 PDF"),
+            side_effect=FileNotFoundError(
+                "论文 paper_MISSING 的解析结果不存在，请先解析 PDF"
+            ),
         ), patch("app.main.EmbeddingClient", return_value=FakeEmbeddingClient()):
             response = client.post("/papers/paper_MISSING/index")
             assert response.status_code == 202
@@ -1222,7 +1243,10 @@ def test_index_job_status_endpoint_returns_failed_job_when_parsed_metadata_missi
             assert status_body["chunk_seconds"] == 0.0
             assert status_body["embedding_seconds"] == 0.0
             assert status_body["persist_seconds"] == 0.0
-            assert status_body["error"] == "论文 paper_MISSING 的解析结果不存在，请先解析 PDF"
+            assert (
+                status_body["error"]
+                == "论文 paper_MISSING 的解析结果不存在，请先解析 PDF"
+            )
             assert status_body["updated_at"] >= status_body["created_at"]
 
 
@@ -1278,7 +1302,9 @@ def test_index_job_status_endpoint_preserves_started_at_when_job_fails_after_ent
 
         with patch("app.main._vector_store", store), patch(
             "app.main.load_parsed_result", return_value=parsed
-        ), patch("app.main._get_embedding_client", return_value=FailingEmbeddingClient()):
+        ), patch(
+            "app.main._get_embedding_client", return_value=FailingEmbeddingClient()
+        ):
             response = client.post("/papers/paper_FAIL_STARTED_AT/index")
             assert response.status_code == 202
             body = response.json()
@@ -1310,7 +1336,9 @@ def test_index_job_status_endpoint_returns_failed_job_when_embedding_raises():
 
         with patch("app.main._vector_store", store), patch(
             "app.main.load_parsed_result", return_value=parsed
-        ), patch("app.main._get_embedding_client", return_value=FailingEmbeddingClient()):
+        ), patch(
+            "app.main._get_embedding_client", return_value=FailingEmbeddingClient()
+        ):
             response = client.post("/papers/paper_FAIL/index")
             assert response.status_code == 202
             body = response.json()

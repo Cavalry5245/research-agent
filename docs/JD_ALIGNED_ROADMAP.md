@@ -1288,30 +1288,30 @@ def build_supervisor_graph() -> StateGraph:
 
 **实现步骤**:
 1. 技术文档:
-   - [ ] `docs/ARCHITECTURE.md` - 系统架构（更新）
-   - [ ] `docs/AGENT_DESIGN.md` - Agent 设计详解
-   - [ ] `docs/RAG_TECHNIQUES.md` - RAG 技术说明
-   - [ ] `docs/MULTI_AGENT_DESIGN.md` - 多 Agent 协作
-   - [ ] `docs/MEMORY_SYSTEM.md` - 记忆系统设计
-   - [ ] `docs/API_REFERENCE.md` - API 完整文档
-   - [ ] `docs/DATABASE_DESIGN.md` - 数据库设计
+   - [x] `docs/ARCHITECTURE.md` - 系统架构
+   - [x] `docs/AGENT_DESIGN.md` - Agent 设计详解
+   - [x] `docs/RAG_TECHNIQUES.md` - RAG 技术说明
+   - [x] `docs/MULTI_AGENT_DESIGN.md` - 多 Agent 协作
+   - [x] `docs/MEMORY_SYSTEM.md` - 记忆系统设计
+   - [x] `docs/API_REFERENCE.md` - API 完整文档（自动生成自 OpenAPI schema）
+   - [ ] `docs/DATABASE_DESIGN.md` - 跳过（已有 `DATABASE_CACHE_DECISION.md` 覆盖）
 
 2. 使用文档:
-   - [ ] `docs/QUICK_START.md` - 5 分钟快速开始
-   - [ ] `docs/USER_GUIDE.md` - 完整使用指南
-   - [ ] `docs/DEPLOYMENT_GUIDE.md` - 部署指南
-   - [ ] `docs/TROUBLESHOOTING.md` - 常见问题
+   - [ ] `docs/QUICK_START.md` - 跳过（README 快速启动 + `RUN_GUIDE.md` 已覆盖）
+   - [ ] `docs/USER_GUIDE.md` - 跳过（已有 `USAGE.md` 覆盖）
+   - [ ] `docs/DEPLOYMENT_GUIDE.md` - 跳过（单机项目，README 启动说明足够）
+   - [ ] `docs/TROUBLESHOOTING.md` - 跳过（个人项目暂不需要）
 
 3. 开发文档:
-   - [ ] `docs/DEVELOPMENT_GUIDE.md` - 开发指南
-   - [ ] `docs/TESTING_GUIDE.md` - 测试指南
-   - [ ] `docs/CONTRIBUTION_GUIDE.md` - 贡献指南
-   - [ ] `CHANGELOG.md` - 版本变更记录
+   - [ ] `docs/DEVELOPMENT_GUIDE.md` - 跳过（CLAUDE.md 已覆盖）
+   - [ ] `docs/TESTING_GUIDE.md` - 跳过（CLAUDE.md 已覆盖）
+   - [ ] `docs/CONTRIBUTION_GUIDE.md` - 跳过（个人项目）
+   - [x] `CHANGELOG.md` - Phase 1-5 版本变更记录
 
 4. 实验与分析文档:
-   - [ ] `docs/EXPERIMENT_RESULTS.md` - 实验结果汇总
-   - [ ] `docs/PERFORMANCE_OPTIMIZATION.md` - 性能优化记录
-   - [ ] `docs/ANALYTICS_GUIDE.md` - 数据分析指南
+   - [x] `docs/EXPERIMENT_RESULTS.md` - 实验结果汇总
+   - [ ] `docs/PERFORMANCE_OPTIMIZATION.md` - 跳过（实验报告内已含性能数据）
+   - [x] `docs/ANALYTICS_GUIDE.md` - 数据分析指南
 
 **验收标准**:
 - [ ] 所有文档完整且格式统一

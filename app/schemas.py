@@ -150,7 +150,9 @@ class QAResponse(BaseModel):
 
 class JobStatusResponse(BaseModel):
     job_id: str
-    job_type: Literal["paper_index", "note_generation", "paper_comparison", "batch_index"]
+    job_type: Literal[
+        "paper_index", "note_generation", "paper_comparison", "batch_index"
+    ]
     status: Literal["queued", "running", "completed", "failed", "cancelled"]
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
     paper_id: str | None = None
@@ -176,8 +178,14 @@ class JobStatusResponse(BaseModel):
         if self.status == "failed" and self.completed_at is not None:
             raise ValueError("failed 状态不得提供 completed_at")
         if self.completed_at is not None and self.started_at is None:
-            raise ValueError("completed/cancelled 状态提供 completed_at 时必须同时提供 started_at")
-        if self.completed_at is not None and self.started_at is not None and self.completed_at < self.started_at:
+            raise ValueError(
+                "completed/cancelled 状态提供 completed_at 时必须同时提供 started_at"
+            )
+        if (
+            self.completed_at is not None
+            and self.started_at is not None
+            and self.completed_at < self.started_at
+        ):
             raise ValueError("completed_at 不得早于 started_at")
         if self.updated_at < self.created_at:
             raise ValueError("updated_at 不得早于 created_at")

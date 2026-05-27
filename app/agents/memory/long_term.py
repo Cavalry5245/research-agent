@@ -27,14 +27,18 @@ class LongTermMemory:
 
     # ── Reading History ──────────────────────────────────────────────────
 
-    def record_reading(self, paper_id: str, action: str = "view", metadata: dict | None = None) -> str:
+    def record_reading(
+        self, paper_id: str, action: str = "view", metadata: dict | None = None
+    ) -> str:
         return self._store.add_reading_event(
             paper_id=paper_id,
             action=action,
             metadata=json.dumps(metadata or {}, ensure_ascii=False),
         )
 
-    def get_reading_history(self, limit: int = 50, paper_id: str | None = None) -> list[dict]:
+    def get_reading_history(
+        self, limit: int = 50, paper_id: str | None = None
+    ) -> list[dict]:
         return self._store.get_reading_history(limit=limit, paper_id=paper_id)
 
     def get_recently_read_papers(self, limit: int = 10) -> list[str]:
@@ -64,7 +68,11 @@ class LongTermMemory:
         questions: list[str] = []
         for event in history:
             if event["action"] == "question":
-                meta = json.loads(event["metadata"]) if isinstance(event["metadata"], str) else event["metadata"]
+                meta = (
+                    json.loads(event["metadata"])
+                    if isinstance(event["metadata"], str)
+                    else event["metadata"]
+                )
                 q = meta.get("question", "")
                 if q:
                     questions.append(q)

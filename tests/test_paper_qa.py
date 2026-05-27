@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.prompts.qa_prompt import build_qa_prompt
 from app.schemas import Chunk
-from app.services.paper_qa import answer_question, _build_context
+from app.services.paper_qa import _build_context, answer_question
 from app.services.vector_store import VectorStore
 
 MOCK_ANSWER = (
@@ -31,10 +31,18 @@ def _make_chunk(paper_id: str, section: str, content: str, seq: int) -> Chunk:
 
 def _keyword_embedding(text: str, dim: int = 64) -> list[float]:
     import math
+
     keywords = {
-        "detection": 0, "infrared": 1, "vl": 2,
-        "attention": 3, "model": 4, "compression": 5,
-        "prune": 6, "survey": 7, "method": 8, "experiment": 9,
+        "detection": 0,
+        "infrared": 1,
+        "vl": 2,
+        "attention": 3,
+        "model": 4,
+        "compression": 5,
+        "prune": 6,
+        "survey": 7,
+        "method": 8,
+        "experiment": 9,
     }
     vec = [0.0] * dim
     for word in text.lower().split():
@@ -58,8 +66,18 @@ def test_build_qa_prompt():
 
 def test_build_context():
     results = [
-        {"paper_id": "p1", "title": "T1", "section": "Method", "content": "Method content."},
-        {"paper_id": "p2", "title": "T2", "section": "Experiments", "content": "Experiment content."},
+        {
+            "paper_id": "p1",
+            "title": "T1",
+            "section": "Method",
+            "content": "Method content.",
+        },
+        {
+            "paper_id": "p2",
+            "title": "T2",
+            "section": "Experiments",
+            "content": "Experiment content.",
+        },
     ]
     ctx = _build_context(results)
     assert "[片段 1]" in ctx
@@ -74,8 +92,12 @@ def test_answer_question_with_results():
     with tempfile.TemporaryDirectory() as tmpdir:
         store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
         chunks = [
-            _make_chunk("paper_A", "Method", "We propose a vl attention detection method.", 1),
-            _make_chunk("paper_A", "Experiments", "The infrared detection achieves SOTA.", 2),
+            _make_chunk(
+                "paper_A", "Method", "We propose a vl attention detection method.", 1
+            ),
+            _make_chunk(
+                "paper_A", "Experiments", "The infrared detection achieves SOTA.", 2
+            ),
             _make_chunk("paper_B", "Introduction", "Model compression survey.", 3),
         ]
         chunks[0].page_number = 2
@@ -87,7 +109,9 @@ def test_answer_question_with_results():
         store.add_chunks(chunks, [_keyword_embedding(c.content) for c in chunks])
 
         mock_emb = MagicMock()
-        mock_emb.embed_query.return_value = _keyword_embedding("infrared detection method")
+        mock_emb.embed_query.return_value = _keyword_embedding(
+            "infrared detection method"
+        )
 
         mock_llm = MagicMock()
         mock_llm.generate_text.return_value = MOCK_ANSWER

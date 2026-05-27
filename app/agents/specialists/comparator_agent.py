@@ -22,7 +22,9 @@ class ComparatorAgent(BaseSpecialist):
 
         if len(paper_ids) < 2:
             return AgentResult(
-                success=False, output="", agent_id=self.name,
+                success=False,
+                output="",
+                agent_id=self.name,
                 error="至少需要 2 篇论文进行对比（提供 paper_ids 列表）",
             )
 
@@ -40,7 +42,10 @@ class ComparatorAgent(BaseSpecialist):
                 parsed = load_parsed_result(pid, settings.metadata_dir)
                 if not parsed:
                     return AgentResult(
-                        success=False, output="", agent_id=self.name, error=f"未找到论文: {pid}"
+                        success=False,
+                        output="",
+                        agent_id=self.name,
+                        error=f"未找到论文: {pid}",
                     )
                 papers.append(parsed)
 
@@ -59,4 +64,6 @@ class ComparatorAgent(BaseSpecialist):
             )
         except Exception as e:
             logger.exception("ComparatorAgent failed")
-            return AgentResult(success=False, output="", agent_id=self.name, error=str(e))
+            return AgentResult(
+                success=False, output="", agent_id=self.name, error=str(e)
+            )

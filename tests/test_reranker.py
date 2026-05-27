@@ -37,7 +37,6 @@ def test_identity_reranker_preserves_order_and_adds_rerank_score():
     assert "rerank_score" not in results[0]
 
 
-
 def test_identity_reranker_respects_top_k():
     from app.services.reranker import IdentityReranker
 
@@ -52,19 +51,21 @@ def test_identity_reranker_respects_top_k():
     assert [item["chunk_id"] for item in reranked] == ["c1"]
 
 
-
 def test_hybrid_reranker_promotes_keyword_dense_tie():
     reranker = HybridReranker(alpha=0.2)
     results = [
         {"chunk_id": "c1", "score": 0.9, "content": "generic context only"},
-        {"chunk_id": "c2", "score": 0.9, "content": "infrared detection benchmark details"},
+        {
+            "chunk_id": "c2",
+            "score": 0.9,
+            "content": "infrared detection benchmark details",
+        },
     ]
 
     reranked = reranker.rerank(question="infrared detection", results=results)
 
     assert [item["chunk_id"] for item in reranked] == ["c2", "c1"]
     assert reranked[0]["rerank_score"] > reranked[1]["rerank_score"]
-
 
 
 def test_hybrid_reranker_respects_top_k_and_preserves_original_score():
@@ -82,17 +83,20 @@ def test_hybrid_reranker_respects_top_k_and_preserves_original_score():
     assert "rerank_score" in reranked[0]
 
 
-
 def test_vector_store_hybrid_query_uses_question_text_to_reorder_dense_results():
     with tempfile.TemporaryDirectory() as tmpdir:
         store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
         chunks = [
             _make_chunk("paper_A", "Method", "generic context only", 1),
-            _make_chunk("paper_A", "Experiments", "infrared detection benchmark details", 2),
+            _make_chunk(
+                "paper_A", "Experiments", "infrared detection benchmark details", 2
+            ),
         ]
         store.add_chunks(chunks, [[1.0, 0.0], [1.0, 0.0]])
 
-        results = store.query([1.0, 0.0], top_k=2, hybrid_query_text="infrared detection")
+        results = store.query(
+            [1.0, 0.0], top_k=2, hybrid_query_text="infrared detection"
+        )
 
         assert [item["chunk_id"] for item in results] == [
             "paper_A_chunk_0002",

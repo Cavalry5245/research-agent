@@ -107,7 +107,8 @@ class DecisionLogger:
         """Retrieve recent routing decisions from the store."""
         traces = self._store.get_traces(agent_id="supervisor", limit=limit)
         return [
-            t for t in traces
+            t
+            for t in traces
             if json.loads(t.get("metadata", "{}")).get("type") == "routing_decision"
         ]
 

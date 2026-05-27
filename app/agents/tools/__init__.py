@@ -1,5 +1,4 @@
 from app.agents.tools.base import BaseTool
-from app.agents.tools.registry import ToolRegistry
 from app.agents.tools.paper_tools import (
     ComparePapersTool,
     ExportMarkdownTool,
@@ -8,6 +7,7 @@ from app.agents.tools.paper_tools import (
     QATool,
     UploadPaperTool,
 )
+from app.agents.tools.registry import ToolRegistry
 
 __all__ = [
     "BaseTool",

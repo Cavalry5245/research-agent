@@ -8,6 +8,8 @@ __pycache__/
 *.DS_Store
 *Zone.Identifier
 .venv/
+.coverage
+htmlcov/
 venv/
 
 app/storage/papers/*

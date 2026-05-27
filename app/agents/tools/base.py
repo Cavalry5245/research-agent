@@ -23,12 +23,10 @@ class BaseTool(ABC):
 
     @property
     @abstractmethod
-    def parameters(self) -> list[ToolParameter]:
-        ...
+    def parameters(self) -> list[ToolParameter]: ...
 
     @abstractmethod
-    def execute(self, **kwargs) -> ToolResult:
-        ...
+    def execute(self, **kwargs) -> ToolResult: ...
 
     def to_dict(self) -> dict:
         return {

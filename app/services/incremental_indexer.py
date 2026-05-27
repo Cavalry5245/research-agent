@@ -21,7 +21,9 @@ class IncrementalIndexer:
     def _existing_hashes(self, paper_id: str) -> dict[str, str]:
         existing = self._vector_store.list_chunks(paper_id=paper_id)
         return {
-            c["chunk_id"]: hashlib.sha1((c.get("content") or "").encode("utf-8")).hexdigest()
+            c["chunk_id"]: hashlib.sha1(
+                (c.get("content") or "").encode("utf-8")
+            ).hexdigest()
             for c in existing
         }
 
@@ -31,7 +33,9 @@ class IncrementalIndexer:
         old_hashes = self._existing_hashes(paper_id)
 
         to_remove_ids = [cid for cid in old_hashes if cid not in new_hashes]
-        to_add = [c for c in new_list if old_hashes.get(c.chunk_id) != new_hashes[c.chunk_id]]
+        to_add = [
+            c for c in new_list if old_hashes.get(c.chunk_id) != new_hashes[c.chunk_id]
+        ]
         unchanged = len(new_list) - len(to_add)
 
         if to_remove_ids:
@@ -44,7 +48,10 @@ class IncrementalIndexer:
 
         logger.info(
             "Incremental index for %s: +%d / -%d / =%d (unchanged)",
-            paper_id, added, len(to_remove_ids), unchanged,
+            paper_id,
+            added,
+            len(to_remove_ids),
+            unchanged,
         )
         return {
             "paper_id": paper_id,

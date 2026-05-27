@@ -28,7 +28,9 @@ class IndexVersionStore:
             return {}
 
     def _save(self, data: dict) -> None:
-        self._path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     def record_version(
         self,
@@ -40,7 +42,7 @@ class IndexVersionStore:
         with self._lock:
             data = self._load()
             versions = data.setdefault(paper_id, [])
-            next_version = (max((v["version"] for v in versions), default=0) + 1)
+            next_version = max((v["version"] for v in versions), default=0) + 1
             entry = {
                 "paper_id": paper_id,
                 "version": next_version,

@@ -334,8 +334,8 @@ python -m pytest tests -q
 
 ## 简历描述
 
-**ResearchAgent：面向科研场景的论文阅读与知识库问答 Agent**
+**ResearchAgent：面向科研场景的多 Agent 论文阅读与知识库问答系统**
 
-基于 FastAPI、Streamlit、PyMuPDF 和 OpenAI-compatible LLM API 构建科研论文阅读助手，支持论文 PDF 解析、13 段结构化 Markdown 笔记生成、sentence-transformers 向量嵌入、本地持久化向量检索、RAG 问答（附来源引用）、多论文结构化对比和 Markdown 导出。设计文本切块滑动窗口、Prompt 模板约束机制和模块化 service 架构，具备 Agent 工具化扩展能力。
+基于 LangGraph + FastAPI + Streamlit 构建的全栈 AI 研究助手。实现 Supervisor 多 Agent 协作架构（4 个 Specialist Agent + 意图路由 + SQLite 三层记忆），支持 PDF 解析、13 段结构化笔记生成、Cross-encoder Rerank + BM25/向量混合检索的高级 RAG 问答、多论文结构化对比。搭建 A/B 测试框架（ExperimentRunner + t 检验），在 168 样本真实评测中验证 Rerank+QueryRewrite 组合将 answer_pass_rate 提升 43.5%。设计 AgentTracer 执行追踪与 DecisionLogger 路由决策日志，实现全链路可观测。493 个自动化测试，覆盖率 80%。
 
-**技术亮点**: Python / FastAPI / Streamlit / PyMuPDF / sentence-transformers / Embedding / RAG / Prompt Engineering / 向量检索
+**技术亮点**: LangGraph / LangChain / Multi-Agent / RAG / Rerank / Hybrid Search / HyDE / A/B Testing / FastAPI / Streamlit / sentence-transformers / SQLite / Prompt Engineering

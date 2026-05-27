@@ -18,9 +18,7 @@ _HTTPX_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
 class LLMClient:
     def __init__(self):
         if not settings.llm_api_key:
-            raise ValueError(
-                "LLM API Key 未配置。请在 .env 文件中设置 LLM_API_KEY"
-            )
+            raise ValueError("LLM API Key 未配置。请在 .env 文件中设置 LLM_API_KEY")
         self.base_url = settings.llm_base_url
         self.api_key = settings.llm_api_key
         self.model = settings.llm_model
