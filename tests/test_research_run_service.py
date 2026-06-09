@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.research_workflow.knowledge_pack import (
     create_knowledge_pack_skeleton,
@@ -71,6 +72,55 @@ def test_research_run_model_accepts_artifact_paths():
     assert run.source == "zotero_collection"
     assert run.status == "queued"
     assert run.artifacts[0].label == "Run Summary"
+
+
+def test_research_run_model_defaults_to_no_paper_items():
+    now = datetime.now(timezone.utc)
+    run = ResearchRun(
+        run_id="run_20260609_000001",
+        collection_id="COLL123",
+        collection_name="IRSTD",
+        goal="Create a review",
+        steps=build_default_steps(),
+        created_at=now,
+        updated_at=now,
+    )
+
+    assert run.paper_items == []
+
+
+def test_research_run_paper_item_tracks_item_lifecycle():
+    from app.research_workflow.schemas import (
+        ResearchRunPaperArtifact,
+        ResearchRunPaperItem,
+    )
+
+    now = datetime.now(timezone.utc)
+    item = ResearchRunPaperItem(
+        item_id="zotero_ABCD1234",
+        title="Grounding DINO for Infrared Small Target Detection",
+        zotero_item_id="ABCD1234",
+        paper_id="paper_20260609_001",
+        pdf_path="app/storage/papers/demo.pdf",
+        metadata={"doi": "10.1234/demo", "year": 2025},
+        status="completed",
+        progress=1.0,
+        artifacts=[
+            ResearchRunPaperArtifact(
+                label="Paper Note",
+                path="ResearchAgent/Runs/demo/papers/paper_20260609_001.md",
+                kind="markdown",
+            )
+        ],
+        created_at=now,
+        updated_at=now,
+        started_at=now,
+        completed_at=now,
+    )
+
+    assert item.item_id == "zotero_ABCD1234"
+    assert item.status == "completed"
+    assert item.artifacts[0].kind == "markdown"
 
 
 def test_slugify_run_name_keeps_ascii_and_replaces_spaces():
