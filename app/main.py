@@ -92,6 +92,10 @@ from app.routers.traces import router as traces_router
 
 app.include_router(traces_router)
 
+from app.routers.research_runs import router as research_runs_router
+
+app.include_router(research_runs_router)
+
 
 class JobStore(Protocol):
     def upsert(self, job: JobStatusResponse) -> JobStatusResponse: ...

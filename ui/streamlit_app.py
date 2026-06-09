@@ -1,11 +1,15 @@
 import os
 import sys
+from pathlib import Path
 
 import streamlit as st
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.config import settings
+from app.research_workflow.schemas import ResearchRunCreateRequest, ResearchRunOptions
+from app.research_workflow.service import ResearchRunService
+from app.research_workflow.store import FileResearchRunStore
 from app.schemas import Chunk, PaperParseResult, QARequest, SourceItem
 from app.services.chunker import chunk_paper
 from app.services.embedding_client import EmbeddingClient
@@ -43,6 +47,15 @@ def get_embedding_client():
 @st.cache_resource
 def get_llm_client():
     return LLMClient()
+
+
+@st.cache_resource
+def get_research_run_service():
+    storage_root = Path(settings.metadata_dir).parent
+    return ResearchRunService(
+        store=FileResearchRunStore(storage_root / "research_runs.json"),
+        vault_root=storage_root / "knowledge_packs",
+    )
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -171,6 +184,7 @@ with st.sidebar:
     tab = st.radio(
         "导航",
         [
+            "Research Workflow",
             "📤 论文上传",
             "📝 笔记生成",
             "💬 论文问答",
@@ -209,7 +223,101 @@ with st.sidebar:
 
 # ── Tab 1: Upload ─────────────────────────────────────────────────────────────
 
-if tab == "📤 论文上传":
+if tab == "Research Workflow":
+    st.header("Research Workflow")
+    st.caption("Start from a Zotero collection and initialize a ResearchAgent knowledge pack.")
+
+    service = get_research_run_service()
+    selected_research_run_id = st.session_state.get("selected_research_run_id")
+
+    with st.form("research_run_form"):
+        collection_id = st.text_input("Zotero Collection ID", placeholder="COLL123")
+        collection_name = st.text_input("Collection Name", placeholder="IRSTD")
+        goal = st.text_area(
+            "Goal",
+            value="Generate a literature review and experiment plan from this Zotero collection.",
+            height=100,
+        )
+        max_papers = st.number_input("Max papers", min_value=1, max_value=50, value=5)
+        semantic_scholar = st.checkbox("Enable Semantic Scholar enrichment", value=False)
+        arxiv = st.checkbox("Enable arXiv fallback", value=False)
+        obsidian_publish = st.checkbox("Publish to Obsidian", value=False)
+        submitted = st.form_submit_button("Initialize Research Run")
+
+    if submitted:
+        if not collection_id.strip() or not collection_name.strip():
+            st.error("Collection ID and Collection Name are required.")
+        else:
+            try:
+                run = service.create_run(
+                    ResearchRunCreateRequest(
+                        collection_id=collection_id.strip(),
+                        collection_name=collection_name.strip(),
+                        goal=goal.strip(),
+                        options=ResearchRunOptions(
+                            max_papers=int(max_papers),
+                            semantic_scholar=semantic_scholar,
+                            arxiv=arxiv,
+                            obsidian_publish=obsidian_publish,
+                        ),
+                    )
+                )
+            except Exception as exc:
+                st.error(f"Unable to initialize research run: {exc}")
+            else:
+                st.session_state["selected_research_run_id"] = run.run_id
+                st.session_state["research_run_selector"] = run.run_id
+                selected_research_run_id = run.run_id
+                st.success(f"Research run initialized: {run.run_id}")
+
+    try:
+        runs = service.list_runs()
+    except Exception as exc:
+        st.error(f"Unable to load recent research runs: {exc}")
+        runs = []
+
+    st.subheader("Recent Runs")
+    if not runs:
+        st.info("No research runs yet.")
+    else:
+        run_ids = [run.run_id for run in runs]
+        widget_selected_run_id = st.session_state.get("research_run_selector")
+        if widget_selected_run_id in run_ids:
+            selected_research_run_id = widget_selected_run_id
+
+        if selected_research_run_id not in run_ids:
+            selected_research_run_id = run_ids[0]
+            st.session_state["selected_research_run_id"] = selected_research_run_id
+            st.session_state["research_run_selector"] = selected_research_run_id
+
+        selected_run_index = run_ids.index(selected_research_run_id)
+        selected_run_id = st.selectbox(
+            "Select run",
+            run_ids,
+            index=selected_run_index,
+            key="research_run_selector",
+        )
+        st.session_state["selected_research_run_id"] = selected_run_id
+
+        try:
+            run = service.get_run(selected_run_id)
+        except Exception as exc:
+            st.error(f"Unable to load selected research run: {exc}")
+        else:
+            st.metric("Status", run.status)
+            st.progress(run.progress)
+            st.write(f"Collection: {run.collection_name}")
+            st.write(f"Output: {run.output_dir}")
+
+            st.subheader("Steps")
+            for step in run.steps:
+                st.write(f"{step.agent}: {step.status} ({step.progress:.0%})")
+
+            st.subheader("Artifacts")
+            for artifact in run.artifacts:
+                st.write(f"{artifact.label}: {artifact.path}")
+
+elif tab == "📤 论文上传":
     st.header("📤 上传论文 PDF")
     st.caption("支持点击选择或直接拖拽多个 PDF 到下方上传框")
 
