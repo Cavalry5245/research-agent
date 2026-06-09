@@ -137,3 +137,81 @@ def test_zotero_local_http_client_normalizes_local_api_payload(monkeypatch):
     assert items[0].year == 2025
     assert items[0].doi == "10.1/a"
     assert items[0].attachments[0].path == "file:///C:/Users/HC/Zotero/storage/A1/paper.pdf"
+
+
+def test_zotero_local_http_client_uses_default_user_library_path(monkeypatch):
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return []
+
+    calls = []
+
+    def fake_get(url, timeout):
+        calls.append(url)
+        return FakeResponse()
+
+    monkeypatch.setattr("httpx.get", fake_get)
+
+    ZoteroLocalHttpClient().list_collection_items("COLL123")
+
+    assert calls == [
+        "http://127.0.0.1:23119/api/users/0/collections/COLL123/items"
+    ]
+
+
+def test_zotero_local_http_client_adds_pdf_child_attachments(monkeypatch):
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    calls = []
+
+    def fake_get(url, timeout):
+        calls.append(url)
+        if url.endswith("/users/0/collections/COLL123/items"):
+            return FakeResponse(
+                [
+                    {
+                        "key": "A1",
+                        "data": {
+                            "title": "Paper A",
+                            "itemType": "journalArticle",
+                        },
+                    }
+                ]
+            )
+        if url.endswith("/users/0/items/A1/children"):
+            return FakeResponse(
+                [
+                    {
+                        "key": "ATT1",
+                        "data": {
+                            "title": "Paper A PDF",
+                            "itemType": "attachment",
+                            "contentType": "application/pdf",
+                            "path": "file:///C:/Users/HC/Zotero/storage/A1/paper.pdf",
+                        },
+                    }
+                ]
+            )
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr("httpx.get", fake_get)
+
+    items = ZoteroLocalHttpClient().list_collection_items("COLL123")
+
+    assert calls == [
+        "http://127.0.0.1:23119/api/users/0/collections/COLL123/items",
+        "http://127.0.0.1:23119/api/users/0/items/A1/children",
+    ]
+    assert items[0].attachments[0].key == "ATT1"
+    assert items[0].attachments[0].path == "file:///C:/Users/HC/Zotero/storage/A1/paper.pdf"

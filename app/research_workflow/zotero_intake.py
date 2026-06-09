@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 import httpx
 from pydantic import BaseModel, Field
@@ -69,18 +69,48 @@ class ZoteroLocalHttpClient:
     def __init__(
         self,
         base_url: str = "http://127.0.0.1:23119/api",
+        library_path: str = "users/0",
         timeout: float = 10.0,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.library_path = library_path.strip("/")
         self.timeout = timeout
 
     def list_collection_items(self, collection_id: str) -> list[ZoteroCollectionItem]:
         response = httpx.get(
-            f"{self.base_url}/collections/{collection_id}/items",
+            f"{self._library_url}/collections/{quote(collection_id, safe='')}/items",
             timeout=self.timeout,
         )
         response.raise_for_status()
-        return [_item_from_local_api(raw) for raw in response.json()]
+        items: list[ZoteroCollectionItem] = []
+        for raw in response.json():
+            child_attachments = self._list_child_attachments(raw)
+            items.append(_item_from_local_api(raw, child_attachments=child_attachments))
+        return items
+
+    @property
+    def _library_url(self) -> str:
+        if not self.library_path:
+            return self.base_url
+        return f"{self.base_url}/{self.library_path}"
+
+    def _list_child_attachments(self, raw: dict[str, Any]) -> list[ZoteroAttachment]:
+        data = raw.get("data") or raw
+        if data.get("itemType") == "attachment":
+            return []
+        item_key = str(raw.get("key") or data.get("key") or "")
+        if not item_key:
+            return []
+
+        try:
+            response = httpx.get(
+                f"{self._library_url}/items/{quote(item_key, safe='')}/children",
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return []
+        return _attachments_from_local_child_items(response.json())
 
 
 class CollectionIntakeService:
@@ -131,7 +161,10 @@ class CollectionIntakeService:
         return paper_items
 
 
-def _item_from_local_api(raw: dict[str, Any]) -> ZoteroCollectionItem:
+def _item_from_local_api(
+    raw: dict[str, Any],
+    child_attachments: list[ZoteroAttachment] | None = None,
+) -> ZoteroCollectionItem:
     data = raw.get("data") or raw
     return ZoteroCollectionItem(
         key=str(raw.get("key") or data.get("key") or ""),
@@ -140,7 +173,10 @@ def _item_from_local_api(raw: dict[str, Any]) -> ZoteroCollectionItem:
         year=_year_from_date(data.get("date")),
         doi=data.get("DOI") or data.get("doi"),
         url=data.get("url"),
-        attachments=_attachments_from_local_payload(raw),
+        attachments=[
+            *_attachments_from_local_payload(raw),
+            *(child_attachments or []),
+        ],
         raw=raw,
     )
 
@@ -161,18 +197,51 @@ def _attachments_from_local_payload(raw: dict[str, Any]) -> list[ZoteroAttachmen
             )
         )
 
-    attachment_link = (raw.get("links") or {}).get("attachment")
-    if isinstance(attachment_link, dict) and attachment_link.get("href"):
+    attachment_href = _attachment_href(raw)
+    if attachment_href:
         attachments.append(
             ZoteroAttachment(
                 key="attachment_link",
                 title="Zotero attachment link",
-                path=str(attachment_link["href"]),
-                raw=attachment_link,
+                path=attachment_href,
+                raw=(raw.get("links") or {}).get("attachment") or {},
             )
         )
 
     return attachments
+
+
+def _attachments_from_local_child_items(
+    child_items: list[dict[str, Any]],
+) -> list[ZoteroAttachment]:
+    attachments: list[ZoteroAttachment] = []
+    for raw_child in child_items:
+        attachment = _attachment_from_local_child_item(raw_child)
+        if attachment is not None:
+            attachments.append(attachment)
+    return attachments
+
+
+def _attachment_from_local_child_item(
+    raw_child: dict[str, Any],
+) -> ZoteroAttachment | None:
+    data = raw_child.get("data") or raw_child
+    if data.get("itemType") != "attachment":
+        return None
+    return ZoteroAttachment(
+        key=str(raw_child.get("key") or data.get("key") or ""),
+        title=str(data.get("title") or ""),
+        path=data.get("path") or data.get("localPath") or _attachment_href(raw_child),
+        content_type=data.get("contentType"),
+        raw=raw_child,
+    )
+
+
+def _attachment_href(raw: dict[str, Any]) -> str | None:
+    attachment_link = (raw.get("links") or {}).get("attachment")
+    if isinstance(attachment_link, dict) and attachment_link.get("href"):
+        return str(attachment_link["href"])
+    return None
 
 
 def _creators_from_data(data: dict[str, Any]) -> list[str]:
