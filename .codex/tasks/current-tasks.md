@@ -3,9 +3,9 @@
 - [x] Task 1: Add item-level Research Run schemas.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py::test_research_run_model_defaults_to_no_paper_items tests/test_research_run_service.py::test_research_run_paper_item_tracks_item_lifecycle -q`
   - Completion note: Added item-level ResearchRun paper schemas and focused lifecycle/default tests. Franklin implemented commit `ee867f7`; spec review passed; code quality review approved with only minor non-blocking notes. Local focused verification passed with 2 tests.
-- [ ] Task 2: Add Zotero collection intake service.
+- [x] Task 2: Add Zotero collection intake service.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_zotero_intake.py -q`
-  - Completion note:
+  - Completion note: Added Zotero intake models, local API client, PDF path resolver, and collection-to-paper-item service. Turing implemented commit `9845407`; Faraday fixed live Zotero `users/0` local API paths and child attachment lookup in commit `18a8988`; second spec review passed; second code quality review approved. Local focused verification passed with 6 tests.
 - [ ] Task 3: Add local paper processing service.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_paper_processing_service.py -q`
   - Completion note:
