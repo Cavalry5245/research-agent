@@ -68,6 +68,9 @@ class PaperProcessingService:
         self, item: ResearchRunPaperItem, run_output_dir: str | Path
     ) -> PaperProcessingResult:
         started_at = datetime.now(timezone.utc)
+        paper_id: str | None = None
+        stored_pdf: Path | None = None
+        artifacts: list[ResearchRunPaperArtifact] = []
         running = item.model_copy(
             update={
                 "status": "running",
@@ -81,9 +84,18 @@ class PaperProcessingService:
                 raise FileNotFoundError("No local PDF attachment found")
 
             paper_id = self.paper_id_generator(str(self.upload_dir))
+            running = running.model_copy(update={"paper_id": paper_id})
             stored_pdf = self._copy_pdf(Path(running.pdf_path), paper_id)
+            artifacts.append(
+                ResearchRunPaperArtifact(label="PDF", path=str(stored_pdf), kind="pdf")
+            )
             parsed = self.parse_pdf_func(str(stored_pdf), paper_id)
             metadata_path = save_parse_result(parsed, str(self.metadata_dir))
+            artifacts.append(
+                ResearchRunPaperArtifact(
+                    label="Parsed Metadata", path=str(metadata_path), kind="json"
+                )
+            )
             chunks = chunk_paper(parsed)
             if not chunks:
                 raise ValueError("Paper content produced no indexable chunks")
@@ -91,11 +103,34 @@ class PaperProcessingService:
             embeddings = self.embedding_client.embed_texts(
                 [chunk.content for chunk in chunks]
             )
+            if len(embeddings) != len(chunks):
+                raise ValueError(
+                    "Embedding count mismatch: "
+                    f"expected {len(chunks)}, got {len(embeddings)}"
+                )
+
             self.vector_store.add_chunks(chunks, embeddings)
+            artifacts.append(
+                ResearchRunPaperArtifact(
+                    label="Vector Index",
+                    path=self.vector_store.metadata().get("store_path", ""),
+                    kind="vector_index",
+                )
+            )
             markdown = self.note_generator_func(paper_id, str(self.metadata_dir))
             note_path = save_markdown(paper_id, markdown, str(self.note_dir))
+            artifacts.append(
+                ResearchRunPaperArtifact(
+                    label="Generated Note", path=str(note_path), kind="markdown"
+                )
+            )
             run_note_path = self._write_run_paper_note(
                 run_output_dir, paper_id, markdown
+            )
+            artifacts.append(
+                ResearchRunPaperArtifact(
+                    label="Paper Note", path=str(run_note_path), kind="markdown"
+                )
             )
 
             completed_at = datetime.now(timezone.utc)
@@ -106,26 +141,7 @@ class PaperProcessingService:
                     "status": "completed",
                     "progress": 1.0,
                     "error": None,
-                    "artifacts": [
-                        ResearchRunPaperArtifact(
-                            label="PDF", path=str(stored_pdf), kind="pdf"
-                        ),
-                        ResearchRunPaperArtifact(
-                            label="Parsed Metadata",
-                            path=str(metadata_path),
-                            kind="json",
-                        ),
-                        ResearchRunPaperArtifact(
-                            label="Paper Note",
-                            path=str(run_note_path),
-                            kind="markdown",
-                        ),
-                        ResearchRunPaperArtifact(
-                            label="Vector Index",
-                            path=self.vector_store.metadata().get("store_path", ""),
-                            kind="vector_index",
-                        ),
-                    ],
+                    "artifacts": artifacts,
                     "updated_at": completed_at,
                     "completed_at": completed_at,
                 }
@@ -140,9 +156,12 @@ class PaperProcessingService:
             failed_at = datetime.now(timezone.utc)
             failed = running.model_copy(
                 update={
+                    "paper_id": paper_id,
+                    "pdf_path": str(stored_pdf) if stored_pdf else running.pdf_path,
                     "status": "failed",
                     "progress": 1.0,
                     "error": str(exc),
+                    "artifacts": artifacts,
                     "updated_at": failed_at,
                     "completed_at": failed_at,
                 }
@@ -158,6 +177,8 @@ class PaperProcessingService:
             raise FileNotFoundError(f"PDF file not found: {source}")
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         target = self.upload_dir / f"{paper_id}.pdf"
+        if target.exists():
+            raise FileExistsError(f"Target PDF already exists: {target}")
         shutil.copy2(source, target)
         return target
 
