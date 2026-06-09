@@ -1,0 +1,26 @@
+# Current tasks
+
+- [ ] Task 1: Add item-level Research Run schemas.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py::test_research_run_model_defaults_to_no_paper_items tests/test_research_run_service.py::test_research_run_paper_item_tracks_item_lifecycle -q`
+  - Completion note:
+- [ ] Task 2: Add Zotero collection intake service.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_zotero_intake.py -q`
+  - Completion note:
+- [ ] Task 3: Add local paper processing service.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_paper_processing_service.py -q`
+  - Completion note:
+- [ ] Task 4: Update Knowledge Pack summary, trace, and tool calls.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py::test_knowledge_pack_update_rewrites_summary_with_paper_counts tests/test_research_run_service.py::test_append_tool_call_record_writes_jsonl -q`
+  - Completion note:
+- [ ] Task 5: Orchestrate local collection execution.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_store.py -q`
+  - Completion note:
+- [ ] Task 6: Add API endpoint for local execution.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_router.py -q`
+  - Completion note:
+- [ ] Task 7: Update Streamlit Research Workflow UI.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_workflow_ui_import.py -q`
+  - Completion note:
+- [ ] Task 8: Run Milestone 2 verification and update execution docs.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_store.py tests/test_research_run_router.py tests/test_research_workflow_ui_import.py tests/test_zotero_intake.py tests/test_paper_processing_service.py -q`
+  - Completion note:
