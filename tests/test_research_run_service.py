@@ -539,3 +539,148 @@ def test_research_run_service_cancel_marks_running_steps_cancelled(tmp_path):
     assert cancelled.steps[1].completed_at is not None
     assert cancelled.steps[1].message == "Cancelled before execution"
     assert cancelled.steps[4].completed_at is not None
+
+
+def test_research_run_service_execute_local_run_processes_success_and_skip(tmp_path):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path=str(tmp_path / "a.pdf"),
+                    created_at=now,
+                    updated_at=now,
+                ),
+                ResearchRunPaperItem(
+                    item_id="zotero_B2",
+                    title="Paper B",
+                    zotero_item_id="B2",
+                    status="skipped",
+                    progress=1.0,
+                    error="No local PDF attachment found",
+                    created_at=now,
+                    updated_at=now,
+                    completed_at=now,
+                ),
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            completed = item.model_copy(
+                update={
+                    "paper_id": "paper_20260609_001",
+                    "status": "completed",
+                    "progress": 1.0,
+                    "updated_at": datetime.now(timezone.utc),
+                    "completed_at": datetime.now(timezone.utc),
+                }
+            )
+            return PaperProcessingResult(
+                item=completed,
+                chunk_count=2,
+                note_path="note.md",
+                vector_backend="fake",
+            )
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(
+            collection_id="COLL123",
+            collection_name="IRSTD",
+            options=ResearchRunOptions(max_papers=2),
+        )
+    )
+
+    executed = service.execute_local_run(
+        run.run_id, intake_service=FakeIntake(), paper_processor=FakeProcessor()
+    )
+
+    assert executed.status == "completed"
+    assert executed.progress == 1.0
+    assert [item.status for item in executed.paper_items] == ["completed", "skipped"]
+    assert executed.steps[0].status == "completed"
+    assert executed.steps[1].status == "completed"
+    assert store.get(run.run_id).paper_items[0].paper_id == "paper_20260609_001"
+    summary = (Path(executed.output_dir) / "00 Run Summary.md").read_text(
+        encoding="utf-8"
+    )
+    assert "- Completed Papers: 1" in summary
+    assert "- Skipped Papers: 1" in summary
+
+
+def test_research_run_service_execute_local_run_keeps_going_after_item_failure(
+    tmp_path,
+):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path="a.pdf",
+                    created_at=now,
+                    updated_at=now,
+                ),
+                ResearchRunPaperItem(
+                    item_id="zotero_B2",
+                    title="Paper B",
+                    zotero_item_id="B2",
+                    pdf_path="b.pdf",
+                    created_at=now,
+                    updated_at=now,
+                ),
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            now = datetime.now(timezone.utc)
+            if item.zotero_item_id == "A1":
+                return PaperProcessingResult(
+                    item=item.model_copy(
+                        update={
+                            "status": "failed",
+                            "progress": 1.0,
+                            "error": "parse failed",
+                            "updated_at": now,
+                            "completed_at": now,
+                        }
+                    )
+                )
+            return PaperProcessingResult(
+                item=item.model_copy(
+                    update={
+                        "paper_id": "paper_20260609_002",
+                        "status": "completed",
+                        "progress": 1.0,
+                        "updated_at": now,
+                        "completed_at": now,
+                    }
+                ),
+                chunk_count=1,
+            )
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="IRSTD")
+    )
+
+    executed = service.execute_local_run(
+        run.run_id, intake_service=FakeIntake(), paper_processor=FakeProcessor()
+    )
+
+    assert executed.status == "completed"
+    assert [item.status for item in executed.paper_items] == ["failed", "completed"]
+    assert executed.paper_items[0].error == "parse failed"
