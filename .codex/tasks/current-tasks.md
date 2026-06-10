@@ -15,9 +15,9 @@
 - [x] Task 5: Orchestrate local collection execution.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_store.py -q`
   - Completion note: Added `ResearchRunService.execute_local_run` orchestration for local Zotero intake, paper processing, item-level progress, Knowledge Pack refresh, and tool-call logging. Euler/Sartre implemented commit `1589a1c`; Knuth/Laplace hardened intake/setup and per-paper exception paths in `e728afb`; spec review passed and final code quality review approved. Local service/store verification passed with 30 tests.
-- [ ] Task 6: Add API endpoint for local execution.
+- [x] Task 6: Add API endpoint for local execution.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_router.py -q`
-  - Completion note:
+  - Completion note: Added `POST /research-runs/{run_id}/execute-local` with injectable Zotero intake and paper processor dependencies. Ritchie/Curie implemented commit `87fca9b`; Clark/Halley added typed Zotero settings, deferred default paper processing to service execution, and strengthened route tests in `85cbf73`; final spec review passed and final code quality review approved. Production app import now succeeds and router verification passed with 4 tests.
 - [ ] Task 7: Update Streamlit Research Workflow UI.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_workflow_ui_import.py -q`
   - Completion note:
