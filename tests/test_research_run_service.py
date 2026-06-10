@@ -238,6 +238,97 @@ def test_create_knowledge_pack_skeleton_preserves_existing_summary_and_trace(tmp
     assert repeated.output_dir == updated.output_dir
 
 
+def test_knowledge_pack_update_rewrites_summary_with_paper_counts(tmp_path):
+    from app.research_workflow.knowledge_pack import update_knowledge_pack_run_files
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    now = datetime.now(timezone.utc)
+    run = ResearchRun(
+        run_id="run_20260609_000001",
+        collection_id="COLL123",
+        collection_name="IRSTD",
+        goal="Create an IRSTD review",
+        steps=build_default_steps(),
+        paper_items=[
+            ResearchRunPaperItem(
+                item_id="zotero_A1",
+                title="Paper A",
+                zotero_item_id="A1",
+                paper_id="paper_20260609_001",
+                status="completed",
+                progress=1.0,
+                created_at=now,
+                updated_at=now,
+            ),
+            ResearchRunPaperItem(
+                item_id="zotero_B2",
+                title="Paper B",
+                zotero_item_id="B2",
+                status="skipped",
+                progress=1.0,
+                error="No local PDF attachment found",
+                created_at=now,
+                updated_at=now,
+            ),
+        ],
+        created_at=now,
+        updated_at=now,
+    )
+    run = create_knowledge_pack_skeleton(run, tmp_path)
+
+    update_knowledge_pack_run_files(run)
+
+    summary = (Path(run.output_dir) / "00 Run Summary.md").read_text(
+        encoding="utf-8"
+    )
+    trace = json.loads(
+        (Path(run.output_dir) / "assets" / "trace.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "- Completed Papers: 1" in summary
+    assert "- Skipped Papers: 1" in summary
+    assert "Paper A" in summary
+    assert "No local PDF attachment found" in summary
+    assert trace["paper_items"][0]["paper_id"] == "paper_20260609_001"
+
+
+def test_append_tool_call_record_writes_jsonl(tmp_path):
+    from app.research_workflow.knowledge_pack import append_tool_call_record
+
+    now = datetime.now(timezone.utc)
+    run = ResearchRun(
+        run_id="run_20260609_000001",
+        collection_id="COLL123",
+        collection_name="IRSTD",
+        goal="Create an IRSTD review",
+        steps=build_default_steps(),
+        created_at=now,
+        updated_at=now,
+    )
+    run = create_knowledge_pack_skeleton(run, tmp_path)
+
+    append_tool_call_record(
+        run,
+        {
+            "tool_name": "zotero.list_collection_items",
+            "provider": "local_http",
+            "status": "completed",
+            "result_summary": "2 items",
+        },
+    )
+
+    lines = (
+        (Path(run.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    assert len(lines) == 1
+    payload = json.loads(lines[0])
+    assert payload["run_id"] == "run_20260609_000001"
+    assert payload["tool_name"] == "zotero.list_collection_items"
+
+
 def test_create_knowledge_pack_skeleton_preserves_non_skeleton_artifacts(tmp_path):
     now = datetime.now(timezone.utc)
     run = ResearchRun(
