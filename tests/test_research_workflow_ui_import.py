@@ -115,6 +115,9 @@ def test_research_workflow_ui_contains_local_execute_action():
 
     assert "Process Local Collection" in source
     assert "execute_local_run" in source
+    assert 'run.status == "failed"' in source
+    assert "run.error" in source
+    assert "Local collection processing failed" in source
     assert "paper_items" in source
     assert "Zotero Item" in source
 

@@ -326,6 +326,8 @@ if tab == "Research Workflow":
             st.progress(run.progress)
             st.write(f"Collection: {run.collection_name}")
             st.write(f"Output: {run.output_dir}")
+            if run.error:
+                st.error(f"Run error: {run.error}")
 
             st.subheader("Steps")
             for step in run.steps:
@@ -343,8 +345,14 @@ if tab == "Research Workflow":
                     except Exception as exc:
                         st.error(f"Unable to process local collection: {exc}")
                     else:
-                        st.success("Local collection processing completed.")
                         st.session_state["selected_research_run_id"] = run.run_id
+                        st.session_state["research_run_selector"] = run.run_id
+                        if run.status == "failed" or run.error:
+                            st.error(
+                                f"Local collection processing failed: {run.error or 'Unknown error'}"
+                            )
+                        else:
+                            st.success("Local collection processing completed.")
                         st.rerun()
             with col_refresh:
                 if st.button("Refresh Run", use_container_width=True):
