@@ -1,8 +1,12 @@
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.routers.research_runs import router as research_runs_router
 from app.research_workflow.service import ResearchRunService
 from app.research_workflow.store import FileResearchRunStore
+
+app = FastAPI()
+app.include_router(research_runs_router)
 
 
 class RejectDefaultService:
@@ -78,5 +82,36 @@ def test_research_run_detail_missing_returns_404(tmp_path, monkeypatch):
         response = client.get("/research-runs/missing")
 
         assert response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_research_run_execute_local_route(tmp_path, monkeypatch):
+    service = _override_research_run_service(tmp_path, monkeypatch)
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            return []
+
+    class FakeProcessor:
+        pass
+
+    try:
+        client = TestClient(app)
+        created = client.post(
+            "/research-runs",
+            json={"collection_id": "COLL123", "collection_name": "IRSTD"},
+        ).json()
+
+        from app.routers import research_runs as router
+
+        app.dependency_overrides[router.get_collection_intake_service] = lambda: FakeIntake()
+        app.dependency_overrides[router.get_paper_processing_service] = lambda: FakeProcessor()
+
+        response = client.post(f"/research-runs/{created['run_id']}/execute-local")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "completed"
+        assert response.json()["paper_items"] == []
     finally:
         app.dependency_overrides.clear()
