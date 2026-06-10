@@ -243,12 +243,16 @@ def test_knowledge_pack_update_rewrites_summary_with_paper_counts(tmp_path):
     from app.research_workflow.schemas import ResearchRunPaperItem
 
     now = datetime.now(timezone.utc)
+    steps = build_default_steps()
+    steps[0].status = "running"
+    steps[0].progress = 0.25
     run = ResearchRun(
         run_id="run_20260609_000001",
         collection_id="COLL123",
         collection_name="IRSTD",
         goal="Create an IRSTD review",
-        steps=build_default_steps(),
+        progress=0.5,
+        steps=steps,
         paper_items=[
             ResearchRunPaperItem(
                 item_id="zotero_A1",
@@ -288,6 +292,8 @@ def test_knowledge_pack_update_rewrites_summary_with_paper_counts(tmp_path):
     )
     assert "- Completed Papers: 1" in summary
     assert "- Skipped Papers: 1" in summary
+    assert "- Progress: 50%" in summary
+    assert "- CollectionIntakeAgent: running (25%)" in summary
     assert "Paper A" in summary
     assert "No local PDF attachment found" in summary
     assert trace["paper_items"][0]["paper_id"] == "paper_20260609_001"

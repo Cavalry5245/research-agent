@@ -140,7 +140,7 @@ def _render_summary(run: ResearchRun) -> str:
         f"- Collection Name: {run.collection_name}",
         f"- Goal: {run.goal}",
         f"- Status: {run.status}",
-        f"- Progress: {run.progress}",
+        f"- Progress: {run.progress:.0%}",
         f"- Max Papers: {run.options.max_papers}",
         f"- Completed Papers: {completed_papers}",
         f"- Failed Papers: {failed_papers}",
@@ -149,7 +149,10 @@ def _render_summary(run: ResearchRun) -> str:
         "## Steps",
         "",
     ]
-    lines.extend(f"- {step.agent}: {step.status}" for step in run.steps)
+    lines.extend(
+        f"- {step.agent}: {step.status} ({step.progress:.0%})"
+        for step in run.steps
+    )
     lines.extend(["", "## Papers", ""])
     if run.paper_items:
         for item in run.paper_items:
