@@ -13,6 +13,7 @@ from app.research_workflow.paper_processing import PaperProcessingService
 from app.research_workflow.schemas import (
     ResearchRun,
     ResearchRunCreateRequest,
+    ResearchRunPaperItem,
     build_default_steps,
 )
 from app.research_workflow.store import FileResearchRunStore
@@ -88,10 +89,30 @@ class ResearchRunService:
         self._store.upsert(run)
         update_knowledge_pack_run_files(run)
 
-        intake_service = intake_service or CollectionIntakeService(ZoteroLocalHttpClient())
-        paper_processor = paper_processor or self._default_paper_processor()
+        try:
+            intake_service = intake_service or CollectionIntakeService(
+                ZoteroLocalHttpClient()
+            )
+            paper_processor = paper_processor or self._default_paper_processor()
+        except Exception as exc:
+            return self._fail_run(run, "collection_intake", exc)
 
-        items = intake_service.collect_items(run.collection_id, run.options.max_papers)
+        try:
+            items = intake_service.collect_items(
+                run.collection_id, run.options.max_papers
+            )
+        except Exception as exc:
+            append_tool_call_record(
+                run,
+                {
+                    "tool_name": "zotero.list_collection_items",
+                    "provider": "local_http",
+                    "status": "failed",
+                    "result_summary": str(exc),
+                },
+            )
+            return self._fail_run(run, "collection_intake", exc)
+
         append_tool_call_record(
             run,
             {
@@ -122,16 +143,22 @@ class ResearchRunService:
             if item.status != "queued":
                 processed_items.append(item)
             else:
-                result = paper_processor.process_item(item, run.output_dir)
-                processed_items.append(result.item)
+                try:
+                    result = paper_processor.process_item(item, run.output_dir)
+                    processed_item = result.item
+                except Exception as exc:
+                    processed_item = self._failed_paper_item(item, exc)
+                processed_items.append(processed_item)
                 append_tool_call_record(
                     run,
                     {
                         "tool_name": "research_agent.process_paper",
                         "provider": "local_service",
-                        "status": result.item.status,
+                        "status": processed_item.status,
                         "arguments": {"zotero_item_id": item.zotero_item_id},
-                        "result_summary": result.item.paper_id or result.item.error or "",
+                        "result_summary": (
+                            processed_item.paper_id or processed_item.error or ""
+                        ),
                     },
                 )
             progress = index / max(len(items), 1)
@@ -178,6 +205,35 @@ class ResearchRunService:
         update_knowledge_pack_run_files(run)
         return run
 
+    def _fail_run(
+        self,
+        run: ResearchRun,
+        step_id: str,
+        error: Exception,
+    ) -> ResearchRun:
+        error_text = str(error)
+        completed_at = datetime.now(timezone.utc)
+        failed = run.model_copy(
+            update={
+                "status": "failed",
+                "progress": 1.0,
+                "updated_at": completed_at,
+                "completed_at": completed_at,
+                "error": error_text,
+            }
+        )
+        failed = self._mark_step(
+            failed,
+            step_id,
+            "failed",
+            1.0,
+            error_text,
+            error=error_text,
+        )
+        self._store.upsert(failed)
+        update_knowledge_pack_run_files(failed)
+        return failed
+
     def cancel_run(self, run_id: str) -> ResearchRun:
         cancelled = self._store.update(run_id, self._cancel_run)
         if cancelled is None:
@@ -204,6 +260,7 @@ class ResearchRunService:
         status: str,
         progress: float,
         message: str,
+        error: str | None = None,
     ) -> ResearchRun:
         now = datetime.now(timezone.utc)
         steps = []
@@ -220,8 +277,27 @@ class ResearchRunService:
                 update["started_at"] = now
             if status in {"completed", "failed", "cancelled"}:
                 update["completed_at"] = now
+            if error is not None:
+                update["error"] = error
             steps.append(step.model_copy(update=update))
         return run.model_copy(update={"steps": steps, "updated_at": now})
+
+    def _failed_paper_item(
+        self,
+        item: ResearchRunPaperItem,
+        error: Exception,
+    ) -> ResearchRunPaperItem:
+        now = datetime.now(timezone.utc)
+        return item.model_copy(
+            update={
+                "status": "failed",
+                "progress": 1.0,
+                "error": str(error),
+                "started_at": item.started_at or now,
+                "updated_at": now,
+                "completed_at": now,
+            }
+        )
 
     def _cancel_run(self, run: ResearchRun) -> ResearchRun:
         if run.status in {"completed", "failed", "cancelled"}:

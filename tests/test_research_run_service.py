@@ -615,6 +615,63 @@ def test_research_run_service_execute_local_run_processes_success_and_skip(tmp_p
     assert "- Skipped Papers: 1" in summary
 
 
+def test_research_run_service_execute_local_run_marks_intake_exception_failed(
+    tmp_path,
+):
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            raise RuntimeError("zotero offline")
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="IRSTD")
+    )
+
+    executed = service.execute_local_run(
+        run.run_id,
+        intake_service=FakeIntake(),
+        paper_processor=object(),
+    )
+
+    persisted = store.get(run.run_id)
+    assert persisted is not None
+    assert executed.status == "failed"
+    assert persisted.status == "failed"
+    assert persisted.progress == 1.0
+    assert persisted.completed_at is not None
+    assert "zotero offline" in (persisted.error or "")
+    intake_step = persisted.steps[0]
+    assert intake_step.step_id == "collection_intake"
+    assert intake_step.status == "failed"
+    assert intake_step.progress == 1.0
+    assert intake_step.completed_at is not None
+    assert "zotero offline" in (intake_step.error or "")
+
+    summary = (Path(persisted.output_dir) / "00 Run Summary.md").read_text(
+        encoding="utf-8"
+    )
+    trace = json.loads(
+        (Path(persisted.output_dir) / "assets" / "trace.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    tool_calls = (
+        (Path(persisted.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    tool_payload = json.loads(tool_calls[0])
+    assert "- Status: failed" in summary
+    assert "- CollectionIntakeAgent: failed (100%)" in summary
+    assert trace["status"] == "failed"
+    assert trace["steps"][0]["status"] == "failed"
+    assert "zotero offline" in trace["steps"][0]["error"]
+    assert tool_payload["tool_name"] == "zotero.list_collection_items"
+    assert tool_payload["status"] == "failed"
+    assert "zotero offline" in tool_payload["result_summary"]
+
+
 def test_research_run_service_execute_local_run_keeps_going_after_item_failure(
     tmp_path,
 ):
@@ -647,17 +704,7 @@ def test_research_run_service_execute_local_run_keeps_going_after_item_failure(
         def process_item(self, item, run_output_dir):
             now = datetime.now(timezone.utc)
             if item.zotero_item_id == "A1":
-                return PaperProcessingResult(
-                    item=item.model_copy(
-                        update={
-                            "status": "failed",
-                            "progress": 1.0,
-                            "error": "parse failed",
-                            "updated_at": now,
-                            "completed_at": now,
-                        }
-                    )
-                )
+                raise RuntimeError("parse exploded")
             return PaperProcessingResult(
                 item=item.model_copy(
                     update={
@@ -683,4 +730,5 @@ def test_research_run_service_execute_local_run_keeps_going_after_item_failure(
 
     assert executed.status == "completed"
     assert [item.status for item in executed.paper_items] == ["failed", "completed"]
-    assert executed.paper_items[0].error == "parse failed"
+    assert "parse exploded" in (executed.paper_items[0].error or "")
+    assert executed.paper_items[1].paper_id == "paper_20260609_002"
