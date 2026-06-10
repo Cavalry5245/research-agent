@@ -163,6 +163,12 @@ def test_create_knowledge_pack_skeleton_writes_expected_files(tmp_path):
     assert trace["run_id"] == "run_20260609_000001"
     assert trace["steps"][0]["agent"] == "CollectionIntakeAgent"
     assert updated.output_dir == str(output_dir)
+    assert {artifact["label"] for artifact in trace["artifacts"]} == {
+        "Knowledge Pack",
+        "Run Summary",
+        "Trace",
+        "Tool Calls",
+    }
     assert {artifact.label for artifact in updated.artifacts} == {
         "Knowledge Pack",
         "Run Summary",

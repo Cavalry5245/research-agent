@@ -30,43 +30,43 @@ def create_knowledge_pack_skeleton(
     trace_path = assets_dir / "trace.json"
     tool_calls_path = assets_dir / "tool-calls.jsonl"
 
-    _write_if_missing(summary_path, _render_summary(run))
+    skeleton_artifacts = [
+        ResearchRunArtifact(
+            label="Knowledge Pack",
+            path=str(output_dir),
+            kind="directory",
+        ),
+        ResearchRunArtifact(
+            label="Run Summary",
+            path=str(summary_path),
+            kind="markdown",
+        ),
+        ResearchRunArtifact(
+            label="Trace",
+            path=str(trace_path),
+            kind="json",
+        ),
+        ResearchRunArtifact(
+            label="Tool Calls",
+            path=str(tool_calls_path),
+            kind="jsonl",
+        ),
+    ]
+    updated = run.model_copy(
+        update={
+            "output_dir": str(output_dir),
+            "artifacts": _merge_skeleton_artifacts(run, skeleton_artifacts),
+        }
+    )
+
+    _write_if_missing(summary_path, _render_summary(updated))
     _write_if_missing(
         trace_path,
-        json.dumps(_trace_payload(run), ensure_ascii=False, indent=2),
+        json.dumps(_trace_payload(updated), ensure_ascii=False, indent=2),
     )
     _write_if_missing(tool_calls_path, "")
 
-    return run.model_copy(
-        update={
-            "output_dir": str(output_dir),
-            "artifacts": _merge_skeleton_artifacts(
-                run,
-                [
-                    ResearchRunArtifact(
-                        label="Knowledge Pack",
-                        path=str(output_dir),
-                        kind="directory",
-                    ),
-                    ResearchRunArtifact(
-                        label="Run Summary",
-                        path=str(summary_path),
-                        kind="markdown",
-                    ),
-                    ResearchRunArtifact(
-                        label="Trace",
-                        path=str(trace_path),
-                        kind="json",
-                    ),
-                    ResearchRunArtifact(
-                        label="Tool Calls",
-                        path=str(tool_calls_path),
-                        kind="jsonl",
-                    ),
-                ],
-            ),
-        }
-    )
+    return updated
 
 
 def update_knowledge_pack_run_files(run: ResearchRun) -> None:
