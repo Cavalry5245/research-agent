@@ -7,9 +7,11 @@ import streamlit as st
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.config import settings
+from app.research_workflow.paper_processing import PaperProcessingService
 from app.research_workflow.schemas import ResearchRunCreateRequest, ResearchRunOptions
 from app.research_workflow.service import ResearchRunService
 from app.research_workflow.store import FileResearchRunStore
+from app.research_workflow.zotero_intake import CollectionIntakeService, ZoteroLocalHttpClient
 from app.schemas import Chunk, PaperParseResult, QARequest, SourceItem
 from app.services.chunker import chunk_paper
 from app.services.embedding_client import EmbeddingClient
@@ -55,6 +57,22 @@ def get_research_run_service():
     return ResearchRunService(
         store=FileResearchRunStore(storage_root / "research_runs.json"),
         vault_root=storage_root / "knowledge_packs",
+    )
+
+
+@st.cache_resource
+def get_collection_intake_service():
+    return CollectionIntakeService(ZoteroLocalHttpClient())
+
+
+@st.cache_resource
+def get_paper_processing_service():
+    return PaperProcessingService(
+        upload_dir=settings.upload_dir,
+        metadata_dir=settings.metadata_dir,
+        note_dir=settings.note_dir,
+        vector_store=get_vector_store(),
+        embedding_client=get_embedding_client(),
     )
 
 
@@ -312,6 +330,40 @@ if tab == "Research Workflow":
             st.subheader("Steps")
             for step in run.steps:
                 st.write(f"{step.agent}: {step.status} ({step.progress:.0%})")
+
+            col_execute, col_refresh = st.columns(2)
+            with col_execute:
+                if st.button("Process Local Collection", type="primary", use_container_width=True):
+                    try:
+                        run = service.execute_local_run(
+                            run.run_id,
+                            intake_service=get_collection_intake_service(),
+                            paper_processor=get_paper_processing_service(),
+                        )
+                    except Exception as exc:
+                        st.error(f"Unable to process local collection: {exc}")
+                    else:
+                        st.success("Local collection processing completed.")
+                        st.session_state["selected_research_run_id"] = run.run_id
+                        st.rerun()
+            with col_refresh:
+                if st.button("Refresh Run", use_container_width=True):
+                    st.rerun()
+
+            st.subheader("Paper Items")
+            if not run.paper_items:
+                st.info("No Zotero paper items have been collected yet.")
+            else:
+                for item in run.paper_items:
+                    with st.expander(f"{item.title} - {item.status}", expanded=item.status != "completed"):
+                        st.write(f"Zotero Item: {item.zotero_item_id}")
+                        st.write(f"Paper ID: {item.paper_id or 'not synced'}")
+                        st.write(f"PDF: {item.pdf_path or 'missing'}")
+                        st.progress(item.progress)
+                        if item.error:
+                            st.error(item.error)
+                        for artifact in item.artifacts:
+                            st.write(f"{artifact.label}: {artifact.path}")
 
             st.subheader("Artifacts")
             for artifact in run.artifacts:
