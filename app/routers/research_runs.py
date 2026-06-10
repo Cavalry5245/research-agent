@@ -42,18 +42,8 @@ def get_collection_intake_service() -> CollectionIntakeService:
     return CollectionIntakeService(ZoteroLocalHttpClient())
 
 
-def get_paper_processing_service() -> PaperProcessingService:
-    from app.config import settings
-    from app.services.embedding_client import EmbeddingClient
-    from app.services.vector_store import VectorStore
-
-    return PaperProcessingService(
-        upload_dir=settings.upload_dir,
-        metadata_dir=settings.metadata_dir,
-        note_dir=settings.note_dir,
-        vector_store=VectorStore(),
-        embedding_client=EmbeddingClient(),
-    )
+def get_paper_processing_service() -> PaperProcessingService | None:
+    return None
 
 
 @router.post("", response_model=ResearchRun, status_code=status.HTTP_201_CREATED)
@@ -77,7 +67,7 @@ def execute_research_run_local(
     run_id: str,
     service: ResearchRunService = Depends(get_research_run_service),
     intake_service: CollectionIntakeService = Depends(get_collection_intake_service),
-    paper_processing_service: PaperProcessingService = Depends(
+    paper_processing_service: PaperProcessingService | None = Depends(
         get_paper_processing_service
     ),
 ) -> ResearchRun:

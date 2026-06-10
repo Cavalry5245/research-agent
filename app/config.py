@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     note_dir: str = "app/storage/notes"
     metadata_dir: str = "app/storage/metadata"
 
+    # Integrations
+    enable_zotero: bool = False
+    zotero_local: bool = True
+    zotero_mcp_command: str = ""
+    zotero_data_dir: str = ""
+    zotero_library_id: str = "0"
+    zotero_library_type: str = "user"
+
     # Phase 4: Rerank
     enable_rerank: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"

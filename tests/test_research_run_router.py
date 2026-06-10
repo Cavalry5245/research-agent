@@ -1,7 +1,11 @@
+from datetime import datetime, timezone
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.routers.research_runs import router as research_runs_router
+from app.research_workflow.paper_processing import PaperProcessingResult
+from app.research_workflow.schemas import ResearchRunPaperItem
 from app.research_workflow.service import ResearchRunService
 from app.research_workflow.store import FileResearchRunStore
 
@@ -91,10 +95,35 @@ def test_research_run_execute_local_route(tmp_path, monkeypatch):
 
     class FakeIntake:
         def collect_items(self, collection_id, max_papers):
-            return []
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="item-1",
+                    title="Injected Paper",
+                    zotero_item_id="ZOTERO1",
+                    pdf_path=str(tmp_path / "paper.pdf"),
+                    created_at=now,
+                    updated_at=now,
+                )
+            ]
 
     class FakeProcessor:
-        pass
+        def process_item(self, item, run_output_dir):
+            completed_at = datetime.now(timezone.utc)
+            return PaperProcessingResult(
+                item=item.model_copy(
+                    update={
+                        "paper_id": "fake-processor-paper",
+                        "status": "completed",
+                        "progress": 1.0,
+                        "updated_at": completed_at,
+                        "completed_at": completed_at,
+                    }
+                ),
+                chunk_count=3,
+                note_path=str(tmp_path / "note.md"),
+                vector_backend="fake",
+            )
 
     try:
         client = TestClient(app)
@@ -112,6 +141,16 @@ def test_research_run_execute_local_route(tmp_path, monkeypatch):
 
         assert response.status_code == 200
         assert response.json()["status"] == "completed"
-        assert response.json()["paper_items"] == []
+        assert response.json()["paper_items"][0]["paper_id"] == "fake-processor-paper"
+        assert response.json()["paper_items"][0]["status"] == "completed"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_production_app_import_registers_research_run_routes():
+    from app.main import app as production_app
+
+    route_paths = {route.path for route in production_app.routes}
+
+    assert "/research-runs" in route_paths
+    assert "/research-runs/{run_id}/execute-local" in route_paths
