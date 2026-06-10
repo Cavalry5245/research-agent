@@ -9,9 +9,9 @@
 - [x] Task 3: Add local paper processing service.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_paper_processing_service.py -q`
   - Completion note: Added local paper processing service for PDF copy, parse/save, chunk/embed/index, note generation, run paper-note writing, and item-level artifacts. Galileo implemented commit `c237c4f`; Planck hardened failure handling in commit `5c48a3b`; second spec review passed; second code quality review approved. Local focused verification passed with 6 tests.
-- [ ] Task 4: Update Knowledge Pack summary, trace, and tool calls.
+- [x] Task 4: Update Knowledge Pack summary, trace, and tool calls.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py::test_knowledge_pack_update_rewrites_summary_with_paper_counts tests/test_research_run_service.py::test_append_tool_call_record_writes_jsonl -q`
-  - Completion note:
+  - Completion note: Added Knowledge Pack summary/trace refresh and JSONL tool-call recording. Ada/Einstein implemented commit `75551e9`; Noether/Meitner fixed progress formatting in `9cf691b`; Lamarr/Socrates fixed initial trace artifact metadata in `fc7b440`; final spec review passed and final code quality review approved. Local focused verification passed with 3 Task 4 checks, and service/store verification passed with 27 tests.
 - [ ] Task 5: Orchestrate local collection execution.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_store.py -q`
   - Completion note:
