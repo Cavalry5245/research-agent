@@ -12,9 +12,9 @@
 - [x] Task 4: Update Knowledge Pack summary, trace, and tool calls.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py::test_knowledge_pack_update_rewrites_summary_with_paper_counts tests/test_research_run_service.py::test_append_tool_call_record_writes_jsonl -q`
   - Completion note: Added Knowledge Pack summary/trace refresh and JSONL tool-call recording. Ada/Einstein implemented commit `75551e9`; Noether/Meitner fixed progress formatting in `9cf691b`; Lamarr/Socrates fixed initial trace artifact metadata in `fc7b440`; final spec review passed and final code quality review approved. Local focused verification passed with 3 Task 4 checks, and service/store verification passed with 27 tests.
-- [ ] Task 5: Orchestrate local collection execution.
+- [x] Task 5: Orchestrate local collection execution.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_store.py -q`
-  - Completion note:
+  - Completion note: Added `ResearchRunService.execute_local_run` orchestration for local Zotero intake, paper processing, item-level progress, Knowledge Pack refresh, and tool-call logging. Euler/Sartre implemented commit `1589a1c`; Knuth/Laplace hardened intake/setup and per-paper exception paths in `e728afb`; spec review passed and final code quality review approved. Local service/store verification passed with 30 tests.
 - [ ] Task 6: Add API endpoint for local execution.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_router.py -q`
   - Completion note:
