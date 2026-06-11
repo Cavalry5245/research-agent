@@ -34,6 +34,16 @@ class Settings(BaseSettings):
     # Obsidian
     obsidian_vault_root: str = "app/storage/knowledge_packs"
 
+    # MCP Configuration
+    mcp_enabled: bool = True
+    mcp_startup_timeout: float = 10.0
+    mcp_health_check_interval: float = 30.0
+    mcp_tool_timeout: float = 30.0
+
+    # Zotero MCP
+    zotero_mcp_enabled: bool = True
+    zotero_mcp_auto_install: bool = True
+
     # Phase 4: Rerank
     enable_rerank: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
