@@ -13,7 +13,8 @@ class MCPServerProcess:
     def __init__(self, config: MCPServerConfig, process: subprocess.Popen):
         self.config = config
         self.process = process
-        self.is_healthy = True
+        # Reserved for future health check implementation
+        # self.is_healthy = True
 
     def is_running(self) -> bool:
         return self.process.poll() is None
@@ -62,6 +63,7 @@ class MCPClientManager:
                 raise ValueError(f"Server {name} not found")
             del self._servers[name]
 
+        # Double-check before terminating (process may have exited)
         if server.is_running():
             server.process.terminate()
             try:

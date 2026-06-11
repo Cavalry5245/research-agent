@@ -10,6 +10,7 @@ class MCPServerConfig(BaseModel):
     command: list[str] = Field(min_length=1)
     env: dict[str, str] = Field(default_factory=dict)
     cwd: str | None = None
+    # Reserved for future implementation
     auto_restart: bool = True
     health_check_interval: float = 30.0
     startup_timeout: float = 10.0
