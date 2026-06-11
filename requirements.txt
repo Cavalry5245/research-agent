@@ -12,6 +12,10 @@ pytest
 torch
 torchvision
 
+# MCP Client
+mcp>=1.2.0
+httpx>=0.24.0
+
 # Phase 1: Agent 工作流
 langchain>=0.1.0
 langchain-openai>=0.0.5
