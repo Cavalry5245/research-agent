@@ -1,8 +1,11 @@
 # 当前任务清单
 
+> **[重要通知]** Phase 6 任务已暂停（2026-06-11），优先完成 Milestone 2 验收。  
+> Phase 6 共 57 项任务已标记为 `[PAUSED]`，不计入当前活动 checklist。
+
 > 基于 JD_ALIGNED_ROADMAP.md 的执行任务  
-> 最后更新：2026-05-21  
-> 当前阶段：Phase 3 已完成 → Phase 4 准备启动（Week 7-8：高级 RAG 与检索增强）
+> 最后更新：2026-06-11  
+> 当前阶段：Milestone 2 已完成 ✅ | JD Roadmap Phase 6 已暂停 ⏸️
 
 ## 项目环境信息
 
@@ -1828,6 +1831,10 @@ cat .claude/tasks/current-tasks.md
 
 ## Week 11-12: Phase 6 - 项目收尾与展示准备
 
+> **⏸️ [已暂停]** 本阶段任务已暂停，优先完成 Milestone 2 验收。  
+> **恢复条件**：用户明确指示启动 Phase 6 工作。  
+> **暂停时间**：2026-06-11
+
 > **目标**：项目收尾、文档完善、代码质量提升、展示材料准备  
 > **JD 对齐**：岗位职责 6（文档编写）+ 任职要求 7（文档能力）+ 加分项 6（自驱力）  
 > **时间规划**：10 个工作日
@@ -1836,79 +1843,79 @@ cat .claude/tasks/current-tasks.md
 - [phase6-detailed-tasks.md](.claude/tasks/phase6-detailed-tasks.md) - 任务 6.0 ~ 6.3（文档、代码质量、测试）
 - [phase6-tasks-part2.md](.claude/tasks/phase6-tasks-part2.md) - 任务 6.4 ~ 6.5（Demo、验收、收尾）
 
-### 任务概览
+### 任务概览（已暂停，不计入当前 checklist）
 
 #### 任务 6.0: Phase 6 前置准备（Day 0，半天）
-- [ ] 创建 Phase 6 工作分支
-- [ ] 安装代码质量工具
-- [ ] 运行基线测试确认无回归
+- [PAUSED] 创建 Phase 6 工作分支
+- [PAUSED] 安装代码质量工具
+- [PAUSED] 运行基线测试确认无回归
 
 #### 任务 6.1: 文档完善与统一（Day 1-3）
-- [ ] 审查并补充 ARCHITECTURE.md
-- [ ] 创建 USAGE.md 用户使用手册
-- [ ] 创建 API_REFERENCE.md 接口文档
-- [ ] 创建 CONFIGURATION.md 配置指南
-- [ ] 创建 PROJECT_SUMMARY.md 项目总结
-- [ ] 创建 LESSONS_LEARNED.md 经验总结
-- [ ] 更新 CHANGELOG.md
-- [ ] 统一所有文档的格式
-- [ ] 生成文档索引
-- [ ] 运行拼写检查
+- [PAUSED] 审查并补充 ARCHITECTURE.md
+- [PAUSED] 创建 USAGE.md 用户使用手册
+- [PAUSED] 创建 API_REFERENCE.md 接口文档
+- [PAUSED] 创建 CONFIGURATION.md 配置指南
+- [PAUSED] 创建 PROJECT_SUMMARY.md 项目总结
+- [PAUSED] 创建 LESSONS_LEARNED.md 经验总结
+- [PAUSED] 更新 CHANGELOG.md
+- [PAUSED] 统一所有文档的格式
+- [PAUSED] 生成文档索引
+- [PAUSED] 运行拼写检查
 
 #### 任务 6.2: 代码质量提升（Day 4-5）
-- [ ] 运行 black 格式化
-- [ ] 运行 isort 排序 import
-- [ ] 运行 flake8 检查
-- [ ] 运行 mypy 类型检查
-- [ ] 运行 radon 复杂度检查
-- [ ] 补充类型注解
-- [ ] 补充 docstring
-- [ ] 重构复杂函数
-- [ ] 移除无用代码
+- [PAUSED] 运行 black 格式化
+- [PAUSED] 运行 isort 排序 import
+- [PAUSED] 运行 flake8 检查
+- [PAUSED] 运行 mypy 类型检查
+- [PAUSED] 运行 radon 复杂度检查
+- [PAUSED] 补充类型注解
+- [PAUSED] 补充 docstring
+- [PAUSED] 重构复杂函数
+- [PAUSED] 移除无用代码
 
 #### 任务 6.3: 测试覆盖率提升（Day 6-7）
-- [ ] 运行覆盖率测试
-- [ ] 识别未覆盖模块
-- [ ] 补充边界条件测试
-- [ ] 补充异常处理测试
-- [ ] 补充集成测试
-- [ ] 补充性能测试
-- [ ] 生成最终覆盖率报告
-- [ ] 生成测试统计报告
+- [PAUSED] 运行覆盖率测试
+- [PAUSED] 识别未覆盖模块
+- [PAUSED] 补充边界条件测试
+- [PAUSED] 补充异常处理测试
+- [PAUSED] 补充集成测试
+- [PAUSED] 补充性能测试
+- [PAUSED] 生成最终覆盖率报告
+- [PAUSED] 生成测试统计报告
 
 #### 任务 6.4: Demo 与展示材料（Day 8-10）
-- [ ] 录制视频 1: 快速功能演示（3 分钟）
-- [ ] 录制视频 2: Agent 系统深度演示（5 分钟）
-- [ ] 录制视频 3: 技术深度与数据分析（8-10 分钟）
-- [ ] 制作 PPT 1: 项目概览（10-12 页）
-- [ ] 制作 PPT 2: 技术架构深度（15-18 页）
-- [ ] 制作 PPT 3: 实验与数据分析（18-20 页）
-- [ ] 准备 3 分钟电梯演讲脚本
-- [ ] 准备 10 分钟技术面试脚本
-- [ ] 准备 30 分钟深度技术分享脚本
-- [ ] 准备技术问题清单与标准答案（15-20 个）
+- [PAUSED] 录制视频 1: 快速功能演示（3 分钟）
+- [PAUSED] 录制视频 2: Agent 系统深度演示（5 分钟）
+- [PAUSED] 录制视频 3: 技术深度与数据分析（8-10 分钟）
+- [PAUSED] 制作 PPT 1: 项目概览（10-12 页）
+- [PAUSED] 制作 PPT 2: 技术架构深度（15-18 页）
+- [PAUSED] 制作 PPT 3: 实验与数据分析（18-20 页）
+- [PAUSED] 准备 3 分钟电梯演讲脚本
+- [PAUSED] 准备 10 分钟技术面试脚本
+- [PAUSED] 准备 30 分钟深度技术分享脚本
+- [PAUSED] 准备技术问题清单与标准答案（15-20 个）
 
 #### 任务 6.5: 最终验收与收尾（Day 10）
-- [ ] 运行完整测试套件
-- [ ] 检查所有文档链接有效
-- [ ] 验证所有代码示例可运行
-- [ ] 生成最终代码统计报告
-- [ ] 更新 README.md 为最终版本
-- [ ] 生成 requirements.txt 最终版本
-- [ ] 创建 .github/workflows/ci.yml（可选）
-- [ ] 使用 GitHub Pages 发布文档（可选）
-- [ ] 录制项目演示 GIF（可选）
-- [ ] 提交所有 Phase 6 更改
-- [ ] 合并所有 Phase 分支到 main
-- [ ] 打 tag 标记最终版本
+- [PAUSED] 运行完整测试套件
+- [PAUSED] 检查所有文档链接有效
+- [PAUSED] 验证所有代码示例可运行
+- [PAUSED] 生成最终代码统计报告
+- [PAUSED] 更新 README.md 为最终版本
+- [PAUSED] 生成 requirements.txt 最终版本
+- [PAUSED] 创建 .github/workflows/ci.yml（可选）
+- [PAUSED] 使用 GitHub Pages 发布文档（可选）
+- [PAUSED] 录制项目演示 GIF（可选）
+- [PAUSED] 提交所有 Phase 6 更改
+- [PAUSED] 合并所有 Phase 分支到 main
+- [PAUSED] 打 tag 标记最终版本
 
-### Phase 6 验收标准
+### Phase 6 验收标准（已暂停）
 
-- [ ] **文档完整性**：30+ 页技术文档齐全，所有 API 端点有文档
-- [ ] **代码质量**：black/isort/flake8 检查通过，平均代码复杂度 < B 级
-- [ ] **测试覆盖率**：总体覆盖率 > 80%，测试数量 > 520
-- [ ] **展示材料**：3 个 Demo 视频、3 套 PPT（45 页）、面试脚本完成
-- [ ] **最终交付**：README.md 最终版本、代码统计报告、版本 tag 已打
+- [PAUSED] **文档完整性**：30+ 页技术文档齐全，所有 API 端点有文档
+- [PAUSED] **代码质量**：black/isort/flake8 检查通过，平均代码复杂度 < B 级
+- [PAUSED] **测试覆盖率**：总体覆盖率 > 80%，测试数量 > 520
+- [PAUSED] **展示材料**：3 个 Demo 视频、3 套 PPT（45 页）、面试脚本完成
+- [PAUSED] **最终交付**：README.md 最终版本、代码统计报告、版本 tag 已打
 
 ### Phase 6 关键产出物
 
