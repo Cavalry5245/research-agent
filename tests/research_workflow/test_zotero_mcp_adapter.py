@@ -7,3 +7,13 @@ def test_adapter_init():
     proxy = MCPToolProxy(manager)
     adapter = ZoteroMCPAdapter(proxy)
     assert adapter is not None
+
+def test_list_collection_items_structure():
+    # Test the method signature exists
+    manager = MCPClientManager()
+    proxy = MCPToolProxy(manager)
+    adapter = ZoteroMCPAdapter(proxy)
+
+    # Method should exist and return list
+    result = adapter.list_collection_items("test_id")
+    assert isinstance(result, list)
