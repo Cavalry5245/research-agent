@@ -22,9 +22,15 @@ class ResearchRunConflictError(RuntimeError):
 
 
 class ResearchRunService:
-    def __init__(self, store: FileResearchRunStore, vault_root: str | Path) -> None:
+    def __init__(
+        self,
+        store: FileResearchRunStore,
+        vault_root: str | Path,
+        tool_registry_factory: Callable[[], ToolRegistry] | None = None,
+    ) -> None:
         self._store = store
         self._vault_root = Path(vault_root)
+        self._tool_registry_factory = tool_registry_factory or build_default_tool_registry
 
     def create_run(self, request: ResearchRunCreateRequest) -> ResearchRun:
         now = datetime.now(timezone.utc)
