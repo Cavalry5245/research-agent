@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import inspect
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
@@ -29,8 +30,8 @@ class ResearchAgentMCPServer:
     def __init__(
         self,
         service: ResearchRunService,
-        vector_search: Callable[[str, int], Any] | None = None,
-        answer_question: Callable[[str, str | None], Any] | None = None,
+        vector_search: Callable[..., Any] | None = None,
+        answer_question: Callable[..., Any] | None = None,
         compare_papers: Callable[[list[str]], Any] | None = None,
     ) -> None:
         self._service = service
@@ -107,25 +108,48 @@ class ResearchAgentMCPServer:
     def _search_chunks(self, arguments: dict[str, Any]) -> dict[str, Any]:
         query = _required(arguments, "query")
         top_k = int(arguments.get("top_k", 5))
+        paper_id = arguments.get("paper_id")
         if self._vector_search is None:
             matches: Any = []
         else:
-            matches = self._vector_search(query, top_k)
-        return {"query": query, "top_k": top_k, "matches": matches}
+            matches = _call_vector_search(self._vector_search, query, top_k, paper_id)
+        return {
+            "query": query,
+            "top_k": top_k,
+            "paper_id": paper_id,
+            "matches": matches,
+        }
 
     def _answer_question_tool(self, arguments: dict[str, Any]) -> dict[str, Any]:
         question = _required(arguments, "question")
         run_id = arguments.get("run_id")
+        paper_id = arguments.get("paper_id")
+        top_k = int(arguments.get("top_k", 5))
         if self._answer_question is None:
             answer = "No question-answering backend is configured for this MCP facade."
         else:
-            answer = self._answer_question(question, run_id)
-        return {"question": question, "run_id": run_id, "answer": answer}
+            answer = _call_answer_question(
+                self._answer_question,
+                question,
+                run_id,
+                paper_id,
+                top_k,
+            )
+        return {
+            "question": question,
+            "run_id": run_id,
+            "paper_id": paper_id,
+            "top_k": top_k,
+            "answer": answer,
+        }
 
     def _compare_papers_tool(self, arguments: dict[str, Any]) -> dict[str, Any]:
-        paper_ids = list(arguments.get("paper_ids") or [])
-        if not paper_ids:
+        raw_paper_ids = arguments.get("paper_ids")
+        if not isinstance(raw_paper_ids, list) or not raw_paper_ids:
             raise ValueError("Missing required argument(s): paper_ids")
+        if not all(isinstance(paper_id, str) and paper_id for paper_id in raw_paper_ids):
+            raise ValueError("paper_ids must be a non-empty list of strings")
+        paper_ids = list(raw_paper_ids)
         if self._compare_papers is None:
             comparison: Any = {"paper_ids": paper_ids, "summary": "No comparison backend configured."}
         else:
@@ -138,3 +162,51 @@ def _required(arguments: dict[str, Any], name: str) -> Any:
     if value is None or value == "":
         raise ValueError(f"Missing required argument(s): {name}")
     return value
+
+
+def _call_vector_search(
+    callback: Callable[..., Any],
+    query: str,
+    top_k: int,
+    paper_id: str | None,
+) -> Any:
+    if _supports_named_argument(callback, "paper_id"):
+        return callback(query, top_k, paper_id=paper_id)
+    return callback(query, top_k)
+
+
+def _call_answer_question(
+    callback: Callable[..., Any],
+    question: str,
+    run_id: str | None,
+    paper_id: str | None,
+    top_k: int,
+) -> Any:
+    if _supports_any_named_argument(callback, ("paper_id", "top_k")):
+        return callback(
+            question=question,
+            run_id=run_id,
+            paper_id=paper_id,
+            top_k=top_k,
+        )
+    return callback(question, run_id)
+
+
+def _supports_any_named_argument(
+    callback: Callable[..., Any],
+    names: tuple[str, ...],
+) -> bool:
+    return any(_supports_named_argument(callback, name) for name in names)
+
+
+def _supports_named_argument(callback: Callable[..., Any], name: str) -> bool:
+    try:
+        parameters = inspect.signature(callback).parameters
+    except (TypeError, ValueError):
+        return True
+    if name in parameters:
+        return True
+    return any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
