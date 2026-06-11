@@ -236,7 +236,52 @@ def build_default_tool_registry() -> ToolRegistry:
             fallback_active=False,
         )
     )
+    registry.register(
+        ToolDefinition(
+            name="zotero.list_collection_items",
+            provider="local_http",
+            handler=_unconfigured_tool_handler("zotero.list_collection_items"),
+            required_args=("collection_id", "max_papers"),
+            fallback_available=True,
+            fallback_active=True,
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="research_agent.process_paper",
+            provider="local_service",
+            handler=_unconfigured_tool_handler("research_agent.process_paper"),
+            required_args=("zotero_item_id", "run_output_dir"),
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="research_agent.generate_knowledge_pack",
+            provider="local_synthesis",
+            handler=_unconfigured_tool_handler(
+                "research_agent.generate_knowledge_pack"
+            ),
+            required_args=("run_id",),
+        )
+    )
+    registry.register(
+        ToolDefinition(
+            name="obsidian.publish_knowledge_pack",
+            provider="direct_markdown",
+            handler=_unconfigured_tool_handler("obsidian.publish_knowledge_pack"),
+            required_args=("run_id", "output_dir"),
+            fallback_available=True,
+            fallback_active=True,
+        )
+    )
     return registry
+
+
+def _unconfigured_tool_handler(tool_name: str) -> ToolHandler:
+    def handler(_arguments: dict[str, Any]) -> Any:
+        raise RuntimeError(f"{tool_name} requires run-specific dependencies")
+
+    return handler
 
 
 def _utc_now() -> datetime:
