@@ -9,3 +9,10 @@ class MCPToolProxy:
 
     def __init__(self, client_manager: MCPClientManager):
         self._manager = client_manager
+
+    def call_tool(self, call: MCPToolCall) -> MCPToolResult:
+        """Call an MCP tool (stub).
+
+        TODO: Implement MCP protocol communication (stdio/SSE) in Phase 3.
+        """
+        raise NotImplementedError("MCP protocol communication not implemented in Phase 2")
