@@ -133,3 +133,32 @@ def test_research_workflow_ui_displays_paper_item_status_columns():
         "item.error",
     ):
         assert token in source
+
+
+def test_research_workflow_ui_contains_tool_health_status():
+    source = _streamlit_source()
+
+    for token in (
+        "Tool Health",
+        "fallback",
+        "ResearchAgent MCP Server",
+        "Semantic Scholar",
+        "arXiv",
+    ):
+        assert token in source
+
+
+def test_research_workflow_ui_contains_m4_result_signals():
+    source = _streamlit_source()
+
+    for token in (
+        "Agent Timeline",
+        "Knowledge Pack Outputs",
+        "Literature Review",
+        "Method Matrix",
+        "Research Gaps",
+        "Experiment Plan",
+        "Reading Roadmap",
+        "tool-calls.jsonl",
+    ):
+        assert token in source

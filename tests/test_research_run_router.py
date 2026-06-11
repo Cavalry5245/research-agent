@@ -147,10 +147,165 @@ def test_research_run_execute_local_route(tmp_path, monkeypatch):
         app.dependency_overrides.clear()
 
 
+def test_research_run_tools_health_route(tmp_path, monkeypatch):
+    _override_research_run_service(tmp_path, monkeypatch)
+
+    try:
+        client = TestClient(app)
+        response = client.get("/research-runs/tools/health")
+
+        assert response.status_code == 200
+        tool_names = {item["tool_name"] for item in response.json()["tools"]}
+        assert "research_agent.echo" in tool_names
+        assert "zotero.list_collection_items" in tool_names
+        assert "semantic_scholar.enrich" in tool_names
+        assert "arxiv.find_preprint" in tool_names
+        assert "ResearchAgent MCP Server" in tool_names
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_research_run_tool_call_route(tmp_path, monkeypatch):
+    _override_research_run_service(tmp_path, monkeypatch)
+
+    try:
+        from app.routers import research_runs as router
+
+        class FakeEmbeddingClient:
+            def embed_query(self, query):
+                return [0.1, 0.2, 0.3]
+
+        class FakeVectorStore:
+            def query(self, query_embedding, top_k=5, paper_id=None, hybrid_query_text=None):
+                return [
+                    {
+                        "chunk_id": "chunk-1",
+                        "paper_id": paper_id or "paper_001",
+                        "content": hybrid_query_text,
+                        "score": 0.9,
+                        "embedding": query_embedding,
+                    }
+                ]
+
+        app.dependency_overrides[router.get_embedding_client] = (
+            lambda: FakeEmbeddingClient()
+        )
+        app.dependency_overrides[router.get_vector_store] = lambda: FakeVectorStore()
+        app.dependency_overrides[router.get_llm_client] = lambda: object()
+        app.dependency_overrides[router.get_reranker] = lambda: None
+        app.dependency_overrides[router.get_retriever] = lambda: None
+
+        client = TestClient(app)
+        response = client.post(
+            "/research-runs/tools/call",
+            json={
+                "tool_name": "research_agent.search_chunks",
+                "arguments": {"query": "infrared", "top_k": 2, "paper_id": "paper_qa"},
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["tool_name"] == "research_agent.search_chunks"
+        assert payload["status"] == "completed"
+        assert payload["result"]["query"] == "infrared"
+        assert payload["result"]["matches"][0]["paper_id"] == "paper_qa"
+        assert payload["result"]["matches"][0]["content"] == "infrared"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_research_run_tool_call_route_uses_qa_and_compare_backends(
+    tmp_path,
+    monkeypatch,
+):
+    _override_research_run_service(tmp_path, monkeypatch)
+
+    try:
+        from app.routers import research_runs as router
+
+        calls = {}
+
+        class FakeEmbeddingClient:
+            pass
+
+        class FakeVectorStore:
+            pass
+
+        class FakeLLMClient:
+            pass
+
+        def fake_answer_question(**kwargs):
+            calls["qa"] = kwargs
+            return {
+                "question": kwargs["question"],
+                "answer": "backend QA answer",
+                "sources": [],
+            }
+
+        def fake_compare_papers(paper_ids, metadata_dir, llm_client=None):
+            calls["compare"] = {
+                "paper_ids": paper_ids,
+                "metadata_dir": metadata_dir,
+                "llm_client": llm_client,
+            }
+            return {"overview": "backend compare result", "paper_ids": paper_ids}
+
+        monkeypatch.setattr(router, "answer_question", fake_answer_question)
+        monkeypatch.setattr(router, "compare_papers", fake_compare_papers)
+        app.dependency_overrides[router.get_embedding_client] = (
+            lambda: FakeEmbeddingClient()
+        )
+        app.dependency_overrides[router.get_vector_store] = lambda: FakeVectorStore()
+        app.dependency_overrides[router.get_llm_client] = lambda: FakeLLMClient()
+        app.dependency_overrides[router.get_reranker] = lambda: None
+        app.dependency_overrides[router.get_retriever] = lambda: None
+
+        client = TestClient(app)
+        qa_response = client.post(
+            "/research-runs/tools/call",
+            json={
+                "tool_name": "research_agent.answer_question",
+                "arguments": {
+                    "question": "What changed?",
+                    "run_id": "run_1",
+                    "paper_id": "paper_1",
+                    "top_k": 3,
+                },
+            },
+        )
+        compare_response = client.post(
+            "/research-runs/tools/call",
+            json={
+                "tool_name": "research_agent.compare_papers",
+                "arguments": {"paper_ids": ["paper_1", "paper_2"]},
+            },
+        )
+
+        assert qa_response.status_code == 200
+        qa_payload = qa_response.json()
+        assert qa_payload["status"] == "completed"
+        assert qa_payload["result"]["answer"]["answer"] == "backend QA answer"
+        assert calls["qa"]["paper_id"] == "paper_1"
+        assert calls["qa"]["top_k"] == 3
+
+        assert compare_response.status_code == 200
+        compare_payload = compare_response.json()
+        assert compare_payload["status"] == "completed"
+        assert compare_payload["result"]["comparison"]["overview"] == (
+            "backend compare result"
+        )
+        assert calls["compare"]["paper_ids"] == ["paper_1", "paper_2"]
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_production_app_import_registers_research_run_routes():
     from app.main import app as production_app
 
     route_paths = {route.path for route in production_app.routes}
 
     assert "/research-runs" in route_paths
+    assert "/research-runs/tools/health" in route_paths
+    assert "/research-runs/tools/call" in route_paths
     assert "/research-runs/{run_id}/execute-local" in route_paths

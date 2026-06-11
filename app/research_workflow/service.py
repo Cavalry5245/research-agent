@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -8,6 +9,7 @@ from app.research_workflow.knowledge_pack import (
     append_tool_call_record,
     create_knowledge_pack_skeleton,
     update_knowledge_pack_run_files,
+    write_synthesis_files,
 )
 from app.research_workflow.paper_processing import PaperProcessingService
 from app.research_workflow.schemas import (
@@ -17,6 +19,16 @@ from app.research_workflow.schemas import (
     build_default_steps,
 )
 from app.research_workflow.store import FileResearchRunStore
+from app.research_workflow.synthesis import (
+    KnowledgePackSynthesisService,
+    SynthesisResult,
+)
+from app.research_workflow.tool_adapters import ObsidianAdapter
+from app.research_workflow.tool_registry import (
+    ToolDefinition,
+    ToolRegistry,
+    build_default_tool_registry,
+)
 from app.research_workflow.zotero_intake import (
     CollectionIntakeService,
     ZoteroLocalHttpClient,
@@ -102,25 +114,32 @@ class ResearchRunService:
                 run.collection_id, run.options.max_papers
             )
         except Exception as exc:
-            append_tool_call_record(
+            _append_standard_tool_call(
                 run,
-                {
-                    "tool_name": "zotero.list_collection_items",
-                    "provider": "local_http",
-                    "status": "failed",
-                    "result_summary": str(exc),
+                tool_name="zotero.list_collection_items",
+                provider="local_http",
+                arguments={
+                    "collection_id": run.collection_id,
+                    "max_papers": run.options.max_papers,
                 },
+                status="failed",
+                result_summary=str(exc),
+                error=str(exc),
+                fallback_used=True,
             )
             return self._fail_run(run, "collection_intake", exc)
 
-        append_tool_call_record(
+        _append_standard_tool_call(
             run,
-            {
-                "tool_name": "zotero.list_collection_items",
-                "provider": "local_http",
-                "status": "completed",
-                "result_summary": f"{len(items)} item(s)",
+            tool_name="zotero.list_collection_items",
+            provider="local_http",
+            arguments={
+                "collection_id": run.collection_id,
+                "max_papers": run.options.max_papers,
             },
+            status="completed",
+            result_summary=f"{len(items)} item(s)",
+            fallback_used=True,
         )
         run = run.model_copy(
             update={"paper_items": items, "updated_at": datetime.now(timezone.utc)}
@@ -149,17 +168,15 @@ class ResearchRunService:
                 except Exception as exc:
                     processed_item = self._failed_paper_item(item, exc)
                 processed_items.append(processed_item)
-                append_tool_call_record(
+                _append_standard_tool_call(
                     run,
-                    {
-                        "tool_name": "research_agent.process_paper",
-                        "provider": "local_service",
-                        "status": processed_item.status,
-                        "arguments": {"zotero_item_id": item.zotero_item_id},
-                        "result_summary": (
-                            processed_item.paper_id or processed_item.error or ""
-                        ),
-                    },
+                    tool_name="research_agent.process_paper",
+                    provider="local_service",
+                    arguments={"zotero_item_id": item.zotero_item_id},
+                    status=processed_item.status,
+                    result_summary=processed_item.paper_id or processed_item.error or "",
+                    error=processed_item.error,
+                    fallback_used=False,
                 )
             progress = index / max(len(items), 1)
             run = run.model_copy(
@@ -201,9 +218,79 @@ class ResearchRunService:
             1.0,
             f"Completed={completed_count}, failed={failed_count}, skipped={skipped_count}",
         )
+        if completed_count:
+            run = self._generate_knowledge_pack_outputs(run)
         self._store.upsert(run)
         update_knowledge_pack_run_files(run)
         return run
+
+    def _generate_knowledge_pack_outputs(self, run: ResearchRun) -> ResearchRun:
+        run = self._mark_step(
+            run,
+            "literature_synthesis",
+            "running",
+            0.0,
+            "Generating Knowledge Pack synthesis",
+        )
+        result = KnowledgePackSynthesisService().generate(run)
+        run = write_synthesis_files(run, result)
+        _append_standard_tool_call(
+            run,
+            tool_name="research_agent.generate_knowledge_pack",
+            provider="local_synthesis",
+            arguments={"run_id": run.run_id},
+            status="completed",
+            result_summary=f"{len(result.files)} file(s)",
+            fallback_used=False,
+        )
+        run = self._mark_step(
+            run,
+            "literature_synthesis",
+            "completed",
+            1.0,
+            f"Generated {len(result.files)} synthesis file(s)",
+        )
+        run = self._mark_step(
+            run,
+            "experiment_planning",
+            "completed",
+            1.0,
+            "Generated actionable experiment plan",
+        )
+
+        published_count = self._publish_obsidian_outputs(run, result)
+        _append_standard_tool_call(
+            run,
+            tool_name="obsidian.publish_knowledge_pack",
+            provider="direct_markdown",
+            arguments={"run_id": run.run_id, "output_dir": run.output_dir},
+            status="completed",
+            result_summary=f"{published_count} file(s)",
+            fallback_used=True,
+        )
+        return self._mark_step(
+            run,
+            "obsidian_publishing",
+            "completed",
+            1.0,
+            "Knowledge Pack is available as Markdown outputs",
+        )
+
+    def _publish_obsidian_outputs(
+        self,
+        run: ResearchRun,
+        result,
+    ) -> int:
+        if not (run.options.obsidian_publish and run.options.obsidian_vault_path):
+            return len(result.files)
+
+        adapter = ObsidianAdapter(run.options.obsidian_vault_path)
+        for file in result.files:
+            adapter.publish_markdown(
+                f"ResearchAgent/Runs/{run.run_id}/{file.filename}",
+                file.content,
+            )
+        return len(result.files)
 
     def _fail_run(
         self,
@@ -332,3 +419,36 @@ class ResearchRunService:
 
     def _new_run_id(self, now: datetime) -> str:
         return f"run_{now.strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}"
+
+
+def _append_standard_tool_call(
+    run: ResearchRun,
+    *,
+    tool_name: str,
+    provider: str,
+    arguments: dict[str, object],
+    status: str,
+    result_summary: str,
+    error: str | None = None,
+    fallback_used: bool = False,
+) -> None:
+    started_at = datetime.now(timezone.utc)
+    completed_at = datetime.now(timezone.utc)
+    append_tool_call_record(
+        run,
+        {
+            "tool_name": tool_name,
+            "provider": provider,
+            "arguments": arguments,
+            "status": status,
+            "result_summary": result_summary,
+            "error": error,
+            "started_at": started_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+            "duration_ms": max(
+                (completed_at - started_at).total_seconds() * 1000.0,
+                0.0,
+            ),
+            "fallback_used": fallback_used,
+        },
+    )

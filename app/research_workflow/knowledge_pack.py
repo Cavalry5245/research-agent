@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from app.research_workflow.schemas import ResearchRun, ResearchRunArtifact
+from app.research_workflow.synthesis import SynthesisResult
 
 
 def slugify_run_name(value: str) -> str:
@@ -99,6 +100,26 @@ def append_tool_call_record(run: ResearchRun, record: dict[str, object]) -> None
         handle.write("\n")
 
 
+def write_synthesis_files(run: ResearchRun, result: SynthesisResult) -> ResearchRun:
+    output_dir = Path(run.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    generated_artifacts: list[ResearchRunArtifact] = []
+    for file in result.files:
+        path = output_dir / file.filename
+        path.write_text(file.content, encoding="utf-8")
+        generated_artifacts.append(
+            ResearchRunArtifact(label=file.label, path=str(path), kind="markdown")
+        )
+
+    existing = [
+        artifact
+        for artifact in run.artifacts
+        if artifact.label not in {artifact.label for artifact in generated_artifacts}
+    ]
+    return run.model_copy(update={"artifacts": [*existing, *generated_artifacts]})
+
+
 def _output_dir(run: ResearchRun, vault_root: str | Path) -> Path:
     run_slug = slugify_run_name(run.run_id.replace("_", "-"))
     collection_slug = slugify_run_name(run.collection_name)
@@ -163,6 +184,12 @@ def _render_summary(run: ResearchRun) -> str:
             )
     else:
         lines.append("- No paper items have been collected yet.")
+    lines.extend(["", "## Artifacts", ""])
+    if run.artifacts:
+        for artifact in run.artifacts:
+            lines.append(f"- {artifact.label}: {artifact.path}")
+    else:
+        lines.append("- No artifacts have been generated yet.")
     lines.append("")
     return "\n".join(lines)
 

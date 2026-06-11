@@ -1,26 +1,26 @@
 # Current tasks
 
-- [x] Task 1: Add item-level Research Run schemas.
-  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py::test_research_run_model_defaults_to_no_paper_items tests/test_research_run_service.py::test_research_run_paper_item_tracks_item_lifecycle -q`
-  - Completion note: Added item-level ResearchRun paper schemas and focused lifecycle/default tests. Franklin implemented commit `ee867f7`; spec review passed; code quality review approved with only minor non-blocking notes. Local focused verification passed with 2 tests.
-- [x] Task 2: Add Zotero collection intake service.
-  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_zotero_intake.py -q`
-  - Completion note: Added Zotero intake models, local API client, PDF path resolver, and collection-to-paper-item service. Turing implemented commit `9845407`; Faraday fixed live Zotero `users/0` local API paths and child attachment lookup in commit `18a8988`; second spec review passed; second code quality review approved. Local focused verification passed with 6 tests.
-- [x] Task 3: Add local paper processing service.
-  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_paper_processing_service.py -q`
-  - Completion note: Added local paper processing service for PDF copy, parse/save, chunk/embed/index, note generation, run paper-note writing, and item-level artifacts. Galileo implemented commit `c237c4f`; Planck hardened failure handling in commit `5c48a3b`; second spec review passed; second code quality review approved. Local focused verification passed with 6 tests.
-- [x] Task 4: Update Knowledge Pack summary, trace, and tool calls.
-  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py::test_knowledge_pack_update_rewrites_summary_with_paper_counts tests/test_research_run_service.py::test_append_tool_call_record_writes_jsonl -q`
-  - Completion note: Added Knowledge Pack summary/trace refresh and JSONL tool-call recording. Ada/Einstein implemented commit `75551e9`; Noether/Meitner fixed progress formatting in `9cf691b`; Lamarr/Socrates fixed initial trace artifact metadata in `fc7b440`; final spec review passed and final code quality review approved. Local focused verification passed with 3 Task 4 checks, and service/store verification passed with 27 tests.
-- [x] Task 5: Orchestrate local collection execution.
-  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_store.py -q`
-  - Completion note: Added `ResearchRunService.execute_local_run` orchestration for local Zotero intake, paper processing, item-level progress, Knowledge Pack refresh, and tool-call logging. Euler/Sartre implemented commit `1589a1c`; Knuth/Laplace hardened intake/setup and per-paper exception paths in `e728afb`; spec review passed and final code quality review approved. Local service/store verification passed with 30 tests.
-- [x] Task 6: Add API endpoint for local execution.
-  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_router.py -q`
-  - Completion note: Added `POST /research-runs/{run_id}/execute-local` with injectable Zotero intake and paper processor dependencies. Ritchie/Curie implemented commit `87fca9b`; Clark/Halley added typed Zotero settings, deferred default paper processing to service execution, and strengthened route tests in `85cbf73`; final spec review passed and final code quality review approved. Production app import now succeeds and router verification passed with 4 tests.
-- [x] Task 7: Update Streamlit Research Workflow UI.
+- [x] Task 1: Add tool registry and standardized tool-call records.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_tool_registry.py -q`
+  - Completion note: Added `ToolRegistry`, `ToolDefinition`, `ToolCallResult`, `ToolHealth`, default `research_agent.echo`, standardized in-memory and JSONL records, and focused registry tests. Subagent CLI dispatch was blocked by unsupported model access, so this task was implemented in the main session. Local verification passed with 6 tests.
+- [x] Task 2: Add local fallback tool adapters.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_tool_adapters.py -q`
+  - Completion note: Added local-first Zotero, Obsidian, Semantic Scholar, and arXiv adapters with fallback health reporting, direct Markdown publishing constrained to the vault root, and focused adapter tests. Local verification passed with 5 tests.
+- [x] Task 3: Add ResearchAgent MCP-style tool facade.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_agent_mcp_server.py -q`
+  - Completion note: Added in-process `ResearchAgentMCPServer` with request/response models and callable local tools for listing papers, reading trace, exporting Knowledge Pack metadata, chunk search, question answering, and paper comparison fallback. Local verification passed with 7 tests.
+- [x] Task 4: Integrate tool registry with ResearchRun service, router, and UI health.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_router.py tests/test_research_workflow_ui_import.py -q`
+  - Completion note: Standardized ResearchRun tool-call records, added tool health and MCP tool-call router endpoints, and surfaced Tool Health/fallback status in Streamlit. Local verification passed with 39 tests and one Starlette/httpx deprecation warning.
+- [x] Task 5: Add deterministic multi-agent synthesis.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_synthesis.py -q`
+  - Completion note: Added deterministic `KnowledgePackSynthesisService` that generates literature review, method matrix, research gaps, experiment plan, and reading roadmap Markdown content with evidence links and actionable experiment planning. Local verification passed with 3 tests.
+- [x] Task 6: Publish complete Obsidian-ready Knowledge Pack.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_synthesis.py -q`
+  - Completion note: Wired deterministic synthesis into `execute_local_run`, wrote five Knowledge Pack Markdown outputs, attached generated artifacts, completed synthesis/planning/publishing steps, and recorded synthesis/publishing tool calls. Local verification passed with 29 tests.
+- [x] Task 7: Add run result page signals and agent timeline.
   - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_workflow_ui_import.py -q`
-  - Completion note: Added Streamlit controls for local Zotero collection processing plus Paper Items status display in the Research Workflow page. Kay/Parfit implemented commit `451c9e1`; Tufte/Cicero fixed failed-run feedback in `d387b5b`; spec review passed and final code quality review approved. Local UI source verification passed with 7 tests.
-- [x] Task 8: Run Milestone 2 verification and update execution docs.
-  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_store.py tests/test_research_run_router.py tests/test_research_workflow_ui_import.py tests/test_zotero_intake.py tests/test_paper_processing_service.py -q`
-  - Completion note: Milestone 2 focused verification passed with 53 tests; compatibility verification passed with 37 tests. `git diff --stat` was empty before this tracker update, `git diff --check` reported no whitespace errors, and `git status --short` was inspected with only local untracked config/temp/vendor artifacts left untouched.
+  - Completion note: Added Agent Timeline and Knowledge Pack Outputs sections to the Research Workflow page and source smoke checks for the five generated M4 output labels and tool-call trace signal. Local verification passed with 9 tests.
+- [x] Task 8: Run M3/M4 verification and update execution tracker.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_tool_registry.py tests/test_tool_adapters.py tests/test_research_agent_mcp_server.py tests/test_synthesis.py tests/test_research_run_service.py tests/test_research_run_router.py tests/test_research_workflow_ui_import.py tests/test_zotero_intake.py tests/test_paper_processing_service.py tests/test_research_run_store.py -q`
+  - Completion note: Full M3/M4 and M2 compatibility verification passed with 80 tests. `git diff --check` reported no whitespace errors, only Windows CRLF conversion warnings. `git status --short` was inspected; pre-existing untracked `.codex/`, pytest temp, `tests/app/`, and `third_party/` entries remain untouched.

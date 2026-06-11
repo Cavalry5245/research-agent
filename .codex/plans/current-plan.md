@@ -1,30 +1,33 @@
-# Milestone 2: Zotero Collection to Local Paper Processing
+# Milestone 3-4: MCP Hub and Obsidian Knowledge Pack
 
 ## Scope
 
 Execute the implementation plan in:
 
-`docs/superpowers/plans/2026-06-09-zotero-collection-processing.md`
+`docs/superpowers/plans/2026-06-11-mcp-synthesis-knowledge-pack.md`
 
-Goal: make ResearchRun process a Zotero collection into local parsed/indexed papers and per-paper Knowledge Pack notes with item-level status tracking.
+Goal: complete M3 and M4 by adding a local MCP-style tool hub, ResearchAgent tool facade, fallback adapters, deterministic multi-agent synthesis, Obsidian-ready Knowledge Pack publishing, and UI health/result visibility.
 
 ## Constraints
 
 - Do not modify `.env` without explicit user approval.
 - Do not bulk delete files or directories.
+- Do not use `del /s`, `rd /s`, `rmdir /s`, `Remove-Item -Recurse`, or `rm -rf`.
+- If deletion is necessary, delete only one explicit file path at a time.
 - Do not delete datasets, checkpoints, outputs, logs, or experiment results.
 - Work one task at a time.
 - Keep changes scoped to the files listed in the plan.
 - Do not revert unrelated dirty worktree changes.
-- After each task, run the task-specific verification command and inspect `git diff`.
+- Use `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe` for tests.
+- After each task, run the task-specific verification command and inspect the relevant diff.
 
 ## Tasks
 
-1. Add item-level Research Run schemas.
-2. Add Zotero collection intake service.
-3. Add local paper processing service.
-4. Update Knowledge Pack summary, trace, and tool calls.
-5. Orchestrate local collection execution.
-6. Add API endpoint for local execution.
-7. Update Streamlit Research Workflow UI.
-8. Run Milestone 2 verification and update execution docs.
+1. Add tool registry and standardized tool-call records.
+2. Add local fallback tool adapters.
+3. Add ResearchAgent MCP-style tool facade.
+4. Integrate tool registry with ResearchRun service, router, and UI health.
+5. Add deterministic multi-agent synthesis.
+6. Publish complete Obsidian-ready Knowledge Pack.
+7. Add run result page signals and agent timeline.
+8. Run M3/M4 verification and update execution tracker.

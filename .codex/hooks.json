@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python 'E:\\projects\\ResearchAgent\\.codex\\hooks\\block_dangerous_bash.py'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python 'E:\\projects\\ResearchAgent\\.codex\\hooks\\check_task_completion.py'"
+          }
+        ]
+      }
+    ]
+  }
+}

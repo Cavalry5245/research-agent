@@ -4,6 +4,11 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.research_workflow.mcp_server import (
+    MCPToolRequest,
+    MCPToolResponse,
+    ResearchAgentMCPServer,
+)
 from app.research_workflow.paper_processing import PaperProcessingService
 from app.research_workflow.schemas import (
     ResearchRun,
@@ -16,6 +21,13 @@ from app.research_workflow.service import (
     ResearchRunService,
 )
 from app.research_workflow.store import FileResearchRunStore
+from app.research_workflow.tool_adapters import (
+    ArxivAdapter,
+    ObsidianAdapter,
+    SemanticScholarAdapter,
+    ZoteroAdapter,
+)
+from app.research_workflow.tool_registry import build_default_tool_registry
 from app.research_workflow.zotero_intake import (
     CollectionIntakeService,
     ZoteroLocalHttpClient,
@@ -46,6 +58,12 @@ def get_paper_processing_service() -> PaperProcessingService | None:
     return None
 
 
+def get_research_agent_mcp_server(
+    service: ResearchRunService = Depends(get_research_run_service),
+) -> ResearchAgentMCPServer:
+    return ResearchAgentMCPServer(service=service)
+
+
 @router.post("", response_model=ResearchRun, status_code=status.HTTP_201_CREATED)
 def create_research_run(
     request: ResearchRunCreateRequest,
@@ -60,6 +78,45 @@ def list_research_runs(
 ) -> ResearchRunListResponse:
     runs = service.list_runs()
     return ResearchRunListResponse(count=len(runs), runs=runs)
+
+
+@router.get("/tools/health")
+def get_research_run_tools_health() -> dict[str, object]:
+    from app.config import settings
+
+    storage_root = Path(settings.metadata_dir).parent
+    tools = [
+        health.model_dump(mode="json")
+        for health in build_default_tool_registry().health()
+    ]
+    tools.extend(
+        health.model_dump(mode="json")
+        for health in (
+            ZoteroAdapter().health(),
+            ObsidianAdapter(storage_root / "knowledge_packs").health(),
+            SemanticScholarAdapter(available=False).health(),
+            ArxivAdapter(available=False).health(),
+        )
+    )
+    tools.append(
+        {
+            "tool_name": "ResearchAgent MCP Server",
+            "provider": "in_process",
+            "available": True,
+            "fallback_available": False,
+            "fallback_active": False,
+            "message": "ResearchAgent MCP Server facade is available",
+        }
+    )
+    return {"tools": tools}
+
+
+@router.post("/tools/call", response_model=MCPToolResponse)
+def call_research_agent_tool(
+    request: MCPToolRequest,
+    server: ResearchAgentMCPServer = Depends(get_research_agent_mcp_server),
+) -> MCPToolResponse:
+    return server.call_tool(request)
 
 
 @router.post("/{run_id}/execute-local", response_model=ResearchRun)

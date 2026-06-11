@@ -11,6 +11,13 @@ from app.research_workflow.paper_processing import PaperProcessingService
 from app.research_workflow.schemas import ResearchRunCreateRequest, ResearchRunOptions
 from app.research_workflow.service import ResearchRunService
 from app.research_workflow.store import FileResearchRunStore
+from app.research_workflow.tool_adapters import (
+    ArxivAdapter,
+    ObsidianAdapter,
+    SemanticScholarAdapter,
+    ZoteroAdapter,
+)
+from app.research_workflow.tool_registry import build_default_tool_registry
 from app.research_workflow.zotero_intake import CollectionIntakeService, ZoteroLocalHttpClient
 from app.schemas import Chunk, PaperParseResult, QARequest, SourceItem
 from app.services.chunker import chunk_paper
@@ -77,6 +84,35 @@ def get_paper_processing_service():
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+@st.cache_data(ttl=30)
+def get_tool_health_status():
+    storage_root = Path(settings.metadata_dir).parent
+    health = [
+        item.model_dump(mode="json")
+        for item in build_default_tool_registry().health()
+    ]
+    health.extend(
+        item.model_dump(mode="json")
+        for item in (
+            ZoteroAdapter().health(),
+            ObsidianAdapter(storage_root / "knowledge_packs").health(),
+            SemanticScholarAdapter(available=False).health(),
+            ArxivAdapter(available=False).health(),
+        )
+    )
+    health.append(
+        {
+            "tool_name": "ResearchAgent MCP Server",
+            "provider": "in_process",
+            "available": True,
+            "fallback_available": False,
+            "fallback_active": False,
+            "message": "ResearchAgent MCP Server facade is available",
+        }
+    )
+    return health
 
 
 def refresh_papers():
@@ -248,6 +284,15 @@ if tab == "Research Workflow":
     service = get_research_run_service()
     selected_research_run_id = st.session_state.get("selected_research_run_id")
 
+    st.subheader("Tool Health")
+    for tool in get_tool_health_status():
+        label = tool["tool_name"]
+        provider = tool["provider"]
+        fallback = "fallback active" if tool.get("fallback_active") else "primary"
+        status_text = "available" if tool.get("available") else "unavailable"
+        st.caption(f"{label} ({provider}): {status_text}, {fallback}")
+    st.caption("ResearchAgent MCP Server, Semantic Scholar, arXiv, Zotero, and Obsidian status are shown above.")
+
     with st.form("research_run_form"):
         collection_id = st.text_input("Zotero Collection ID", placeholder="COLL123")
         collection_name = st.text_input("Collection Name", placeholder="IRSTD")
@@ -329,7 +374,7 @@ if tab == "Research Workflow":
             if run.error:
                 st.error(f"Run error: {run.error}")
 
-            st.subheader("Steps")
+            st.subheader("Agent Timeline")
             for step in run.steps:
                 st.write(f"{step.agent}: {step.status} ({step.progress:.0%})")
 
@@ -372,6 +417,24 @@ if tab == "Research Workflow":
                             st.error(item.error)
                         for artifact in item.artifacts:
                             st.write(f"{artifact.label}: {artifact.path}")
+
+            st.subheader("Knowledge Pack Outputs")
+            output_labels = {
+                "Literature Review",
+                "Method Matrix",
+                "Research Gaps",
+                "Experiment Plan",
+                "Reading Roadmap",
+            }
+            knowledge_pack_outputs = [
+                artifact for artifact in run.artifacts if artifact.label in output_labels
+            ]
+            if knowledge_pack_outputs:
+                for artifact in knowledge_pack_outputs:
+                    st.write(f"{artifact.label}: {artifact.path}")
+            else:
+                st.info("Knowledge Pack Outputs will appear after local collection processing.")
+            st.caption("Tool-call trace: tool-calls.jsonl")
 
             st.subheader("Artifacts")
             for artifact in run.artifacts:
