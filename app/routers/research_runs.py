@@ -54,8 +54,7 @@ def get_research_run_service() -> ResearchRunService:
     if _service_instance is None:
         storage_root = Path(settings.metadata_dir).parent
         store = FileResearchRunStore(storage_root / "research_runs.json")
-        vault_root = storage_root / "knowledge_packs"
-        _service_instance = ResearchRunService(store=store, vault_root=vault_root)
+        _service_instance = ResearchRunService(store=store, vault_root=settings.obsidian_vault_root)
     return _service_instance
 
 

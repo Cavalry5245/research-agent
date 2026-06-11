@@ -1,5 +1,4 @@
 .env
-.codex/config.toml
 __pycache__/
 *.pyc
 *.pyo
@@ -29,3 +28,8 @@ app/storage/logs/*
 
 app/analytics/reports/log_analysis.md
 app/storage/memory.db
+
+.codex/
+.github/
+.claude/
+.agents/

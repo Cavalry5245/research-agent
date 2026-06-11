@@ -63,7 +63,7 @@ def get_research_run_service():
     storage_root = Path(settings.metadata_dir).parent
     return ResearchRunService(
         store=FileResearchRunStore(storage_root / "research_runs.json"),
-        vault_root=storage_root / "knowledge_packs",
+        vault_root=settings.obsidian_vault_root,
     )
 
 
@@ -272,7 +272,7 @@ with st.sidebar:
     st.caption(f"已索引 chunks: {vs.count()} | 向量后端: {vs_meta['backend']}")
 
     st.divider()
-    st.caption(f"uvicorn → :8000  |  streamlit → :8501")
+    st.caption(f"uvicorn → :8888  |  streamlit → :8501")
 
 
 # ── Tab 1: Upload ─────────────────────────────────────────────────────────────

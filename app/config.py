@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     zotero_library_id: str = "0"
     zotero_library_type: str = "user"
 
+    # Obsidian
+    obsidian_vault_root: str = "app/storage/knowledge_packs"
+
     # Phase 4: Rerank
     enable_rerank: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"

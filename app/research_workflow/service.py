@@ -6,7 +6,6 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.research_workflow.knowledge_pack import (
-    append_tool_call_record,
     create_knowledge_pack_skeleton,
     update_knowledge_pack_run_files,
     write_synthesis_files,
@@ -115,38 +114,24 @@ class ResearchRunService:
         except Exception as exc:
             return self._fail_run(run, "collection_intake", exc)
 
-        try:
-            items = intake_service.collect_items(
-                run.collection_id, run.options.max_papers
-            )
-        except Exception as exc:
-            _append_standard_tool_call(
-                run,
-                tool_name="zotero.list_collection_items",
-                provider="local_http",
-                arguments={
-                    "collection_id": run.collection_id,
-                    "max_papers": run.options.max_papers,
-                },
-                status="failed",
-                result_summary=str(exc),
-                error=str(exc),
-                fallback_used=True,
-            )
-            return self._fail_run(run, "collection_intake", exc)
-
-        _append_standard_tool_call(
-            run,
-            tool_name="zotero.list_collection_items",
-            provider="local_http",
-            arguments={
+        tool_registry = self._tool_registry_factory()
+        self._register_intake_tool(tool_registry, intake_service)
+        intake_result = tool_registry.dispatch(
+            "zotero.list_collection_items",
+            {
                 "collection_id": run.collection_id,
                 "max_papers": run.options.max_papers,
             },
-            status="completed",
-            result_summary=f"{len(items)} item(s)",
-            fallback_used=True,
+            run=run,
         )
+        if intake_result.status == "failed":
+            return self._fail_run(
+                run,
+                "collection_intake",
+                RuntimeError(intake_result.error or "Zotero collection intake failed"),
+            )
+
+        items = list(intake_result.result or [])
         run = run.model_copy(
             update={"paper_items": items, "updated_at": datetime.now(timezone.utc)}
         )
@@ -163,27 +148,22 @@ class ResearchRunService:
         self._store.upsert(run)
         update_knowledge_pack_run_files(run)
 
+        self._register_paper_processing_tool(tool_registry, paper_processor, items)
         processed_items = []
         for index, item in enumerate(items, start=1):
             if item.status != "queued":
                 processed_items.append(item)
             else:
-                try:
-                    result = paper_processor.process_item(item, run.output_dir)
-                    processed_item = result.item
-                except Exception as exc:
-                    processed_item = self._failed_paper_item(item, exc)
-                processed_items.append(processed_item)
-                _append_standard_tool_call(
-                    run,
-                    tool_name="research_agent.process_paper",
-                    provider="local_service",
-                    arguments={"zotero_item_id": item.zotero_item_id},
-                    status=processed_item.status,
-                    result_summary=processed_item.paper_id or processed_item.error or "",
-                    error=processed_item.error,
-                    fallback_used=False,
+                result = tool_registry.dispatch(
+                    "research_agent.process_paper",
+                    {
+                        "zotero_item_id": item.zotero_item_id,
+                        "run_output_dir": run.output_dir,
+                    },
+                    run=run,
                 )
+                processed_item = self._paper_item_from_tool_result(item, result)
+                processed_items.append(processed_item)
             progress = index / max(len(items), 1)
             run = run.model_copy(
                 update={
@@ -225,12 +205,16 @@ class ResearchRunService:
             f"Completed={completed_count}, failed={failed_count}, skipped={skipped_count}",
         )
         if completed_count:
-            run = self._generate_knowledge_pack_outputs(run)
+            run = self._generate_knowledge_pack_outputs(run, tool_registry)
         self._store.upsert(run)
         update_knowledge_pack_run_files(run)
         return run
 
-    def _generate_knowledge_pack_outputs(self, run: ResearchRun) -> ResearchRun:
+    def _generate_knowledge_pack_outputs(
+        self,
+        run: ResearchRun,
+        tool_registry: ToolRegistry,
+    ) -> ResearchRun:
         run = self._mark_step(
             run,
             "literature_synthesis",
@@ -238,17 +222,24 @@ class ResearchRunService:
             0.0,
             "Generating Knowledge Pack synthesis",
         )
-        result = KnowledgePackSynthesisService().generate(run)
-        run = write_synthesis_files(run, result)
-        _append_standard_tool_call(
-            run,
-            tool_name="research_agent.generate_knowledge_pack",
-            provider="local_synthesis",
+        self._register_synthesis_tool(tool_registry, run)
+        synthesis_result = tool_registry.dispatch(
+            "research_agent.generate_knowledge_pack",
             arguments={"run_id": run.run_id},
-            status="completed",
-            result_summary=f"{len(result.files)} file(s)",
-            fallback_used=False,
+            run=run,
         )
+        if synthesis_result.status == "failed":
+            return self._fail_run(
+                run,
+                "literature_synthesis",
+                RuntimeError(
+                    synthesis_result.error or "Knowledge Pack synthesis failed"
+                ),
+            )
+
+        payload = synthesis_result.result
+        run = payload["run"]
+        result = payload["result"]
         run = self._mark_step(
             run,
             "literature_synthesis",
@@ -264,22 +255,155 @@ class ResearchRunService:
             "Generated actionable experiment plan",
         )
 
-        published_count = self._publish_obsidian_outputs(run, result)
-        _append_standard_tool_call(
+        run = self._mark_step(
             run,
-            tool_name="obsidian.publish_knowledge_pack",
-            provider="direct_markdown",
-            arguments={"run_id": run.run_id, "output_dir": run.output_dir},
-            status="completed",
-            result_summary=f"{published_count} file(s)",
-            fallback_used=True,
+            "obsidian_publishing",
+            "running",
+            0.0,
+            "Publishing Knowledge Pack outputs",
         )
+        self._register_obsidian_publish_tool(tool_registry, run, result)
+        publish_result = tool_registry.dispatch(
+            "obsidian.publish_knowledge_pack",
+            {"run_id": run.run_id, "output_dir": run.output_dir},
+            run=run,
+        )
+        if publish_result.status == "failed":
+            return self._fail_run(
+                run,
+                "obsidian_publishing",
+                RuntimeError(
+                    publish_result.error or "Knowledge Pack publishing failed"
+                ),
+            )
+
+        published_count = int(publish_result.result["published_count"])
         return self._mark_step(
             run,
             "obsidian_publishing",
             "completed",
             1.0,
             "Knowledge Pack is available as Markdown outputs",
+        )
+
+    def _register_intake_tool(
+        self,
+        registry: ToolRegistry,
+        intake_service: CollectionIntakeService,
+    ) -> None:
+        registry.register(
+            ToolDefinition(
+                name="zotero.list_collection_items",
+                provider="local_http",
+                handler=lambda arguments: intake_service.collect_items(
+                    str(arguments["collection_id"]),
+                    int(arguments["max_papers"]),
+                ),
+                required_args=("collection_id", "max_papers"),
+                fallback_available=True,
+                fallback_active=True,
+            )
+        )
+
+    def _register_paper_processing_tool(
+        self,
+        registry: ToolRegistry,
+        paper_processor: PaperProcessingService,
+        items: list[ResearchRunPaperItem],
+    ) -> None:
+        items_by_zotero_id = {item.zotero_item_id: item for item in items}
+
+        def process(arguments):
+            zotero_item_id = str(arguments["zotero_item_id"])
+            item = items_by_zotero_id.get(zotero_item_id)
+            if item is None:
+                raise ValueError(f"Unknown Zotero item: {zotero_item_id}")
+            result = paper_processor.process_item(
+                item,
+                str(arguments["run_output_dir"]),
+            )
+            return {
+                "item": result.item,
+                "chunk_count": result.chunk_count,
+                "note_path": result.note_path,
+                "vector_backend": result.vector_backend,
+                "summary": result.item.paper_id or result.item.error or "",
+            }
+
+        registry.register(
+            ToolDefinition(
+                name="research_agent.process_paper",
+                provider="local_service",
+                handler=process,
+                required_args=("zotero_item_id", "run_output_dir"),
+            )
+        )
+
+    def _register_synthesis_tool(
+        self,
+        registry: ToolRegistry,
+        run: ResearchRun,
+    ) -> None:
+        def generate(_arguments):
+            result = KnowledgePackSynthesisService().generate(run)
+            updated_run = write_synthesis_files(run, result)
+            return {
+                "run": updated_run,
+                "result": result,
+                "file_count": len(result.files),
+                "summary": f"{len(result.files)} file(s)",
+            }
+
+        registry.register(
+            ToolDefinition(
+                name="research_agent.generate_knowledge_pack",
+                provider="local_synthesis",
+                handler=generate,
+                required_args=("run_id",),
+            )
+        )
+
+    def _register_obsidian_publish_tool(
+        self,
+        registry: ToolRegistry,
+        run: ResearchRun,
+        result: SynthesisResult,
+    ) -> None:
+        def publish(_arguments):
+            published_count = self._publish_obsidian_outputs(run, result)
+            return {
+                "published_count": published_count,
+                "summary": f"{published_count} file(s)",
+            }
+
+        registry.register(
+            ToolDefinition(
+                name="obsidian.publish_knowledge_pack",
+                provider="direct_markdown",
+                handler=publish,
+                required_args=("run_id", "output_dir"),
+                fallback_available=True,
+                fallback_active=True,
+            )
+        )
+
+    def _paper_item_from_tool_result(
+        self,
+        item: ResearchRunPaperItem,
+        result,
+    ) -> ResearchRunPaperItem:
+        if result.status == "failed":
+            return self._failed_paper_item(
+                item,
+                RuntimeError(result.error or "Paper processing failed"),
+            )
+        payload = result.result or {}
+        processed_item = payload.get("item") if isinstance(payload, dict) else None
+        if isinstance(processed_item, ResearchRunPaperItem):
+            return processed_item
+        return self._failed_paper_item(
+            item,
+            RuntimeError("Paper processing returned an invalid result"),
         )
 
     def _publish_obsidian_outputs(
@@ -425,36 +549,3 @@ class ResearchRunService:
 
     def _new_run_id(self, now: datetime) -> str:
         return f"run_{now.strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}"
-
-
-def _append_standard_tool_call(
-    run: ResearchRun,
-    *,
-    tool_name: str,
-    provider: str,
-    arguments: dict[str, object],
-    status: str,
-    result_summary: str,
-    error: str | None = None,
-    fallback_used: bool = False,
-) -> None:
-    started_at = datetime.now(timezone.utc)
-    completed_at = datetime.now(timezone.utc)
-    append_tool_call_record(
-        run,
-        {
-            "tool_name": tool_name,
-            "provider": provider,
-            "arguments": arguments,
-            "status": status,
-            "result_summary": result_summary,
-            "error": error,
-            "started_at": started_at.isoformat(),
-            "completed_at": completed_at.isoformat(),
-            "duration_ms": max(
-                (completed_at - started_at).total_seconds() * 1000.0,
-                0.0,
-            ),
-            "fallback_used": fallback_used,
-        },
-    )
