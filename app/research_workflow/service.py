@@ -72,7 +72,10 @@ class ResearchRunService:
         # Start Zotero MCP server if enabled
         if settings.zotero_mcp_enabled:
             if settings.zotero_mcp_auto_install:
-                ensure_zotero_mcp_installed()
+                success, error = ensure_zotero_mcp_installed()
+                if not success:
+                    logger.warning(f"Failed to install Zotero MCP: {error}")
+                    return manager
 
             try:
                 config = MCPServerConfig(
