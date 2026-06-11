@@ -1,5 +1,8 @@
 from __future__ import annotations
+import logging
 from app.mcp.tool_proxy import MCPToolProxy
+
+logger = logging.getLogger(__name__)
 
 
 class ArxivMCPAdapter:
@@ -14,4 +17,5 @@ class ArxivMCPAdapter:
 
         TODO: Implement when MCP server available.
         """
+        logger.warning(f"ArxivMCPAdapter.search_papers is a stub (query={query})")
         return []
