@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.research_workflow.schemas import ResearchRun, ResearchRunArtifact
+from app.research_workflow.synthesis import SynthesisResult
 
 
 def slugify_run_name(value: str) -> str:
@@ -29,43 +31,93 @@ def create_knowledge_pack_skeleton(
     trace_path = assets_dir / "trace.json"
     tool_calls_path = assets_dir / "tool-calls.jsonl"
 
-    _write_if_missing(summary_path, _render_summary(run))
+    skeleton_artifacts = [
+        ResearchRunArtifact(
+            label="Knowledge Pack",
+            path=str(output_dir),
+            kind="directory",
+        ),
+        ResearchRunArtifact(
+            label="Run Summary",
+            path=str(summary_path),
+            kind="markdown",
+        ),
+        ResearchRunArtifact(
+            label="Trace",
+            path=str(trace_path),
+            kind="json",
+        ),
+        ResearchRunArtifact(
+            label="Tool Calls",
+            path=str(tool_calls_path),
+            kind="jsonl",
+        ),
+    ]
+    updated = run.model_copy(
+        update={
+            "output_dir": str(output_dir),
+            "artifacts": _merge_skeleton_artifacts(run, skeleton_artifacts),
+        }
+    )
+
+    _write_if_missing(summary_path, _render_summary(updated))
     _write_if_missing(
         trace_path,
-        json.dumps(_trace_payload(run), ensure_ascii=False, indent=2),
+        json.dumps(_trace_payload(updated), ensure_ascii=False, indent=2),
     )
     _write_if_missing(tool_calls_path, "")
 
-    return run.model_copy(
-        update={
-            "output_dir": str(output_dir),
-            "artifacts": _merge_skeleton_artifacts(
-                run,
-                [
-                    ResearchRunArtifact(
-                        label="Knowledge Pack",
-                        path=str(output_dir),
-                        kind="directory",
-                    ),
-                    ResearchRunArtifact(
-                        label="Run Summary",
-                        path=str(summary_path),
-                        kind="markdown",
-                    ),
-                    ResearchRunArtifact(
-                        label="Trace",
-                        path=str(trace_path),
-                        kind="json",
-                    ),
-                    ResearchRunArtifact(
-                        label="Tool Calls",
-                        path=str(tool_calls_path),
-                        kind="jsonl",
-                    ),
-                ],
-            ),
-        }
+    return updated
+
+
+def update_knowledge_pack_run_files(run: ResearchRun) -> None:
+    output_dir = Path(run.output_dir)
+    assets_dir = output_dir / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+
+    (output_dir / "00 Run Summary.md").write_text(
+        _render_summary(run),
+        encoding="utf-8",
     )
+    (assets_dir / "trace.json").write_text(
+        json.dumps(_trace_payload(run), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def append_tool_call_record(run: ResearchRun, record: dict[str, object]) -> None:
+    assets_dir = Path(run.output_dir) / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+
+    payload: dict[str, object] = {
+        "run_id": run.run_id,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    payload.update(record)
+
+    with (assets_dir / "tool-calls.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False))
+        handle.write("\n")
+
+
+def write_synthesis_files(run: ResearchRun, result: SynthesisResult) -> ResearchRun:
+    output_dir = Path(run.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    generated_artifacts: list[ResearchRunArtifact] = []
+    for file in result.files:
+        path = output_dir / file.filename
+        path.write_text(file.content, encoding="utf-8")
+        generated_artifacts.append(
+            ResearchRunArtifact(label=file.label, path=str(path), kind="markdown")
+        )
+
+    existing = [
+        artifact
+        for artifact in run.artifacts
+        if artifact.label not in {artifact.label for artifact in generated_artifacts}
+    ]
+    return run.model_copy(update={"artifacts": [*existing, *generated_artifacts]})
 
 
 def _output_dir(run: ResearchRun, vault_root: str | Path) -> Path:
@@ -97,6 +149,10 @@ def _merge_skeleton_artifacts(
 
 
 def _render_summary(run: ResearchRun) -> str:
+    completed_papers = sum(1 for item in run.paper_items if item.status == "completed")
+    failed_papers = sum(1 for item in run.paper_items if item.status == "failed")
+    skipped_papers = sum(1 for item in run.paper_items if item.status == "skipped")
+
     lines = [
         f"# Research Run: {run.collection_name}",
         "",
@@ -105,21 +161,36 @@ def _render_summary(run: ResearchRun) -> str:
         f"- Collection Name: {run.collection_name}",
         f"- Goal: {run.goal}",
         f"- Status: {run.status}",
+        f"- Progress: {run.progress:.0%}",
         f"- Max Papers: {run.options.max_papers}",
+        f"- Completed Papers: {completed_papers}",
+        f"- Failed Papers: {failed_papers}",
+        f"- Skipped Papers: {skipped_papers}",
         "",
         "## Steps",
         "",
     ]
-    lines.extend(f"- {step.agent}: {step.status}" for step in run.steps)
     lines.extend(
-        [
-            "",
-            "## Skeleton",
-            "",
-            "This knowledge pack skeleton was initialized without LLM or external tool calls.",
-            "",
-        ]
+        f"- {step.agent}: {step.status} ({step.progress:.0%})"
+        for step in run.steps
     )
+    lines.extend(["", "## Papers", ""])
+    if run.paper_items:
+        for item in run.paper_items:
+            paper_id = item.paper_id or "not synced"
+            error_suffix = f" - {item.error}" if item.error else ""
+            lines.append(
+                f"- {item.title} [{item.status}] `{paper_id}`{error_suffix}"
+            )
+    else:
+        lines.append("- No paper items have been collected yet.")
+    lines.extend(["", "## Artifacts", ""])
+    if run.artifacts:
+        for artifact in run.artifacts:
+            lines.append(f"- {artifact.label}: {artifact.path}")
+    else:
+        lines.append("- No artifacts have been generated yet.")
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -130,5 +201,12 @@ def _trace_payload(run: ResearchRun) -> dict[str, object]:
         "collection_name": run.collection_name,
         "goal": run.goal,
         "status": run.status,
+        "progress": run.progress,
+        "artifacts": [
+            artifact.model_dump(mode="json") for artifact in run.artifacts
+        ],
+        "paper_items": [
+            item.model_dump(mode="json") for item in run.paper_items
+        ],
         "steps": [step.model_dump(mode="json") for step in run.steps],
     }

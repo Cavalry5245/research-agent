@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.research_workflow.knowledge_pack import (
     create_knowledge_pack_skeleton,
@@ -17,6 +18,7 @@ from app.research_workflow.service import ResearchRunService
 from app.research_workflow.service import ResearchRunConflictError
 from app.research_workflow.service import ResearchRunNotFoundError
 from app.research_workflow.store import FileResearchRunStore
+from app.research_workflow.tool_registry import ToolRegistry
 
 
 def test_research_run_create_request_defaults():
@@ -73,6 +75,55 @@ def test_research_run_model_accepts_artifact_paths():
     assert run.artifacts[0].label == "Run Summary"
 
 
+def test_research_run_model_defaults_to_no_paper_items():
+    now = datetime.now(timezone.utc)
+    run = ResearchRun(
+        run_id="run_20260609_000001",
+        collection_id="COLL123",
+        collection_name="IRSTD",
+        goal="Create a review",
+        steps=build_default_steps(),
+        created_at=now,
+        updated_at=now,
+    )
+
+    assert run.paper_items == []
+
+
+def test_research_run_paper_item_tracks_item_lifecycle():
+    from app.research_workflow.schemas import (
+        ResearchRunPaperArtifact,
+        ResearchRunPaperItem,
+    )
+
+    now = datetime.now(timezone.utc)
+    item = ResearchRunPaperItem(
+        item_id="zotero_ABCD1234",
+        title="Grounding DINO for Infrared Small Target Detection",
+        zotero_item_id="ABCD1234",
+        paper_id="paper_20260609_001",
+        pdf_path="app/storage/papers/demo.pdf",
+        metadata={"doi": "10.1234/demo", "year": 2025},
+        status="completed",
+        progress=1.0,
+        artifacts=[
+            ResearchRunPaperArtifact(
+                label="Paper Note",
+                path="ResearchAgent/Runs/demo/papers/paper_20260609_001.md",
+                kind="markdown",
+            )
+        ],
+        created_at=now,
+        updated_at=now,
+        started_at=now,
+        completed_at=now,
+    )
+
+    assert item.item_id == "zotero_ABCD1234"
+    assert item.status == "completed"
+    assert item.artifacts[0].kind == "markdown"
+
+
 def test_slugify_run_name_keeps_ascii_and_replaces_spaces():
     assert slugify_run_name("IRSTD Literature Review") == "irstd-literature-review"
     assert slugify_run_name("  A/B: RAG + MCP  ") == "a-b-rag-mcp"
@@ -113,6 +164,12 @@ def test_create_knowledge_pack_skeleton_writes_expected_files(tmp_path):
     assert trace["run_id"] == "run_20260609_000001"
     assert trace["steps"][0]["agent"] == "CollectionIntakeAgent"
     assert updated.output_dir == str(output_dir)
+    assert {artifact["label"] for artifact in trace["artifacts"]} == {
+        "Knowledge Pack",
+        "Run Summary",
+        "Trace",
+        "Tool Calls",
+    }
     assert {artifact.label for artifact in updated.artifacts} == {
         "Knowledge Pack",
         "Run Summary",
@@ -186,6 +243,103 @@ def test_create_knowledge_pack_skeleton_preserves_existing_summary_and_trace(tmp
     assert summary_path.read_text(encoding="utf-8") == summary_content
     assert trace_path.read_text(encoding="utf-8") == trace_content
     assert repeated.output_dir == updated.output_dir
+
+
+def test_knowledge_pack_update_rewrites_summary_with_paper_counts(tmp_path):
+    from app.research_workflow.knowledge_pack import update_knowledge_pack_run_files
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    now = datetime.now(timezone.utc)
+    steps = build_default_steps()
+    steps[0].status = "running"
+    steps[0].progress = 0.25
+    run = ResearchRun(
+        run_id="run_20260609_000001",
+        collection_id="COLL123",
+        collection_name="IRSTD",
+        goal="Create an IRSTD review",
+        progress=0.5,
+        steps=steps,
+        paper_items=[
+            ResearchRunPaperItem(
+                item_id="zotero_A1",
+                title="Paper A",
+                zotero_item_id="A1",
+                paper_id="paper_20260609_001",
+                status="completed",
+                progress=1.0,
+                created_at=now,
+                updated_at=now,
+            ),
+            ResearchRunPaperItem(
+                item_id="zotero_B2",
+                title="Paper B",
+                zotero_item_id="B2",
+                status="skipped",
+                progress=1.0,
+                error="No local PDF attachment found",
+                created_at=now,
+                updated_at=now,
+            ),
+        ],
+        created_at=now,
+        updated_at=now,
+    )
+    run = create_knowledge_pack_skeleton(run, tmp_path)
+
+    update_knowledge_pack_run_files(run)
+
+    summary = (Path(run.output_dir) / "00 Run Summary.md").read_text(
+        encoding="utf-8"
+    )
+    trace = json.loads(
+        (Path(run.output_dir) / "assets" / "trace.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert "- Completed Papers: 1" in summary
+    assert "- Skipped Papers: 1" in summary
+    assert "- Progress: 50%" in summary
+    assert "- CollectionIntakeAgent: running (25%)" in summary
+    assert "Paper A" in summary
+    assert "No local PDF attachment found" in summary
+    assert trace["paper_items"][0]["paper_id"] == "paper_20260609_001"
+
+
+def test_append_tool_call_record_writes_jsonl(tmp_path):
+    from app.research_workflow.knowledge_pack import append_tool_call_record
+
+    now = datetime.now(timezone.utc)
+    run = ResearchRun(
+        run_id="run_20260609_000001",
+        collection_id="COLL123",
+        collection_name="IRSTD",
+        goal="Create an IRSTD review",
+        steps=build_default_steps(),
+        created_at=now,
+        updated_at=now,
+    )
+    run = create_knowledge_pack_skeleton(run, tmp_path)
+
+    append_tool_call_record(
+        run,
+        {
+            "tool_name": "zotero.list_collection_items",
+            "provider": "local_http",
+            "status": "completed",
+            "result_summary": "2 items",
+        },
+    )
+
+    lines = (
+        (Path(run.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    assert len(lines) == 1
+    payload = json.loads(lines[0])
+    assert payload["run_id"] == "run_20260609_000001"
+    assert payload["tool_name"] == "zotero.list_collection_items"
 
 
 def test_create_knowledge_pack_skeleton_preserves_non_skeleton_artifacts(tmp_path):
@@ -386,3 +540,592 @@ def test_research_run_service_cancel_marks_running_steps_cancelled(tmp_path):
     assert cancelled.steps[1].completed_at is not None
     assert cancelled.steps[1].message == "Cancelled before execution"
     assert cancelled.steps[4].completed_at is not None
+
+
+def test_research_run_service_execute_local_run_processes_success_and_skip(tmp_path):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path=str(tmp_path / "a.pdf"),
+                    created_at=now,
+                    updated_at=now,
+                ),
+                ResearchRunPaperItem(
+                    item_id="zotero_B2",
+                    title="Paper B",
+                    zotero_item_id="B2",
+                    status="skipped",
+                    progress=1.0,
+                    error="No local PDF attachment found",
+                    created_at=now,
+                    updated_at=now,
+                    completed_at=now,
+                ),
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            completed = item.model_copy(
+                update={
+                    "paper_id": "paper_20260609_001",
+                    "status": "completed",
+                    "progress": 1.0,
+                    "updated_at": datetime.now(timezone.utc),
+                    "completed_at": datetime.now(timezone.utc),
+                }
+            )
+            return PaperProcessingResult(
+                item=completed,
+                chunk_count=2,
+                note_path="note.md",
+                vector_backend="fake",
+            )
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(
+            collection_id="COLL123",
+            collection_name="IRSTD",
+            options=ResearchRunOptions(max_papers=2),
+        )
+    )
+
+    executed = service.execute_local_run(
+        run.run_id, intake_service=FakeIntake(), paper_processor=FakeProcessor()
+    )
+
+    assert executed.status == "completed"
+    assert executed.progress == 1.0
+    assert [item.status for item in executed.paper_items] == ["completed", "skipped"]
+    assert executed.steps[0].status == "completed"
+    assert executed.steps[1].status == "completed"
+    assert store.get(run.run_id).paper_items[0].paper_id == "paper_20260609_001"
+    summary = (Path(executed.output_dir) / "00 Run Summary.md").read_text(
+        encoding="utf-8"
+    )
+    assert "- Completed Papers: 1" in summary
+    assert "- Skipped Papers: 1" in summary
+
+
+def test_research_run_service_execute_local_run_marks_intake_exception_failed(
+    tmp_path,
+):
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            raise RuntimeError("zotero offline")
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="IRSTD")
+    )
+
+    executed = service.execute_local_run(
+        run.run_id,
+        intake_service=FakeIntake(),
+        paper_processor=object(),
+    )
+
+    persisted = store.get(run.run_id)
+    assert persisted is not None
+    assert executed.status == "failed"
+    assert persisted.status == "failed"
+    assert persisted.progress == 1.0
+    assert persisted.completed_at is not None
+    assert "zotero offline" in (persisted.error or "")
+    intake_step = persisted.steps[0]
+    assert intake_step.step_id == "collection_intake"
+    assert intake_step.status == "failed"
+    assert intake_step.progress == 1.0
+    assert intake_step.completed_at is not None
+    assert "zotero offline" in (intake_step.error or "")
+
+    summary = (Path(persisted.output_dir) / "00 Run Summary.md").read_text(
+        encoding="utf-8"
+    )
+    trace = json.loads(
+        (Path(persisted.output_dir) / "assets" / "trace.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    tool_calls = (
+        (Path(persisted.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    tool_payload = json.loads(tool_calls[0])
+    assert "- Status: failed" in summary
+    assert "- CollectionIntakeAgent: failed (100%)" in summary
+    assert trace["status"] == "failed"
+    assert trace["steps"][0]["status"] == "failed"
+    assert "zotero offline" in trace["steps"][0]["error"]
+    assert tool_payload["tool_name"] == "zotero.list_collection_items"
+    assert tool_payload["status"] == "failed"
+    assert "zotero offline" in tool_payload["result_summary"]
+
+
+def test_research_run_service_execute_local_run_keeps_going_after_item_failure(
+    tmp_path,
+):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path="a.pdf",
+                    created_at=now,
+                    updated_at=now,
+                ),
+                ResearchRunPaperItem(
+                    item_id="zotero_B2",
+                    title="Paper B",
+                    zotero_item_id="B2",
+                    pdf_path="b.pdf",
+                    created_at=now,
+                    updated_at=now,
+                ),
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            now = datetime.now(timezone.utc)
+            if item.zotero_item_id == "A1":
+                raise RuntimeError("parse exploded")
+            return PaperProcessingResult(
+                item=item.model_copy(
+                    update={
+                        "paper_id": "paper_20260609_002",
+                        "status": "completed",
+                        "progress": 1.0,
+                        "updated_at": now,
+                        "completed_at": now,
+                    }
+                ),
+                chunk_count=1,
+            )
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="IRSTD")
+    )
+
+    executed = service.execute_local_run(
+        run.run_id, intake_service=FakeIntake(), paper_processor=FakeProcessor()
+    )
+
+    assert executed.status == "completed"
+    assert [item.status for item in executed.paper_items] == ["failed", "completed"]
+    assert "parse exploded" in (executed.paper_items[0].error or "")
+    assert executed.paper_items[1].paper_id == "paper_20260609_002"
+
+
+def test_research_run_service_execute_local_run_records_registry_tool_fields(
+    tmp_path,
+):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path="a.pdf",
+                    created_at=now,
+                    updated_at=now,
+                )
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            now = datetime.now(timezone.utc)
+            return PaperProcessingResult(
+                item=item.model_copy(
+                    update={
+                        "paper_id": "paper_20260611_001",
+                        "status": "completed",
+                        "progress": 1.0,
+                        "updated_at": now,
+                        "completed_at": now,
+                    }
+                ),
+                chunk_count=1,
+            )
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="IRSTD")
+    )
+
+    executed = service.execute_local_run(
+        run.run_id,
+        intake_service=FakeIntake(),
+        paper_processor=FakeProcessor(),
+    )
+
+    records = [
+        json.loads(line)
+        for line in (
+            Path(executed.output_dir) / "assets" / "tool-calls.jsonl"
+        ).read_text(encoding="utf-8").splitlines()
+    ]
+    assert records
+    for record in records:
+        for field in (
+            "run_id",
+            "tool_name",
+            "provider",
+            "arguments",
+            "status",
+            "result_summary",
+            "error",
+            "started_at",
+            "completed_at",
+            "duration_ms",
+            "fallback_used",
+        ):
+            assert field in record
+    assert records[0]["tool_name"] == "zotero.list_collection_items"
+    assert records[0]["arguments"] == {"collection_id": "COLL123", "max_papers": 5}
+    assert records[1]["tool_name"] == "research_agent.process_paper"
+    assert records[1]["result_summary"] == "paper_20260611_001"
+
+
+def test_research_run_service_execute_local_run_dispatches_registry_tools(
+    tmp_path,
+):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path="a.pdf",
+                    created_at=now,
+                    updated_at=now,
+                )
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            now = datetime.now(timezone.utc)
+            return PaperProcessingResult(
+                item=item.model_copy(
+                    update={
+                        "paper_id": "paper_20260611_001",
+                        "status": "completed",
+                        "progress": 1.0,
+                        "updated_at": now,
+                        "completed_at": now,
+                    }
+                ),
+                chunk_count=1,
+            )
+
+    registry = ToolRegistry()
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(
+        store=store,
+        vault_root=tmp_path / "vault",
+        tool_registry_factory=lambda: registry,
+    )
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="IRSTD")
+    )
+
+    service.execute_local_run(
+        run.run_id,
+        intake_service=FakeIntake(),
+        paper_processor=FakeProcessor(),
+    )
+
+    assert [record["tool_name"] for record in registry.call_records()] == [
+        "zotero.list_collection_items",
+        "research_agent.process_paper",
+        "research_agent.generate_knowledge_pack",
+        "obsidian.publish_knowledge_pack",
+    ]
+
+
+def test_research_run_service_execute_local_run_generates_knowledge_pack_outputs(
+    tmp_path,
+):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path="a.pdf",
+                    metadata={"year": 2025, "doi": "10.1234/a"},
+                    created_at=now,
+                    updated_at=now,
+                )
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            now = datetime.now(timezone.utc)
+            return PaperProcessingResult(
+                item=item.model_copy(
+                    update={
+                        "paper_id": "paper_20260611_001",
+                        "status": "completed",
+                        "progress": 1.0,
+                        "updated_at": now,
+                        "completed_at": now,
+                    }
+                ),
+                chunk_count=1,
+            )
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="IRSTD")
+    )
+
+    executed = service.execute_local_run(
+        run.run_id,
+        intake_service=FakeIntake(),
+        paper_processor=FakeProcessor(),
+    )
+
+    output_dir = Path(executed.output_dir)
+    expected_files = [
+        "01 Literature Review.md",
+        "02 Method Matrix.md",
+        "03 Research Gaps.md",
+        "04 Experiment Plan.md",
+        "05 Reading Roadmap.md",
+    ]
+    for filename in expected_files:
+        assert (output_dir / filename).is_file()
+    steps_by_id = {step.step_id: step for step in executed.steps}
+    assert steps_by_id["literature_synthesis"].status == "completed"
+    assert steps_by_id["experiment_planning"].status == "completed"
+    assert steps_by_id["obsidian_publishing"].status == "completed"
+    artifact_labels = {artifact.label for artifact in executed.artifacts}
+    assert {
+        "Literature Review",
+        "Method Matrix",
+        "Research Gaps",
+        "Experiment Plan",
+        "Reading Roadmap",
+    }.issubset(artifact_labels)
+    summary = (output_dir / "00 Run Summary.md").read_text(encoding="utf-8")
+    trace = json.loads((output_dir / "assets" / "trace.json").read_text(encoding="utf-8"))
+    records = [
+        json.loads(line)
+        for line in (output_dir / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert "Literature Review" in summary
+    assert any(artifact["label"] == "Experiment Plan" for artifact in trace["artifacts"])
+    assert any(
+        record["tool_name"] == "research_agent.generate_knowledge_pack"
+        for record in records
+    )
+    assert any(record["tool_name"] == "obsidian.publish_knowledge_pack" for record in records)
+
+
+def test_research_run_service_execute_local_run_persists_synthesis_failure(
+    tmp_path,
+    monkeypatch,
+):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+    from app.research_workflow import service as service_module
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path="a.pdf",
+                    created_at=now,
+                    updated_at=now,
+                )
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            now = datetime.now(timezone.utc)
+            return PaperProcessingResult(
+                item=item.model_copy(
+                    update={
+                        "paper_id": "paper_20260611_001",
+                        "status": "completed",
+                        "progress": 1.0,
+                        "updated_at": now,
+                        "completed_at": now,
+                    }
+                ),
+                chunk_count=1,
+            )
+
+    class ExplodingSynthesisService:
+        def generate(self, run):
+            raise RuntimeError("synthesis exploded")
+
+    monkeypatch.setattr(
+        service_module,
+        "KnowledgePackSynthesisService",
+        lambda: ExplodingSynthesisService(),
+    )
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="IRSTD")
+    )
+
+    executed = service.execute_local_run(
+        run.run_id,
+        intake_service=FakeIntake(),
+        paper_processor=FakeProcessor(),
+    )
+
+    persisted = store.get(run.run_id)
+    steps_by_id = {step.step_id: step for step in persisted.steps}
+    records = [
+        json.loads(line)
+        for line in (Path(persisted.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+
+    assert executed.status == "failed"
+    assert persisted.status == "failed"
+    assert "synthesis exploded" in (persisted.error or "")
+    assert steps_by_id["literature_synthesis"].status == "failed"
+    assert "synthesis exploded" in (steps_by_id["literature_synthesis"].error or "")
+    assert any(
+        record["tool_name"] == "research_agent.generate_knowledge_pack"
+        and record["status"] == "failed"
+        and "synthesis exploded" in (record["error"] or "")
+        for record in records
+    )
+
+
+def test_research_run_service_execute_local_run_persists_obsidian_publish_failure(
+    tmp_path,
+    monkeypatch,
+):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+    from app.research_workflow import service as service_module
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path="a.pdf",
+                    created_at=now,
+                    updated_at=now,
+                )
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            now = datetime.now(timezone.utc)
+            return PaperProcessingResult(
+                item=item.model_copy(
+                    update={
+                        "paper_id": "paper_20260611_001",
+                        "status": "completed",
+                        "progress": 1.0,
+                        "updated_at": now,
+                        "completed_at": now,
+                    }
+                ),
+                chunk_count=1,
+            )
+
+    class ExplodingObsidianAdapter:
+        def __init__(self, vault_root):
+            self.vault_root = vault_root
+
+        def publish_markdown(self, note_name, content):
+            raise RuntimeError("obsidian unavailable")
+
+    monkeypatch.setattr(service_module, "ObsidianAdapter", ExplodingObsidianAdapter)
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(store=store, vault_root=tmp_path / "vault")
+    run = service.create_run(
+        ResearchRunCreateRequest(
+            collection_id="COLL123",
+            collection_name="IRSTD",
+            options=ResearchRunOptions(
+                obsidian_publish=True,
+                obsidian_vault_path=str(tmp_path / "obsidian"),
+            ),
+        )
+    )
+
+    executed = service.execute_local_run(
+        run.run_id,
+        intake_service=FakeIntake(),
+        paper_processor=FakeProcessor(),
+    )
+
+    persisted = store.get(run.run_id)
+    steps_by_id = {step.step_id: step for step in persisted.steps}
+    records = [
+        json.loads(line)
+        for line in (Path(persisted.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+
+    assert executed.status == "failed"
+    assert persisted.status == "failed"
+    assert "obsidian unavailable" in (persisted.error or "")
+    assert steps_by_id["literature_synthesis"].status == "completed"
+    assert steps_by_id["obsidian_publishing"].status == "failed"
+    assert "obsidian unavailable" in (steps_by_id["obsidian_publishing"].error or "")
+    assert any(
+        record["tool_name"] == "obsidian.publish_knowledge_pack"
+        and record["status"] == "failed"
+        and "obsidian unavailable" in (record["error"] or "")
+        for record in records
+    )

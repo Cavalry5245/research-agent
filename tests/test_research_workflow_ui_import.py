@@ -108,3 +108,57 @@ def test_research_run_selector_preserves_valid_widget_state_before_render():
         'st.session_state.get("research_run_selector") != selected_research_run_id'
         not in pre_selectbox_source
     )
+
+
+def test_research_workflow_ui_contains_local_execute_action():
+    source = _streamlit_source()
+
+    assert "Process Local Collection" in source
+    assert "execute_local_run" in source
+    assert 'run.status == "failed"' in source
+    assert "run.error" in source
+    assert "Local collection processing failed" in source
+    assert "paper_items" in source
+    assert "Zotero Item" in source
+
+
+def test_research_workflow_ui_displays_paper_item_status_columns():
+    source = _streamlit_source()
+
+    for token in (
+        "Paper Items",
+        "item.zotero_item_id",
+        "item.paper_id",
+        "item.pdf_path",
+        "item.error",
+    ):
+        assert token in source
+
+
+def test_research_workflow_ui_contains_tool_health_status():
+    source = _streamlit_source()
+
+    for token in (
+        "Tool Health",
+        "fallback",
+        "ResearchAgent MCP Server",
+        "Semantic Scholar",
+        "arXiv",
+    ):
+        assert token in source
+
+
+def test_research_workflow_ui_contains_m4_result_signals():
+    source = _streamlit_source()
+
+    for token in (
+        "Agent Timeline",
+        "Knowledge Pack Outputs",
+        "Literature Review",
+        "Method Matrix",
+        "Research Gaps",
+        "Experiment Plan",
+        "Reading Roadmap",
+        "tool-calls.jsonl",
+    ):
+        assert token in source

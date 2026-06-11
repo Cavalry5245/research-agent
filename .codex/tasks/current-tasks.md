@@ -1,0 +1,26 @@
+# Current tasks
+
+- [x] Task 1: Add tool registry and standardized tool-call records.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_tool_registry.py -q`
+  - Completion note: Added `ToolRegistry`, `ToolDefinition`, `ToolCallResult`, `ToolHealth`, default `research_agent.echo`, standardized in-memory and JSONL records, and focused registry tests. Subagent CLI dispatch was blocked by unsupported model access, so this task was implemented in the main session. Local verification passed with 6 tests.
+- [x] Task 2: Add local fallback tool adapters.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_tool_adapters.py -q`
+  - Completion note: Added local-first Zotero, Obsidian, Semantic Scholar, and arXiv adapters with fallback health reporting, direct Markdown publishing constrained to the vault root, and focused adapter tests. Local verification passed with 5 tests.
+- [x] Task 3: Add ResearchAgent MCP-style tool facade.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_agent_mcp_server.py -q`
+  - Completion note: Added in-process `ResearchAgentMCPServer` with request/response models and callable local tools for listing papers, reading trace, exporting Knowledge Pack metadata, chunk search, question answering, and paper comparison fallback. Local verification passed with 7 tests.
+- [x] Task 4: Integrate tool registry with ResearchRun service, router, and UI health.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_research_run_router.py tests/test_research_workflow_ui_import.py -q`
+  - Completion note: Standardized ResearchRun tool-call records, added tool health and MCP tool-call router endpoints, and surfaced Tool Health/fallback status in Streamlit. Local verification passed with 39 tests and one Starlette/httpx deprecation warning.
+- [x] Task 5: Add deterministic multi-agent synthesis.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_synthesis.py -q`
+  - Completion note: Added deterministic `KnowledgePackSynthesisService` that generates literature review, method matrix, research gaps, experiment plan, and reading roadmap Markdown content with evidence links and actionable experiment planning. Local verification passed with 3 tests.
+- [x] Task 6: Publish complete Obsidian-ready Knowledge Pack.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_run_service.py tests/test_synthesis.py -q`
+  - Completion note: Wired deterministic synthesis into `execute_local_run`, wrote five Knowledge Pack Markdown outputs, attached generated artifacts, completed synthesis/planning/publishing steps, and recorded synthesis/publishing tool calls. Local verification passed with 29 tests.
+- [x] Task 7: Add run result page signals and agent timeline.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_research_workflow_ui_import.py -q`
+  - Completion note: Added Agent Timeline and Knowledge Pack Outputs sections to the Research Workflow page and source smoke checks for the five generated M4 output labels and tool-call trace signal. Local verification passed with 9 tests.
+- [x] Task 8: Run M3/M4 verification and update execution tracker.
+  - Verification: `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe -m pytest tests/test_tool_registry.py tests/test_tool_adapters.py tests/test_research_agent_mcp_server.py tests/test_synthesis.py tests/test_research_run_service.py tests/test_research_run_router.py tests/test_research_workflow_ui_import.py tests/test_zotero_intake.py tests/test_paper_processing_service.py tests/test_research_run_store.py -q`
+  - Completion note: Full M3/M4 and M2 compatibility verification passed with 80 tests. `git diff --check` reported no whitespace errors, only Windows CRLF conversion warnings. `git status --short` was inspected; pre-existing untracked `.codex/`, pytest temp, `tests/app/`, and `third_party/` entries remain untouched.

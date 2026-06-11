@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -42,6 +42,32 @@ class ResearchRunArtifact(BaseModel):
     kind: Literal["markdown", "json", "jsonl", "directory"]
 
 
+ResearchRunPaperStatus = Literal["queued", "running", "completed", "failed", "skipped"]
+
+
+class ResearchRunPaperArtifact(BaseModel):
+    label: str
+    path: str
+    kind: Literal["pdf", "markdown", "json", "vector_index"]
+
+
+class ResearchRunPaperItem(BaseModel):
+    item_id: str
+    title: str
+    zotero_item_id: str
+    paper_id: str | None = None
+    pdf_path: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    status: ResearchRunPaperStatus = "queued"
+    progress: float = Field(default=0.0, ge=0.0, le=1.0)
+    error: str | None = None
+    artifacts: list[ResearchRunPaperArtifact] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 class ResearchRun(BaseModel):
     run_id: str
     goal: str
@@ -53,6 +79,7 @@ class ResearchRun(BaseModel):
     options: ResearchRunOptions = Field(default_factory=ResearchRunOptions)
     steps: list[ResearchRunStep] = Field(default_factory=list)
     artifacts: list[ResearchRunArtifact] = Field(default_factory=list)
+    paper_items: list[ResearchRunPaperItem] = Field(default_factory=list)
     output_dir: str = ""
     error: str | None = None
     created_at: datetime
