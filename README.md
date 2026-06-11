@@ -38,12 +38,27 @@
 | LLM | OpenAI-compatible API (DeepSeek / Qwen / Ollama) |
 | Embedding | sentence-transformers (bge-small-zh-v1.5) + 多模型切换 (bge-large / m3e / bge-m3) |
 | 向量检索 | 余弦相似度（接口兼容 Chroma） |
+| **MCP Integration** | **Model Context Protocol (MCP) Agent - 自动管理 Zotero/Semantic Scholar/arXiv 工具调用** |
 | **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排 + Supervisor 多 Agent）** |
 | **Multi-Agent** | **LangGraph Supervisor + 4 Specialist Agents + SQLite Memory** |
 | **Analytics (Phase 2)** | **pandas + matplotlib + seaborn + scipy（指标 / 可视化 / 显著性检验）** |
 | **Production readiness (Phase 3)** | **FastAPI BackgroundTasks + FileJobStore + JSONL logging + request tracing** |
 | 评测 | `app/evaluation` schemas + seed dataset builder + retrieval / QA benchmark scripts |
 | 配置 | .env (pydantic-settings) |
+
+## MCP Agent Integration
+
+ResearchAgent 实现了 **Model Context Protocol (MCP)** 用于外部工具集成：
+
+- **Zotero MCP**: 自动管理 Zotero collection 访问，无需手动 HTTP API 配置
+- **架构**: Agent-as-Client 模式，自动启动和管理 MCP 服务器进程
+- **特性**: 
+  - 自动安装 MCP 服务器（`pip install zotero-mcp-server`）
+  - 线程安全的服务器生命周期管理
+  - 优雅降级（MCP 失败不影响核心功能）
+  - 健康检查和自动重启
+
+详见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#mcp-agent-architecture) 和 [`docs/JD_MCP_CAPABILITIES.md`](docs/JD_MCP_CAPABILITIES.md)。
 
 ## Phase 1 Benchmark & Evaluation
 
@@ -123,8 +138,8 @@ streamlit run ui/streamlit_app.py
 
 # 或启动 FastAPI 后端
 uvicorn app.main:app --reload
-# → http://localhost:8000
-# → API 文档: http://localhost:8000/docs
+# → http://localhost:8888
+# → API 文档: http://localhost:8888/docs
 ```
 
 ## 使用流程
@@ -209,24 +224,24 @@ Storage: papers/ | notes/ | metadata/ | vector_db/ | logs/
 
 ```powershell
 # 上传 PDF
-curl -X POST http://localhost:8000/papers/upload -F "file=@paper.pdf"
+curl -X POST http://localhost:8888/papers/upload -F "file=@paper.pdf"
 
 # 生成笔记
-curl -X POST http://localhost:8000/papers/paper_20260505_001/note
+curl -X POST http://localhost:8888/papers/paper_20260505_001/note
 
 # 论文问答
-curl -X POST http://localhost:8000/qa \
+curl -X POST http://localhost:8888/qa \
   -H "Content-Type: application/json" \
   -d '{"question":"核心创新点是什么？","top_k":5}'
 
 # 查看单篇索引状态
-curl http://localhost:8000/papers/paper_20260505_001/index-status
+curl http://localhost:8888/papers/paper_20260505_001/index-status
 
 # 查看知识库索引汇总
-curl http://localhost:8000/library/index-status
+curl http://localhost:8888/library/index-status
 
 # 多论文对比
-curl -X POST http://localhost:8000/papers/compare \
+curl -X POST http://localhost:8888/papers/compare \
   -H "Content-Type: application/json" \
   -d '{"paper_ids":["paper_20260505_001","paper_20260505_002"]}'
 ```
