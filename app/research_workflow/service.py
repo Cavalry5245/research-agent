@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from app.config import settings
+from app.mcp.client_manager import MCPClientManager
+from app.mcp.installer import ensure_zotero_mcp_installed
+from app.mcp.schemas import MCPServerConfig
 from app.research_workflow.knowledge_pack import (
     create_knowledge_pack_skeleton,
     update_knowledge_pack_run_files,
@@ -33,6 +38,8 @@ from app.research_workflow.zotero_intake import (
     ZoteroLocalHttpClient,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class ResearchRunNotFoundError(KeyError):
     pass
@@ -48,10 +55,37 @@ class ResearchRunService:
         store: FileResearchRunStore,
         vault_root: str | Path,
         tool_registry_factory: Callable[[], ToolRegistry] | None = None,
+        mcp_manager: MCPClientManager | None = None,
     ) -> None:
         self._store = store
         self._vault_root = Path(vault_root)
         self._tool_registry_factory = tool_registry_factory or build_default_tool_registry
+        self._mcp_manager = mcp_manager if mcp_manager is not None else self._init_mcp_manager()
+
+    def _init_mcp_manager(self) -> MCPClientManager | None:
+        """Initialize MCP manager and start configured servers."""
+        if not settings.mcp_enabled:
+            return None
+
+        manager = MCPClientManager()
+
+        # Start Zotero MCP server if enabled
+        if settings.zotero_mcp_enabled:
+            if settings.zotero_mcp_auto_install:
+                ensure_zotero_mcp_installed()
+
+            try:
+                config = MCPServerConfig(
+                    name="zotero",
+                    command=["zotero-mcp"],
+                    env={"ZOTERO_DATA_DIR": settings.zotero_data_dir} if settings.zotero_data_dir else {}
+                )
+                manager.start_server(config)
+                logger.info("Zotero MCP server started")
+            except Exception as e:
+                logger.warning(f"Failed to start Zotero MCP server: {e}")
+
+        return manager
 
     def create_run(self, request: ResearchRunCreateRequest) -> ResearchRun:
         now = datetime.now(timezone.utc)
