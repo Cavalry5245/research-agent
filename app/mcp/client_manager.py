@@ -34,6 +34,42 @@ class MCPClientManager:
         with self._lock:
             return self._servers.get(name)
 
+    def start_server(self, config: MCPServerConfig) -> MCPServerProcess:
+        import os
+
+        with self._lock:
+            if config.name in self._servers:
+                raise ValueError(f"Server {config.name} already exists")
+
+            # Start subprocess
+            process = subprocess.Popen(
+                config.command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env={**os.environ, **config.env},
+                cwd=config.cwd
+            )
+
+            server = MCPServerProcess(config, process)
+            self._servers[config.name] = server
+            return server
+
+    def stop_server(self, name: str) -> None:
+        with self._lock:
+            server = self._servers.get(name)
+            if server is None:
+                raise ValueError(f"Server {name} not found")
+            del self._servers[name]
+
+        if server.is_running():
+            server.process.terminate()
+            try:
+                server.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                server.process.kill()
+                server.process.wait()
+
     def shutdown_all(self) -> None:
         with self._lock:
             servers = list(self._servers.values())
