@@ -87,24 +87,29 @@ class MCPToolResult(BaseModel):
 
 #### ✅ 多工具集成
 
-**实现：** Zotero、Semantic Scholar、arXiv 适配器
+**实现：** Zotero、Semantic Scholar、arXiv 适配器（Phase 2：接口定义，MCP 协议通信待实现）
 
 ```python
-# 适配器模式
+# 适配器模式 - 当前为 stub 实现，展示架构设计
 class ZoteroMCPAdapter:
     def list_collection_items(collection_id: str) -> list[ZoteroCollectionItem]
+        # TODO: 实现 MCP protocol 调用
 
 class SemanticScholarMCPAdapter:
     def search_papers(query: str, limit: int) -> list[dict]
+        # TODO: 实现 MCP protocol 调用
 
 class ArxivMCPAdapter:
     def search_papers(query: str, max_results: int) -> list[dict]
+        # TODO: 实现 MCP protocol 调用
 ```
 
 **代码位置：**
-- `app/research_workflow/zotero_mcp_adapter.py`
-- `app/research_workflow/semantic_scholar_mcp_adapter.py`
-- `app/research_workflow/arxiv_mcp_adapter.py`
+- `app/research_workflow/zotero_mcp_adapter.py` （stub）
+- `app/research_workflow/semantic_scholar_mcp_adapter.py` （stub）
+- `app/research_workflow/arxiv_mcp_adapter.py` （stub）
+
+**实现状态：** 当前为演示架构的 stub 实现，MCP stdio/SSE 协议通信计划在 Phase 3 完成。
 
 #### ✅ 配置驱动架构
 
@@ -224,7 +229,7 @@ def _init_mcp_manager(self):
 
 **统计：**
 - 测试文件：5 个
-- 测试用例：15+ 个
+- 测试用例：13 个
 - 覆盖率：核心 MCP 模块 100%
 
 **代码位置：**
