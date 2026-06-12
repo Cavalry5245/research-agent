@@ -87,29 +87,33 @@ class MCPToolResult(BaseModel):
 
 #### ✅ 多工具集成
 
-**实现：** Zotero、Semantic Scholar、arXiv 适配器（Phase 2：接口定义，MCP 协议通信待实现）
+**Current implementation status:** ResearchAgent now has real stdio MCP client calls, Zotero MCP primary intake, minimal Semantic Scholar and arXiv MCP servers, and a ResearchAgent stdio MCP server. Local Zotero HTTP, direct Markdown publishing, and local metadata remain explicit fallbacks.
 
 ```python
-# 适配器模式 - 当前为 stub 实现，展示架构设计
+# Adapter pattern
 class ZoteroMCPAdapter:
     def list_collection_items(collection_id: str) -> list[ZoteroCollectionItem]
-        # TODO: 实现 MCP protocol 调用
 
 class SemanticScholarMCPAdapter:
     def search_papers(query: str, limit: int) -> list[dict]
-        # TODO: 实现 MCP protocol 调用
 
 class ArxivMCPAdapter:
     def search_papers(query: str, max_results: int) -> list[dict]
-        # TODO: 实现 MCP protocol 调用
 ```
 
-**代码位置：**
-- `app/research_workflow/zotero_mcp_adapter.py` （stub）
-- `app/research_workflow/semantic_scholar_mcp_adapter.py` （stub）
-- `app/research_workflow/arxiv_mcp_adapter.py` （stub）
+**Code locations:**
+- `app/mcp/stdio_session.py` - real stdio MCP session lifecycle.
+- `app/mcp/client_manager.py` - starts and tracks live MCP sessions.
+- `app/mcp/tool_proxy.py` - lists and calls MCP tools through the manager.
+- `app/research_workflow/zotero_mcp_adapter.py` - calls `zotero_get_collection_items` and parses structured or Markdown output.
+- `app/mcp/minimal_semantic_scholar_server.py` and `app/research_workflow/semantic_scholar_mcp_adapter.py` - minimal Semantic Scholar MCP server and adapter.
+- `app/mcp/minimal_arxiv_server.py` and `app/research_workflow/arxiv_mcp_adapter.py` - minimal arXiv MCP server and adapter.
+- `app/research_workflow/mcp_stdio_server.py` - standard ResearchAgent MCP server entry point.
 
-**实现状态：** 当前为演示架构的 stub 实现，MCP stdio/SSE 协议通信计划在 Phase 3 完成。
+**Capability boundary:**
+- Implemented: local Zotero API fallback, Research Run workflow, Knowledge Pack generation, FastAPI tool facade.
+- Implemented after MCP Hub completion: standard MCP client calls, Zotero MCP primary intake, Semantic Scholar MCP, arXiv MCP, ResearchAgent stdio MCP server.
+- Not claimed: production hosted MCP gateway, multi-user auth, cloud deployment.
 
 #### ✅ 配置驱动架构
 
@@ -120,7 +124,7 @@ class ArxivMCPAdapter:
 class Settings(BaseSettings):
     mcp_enabled: bool = True
     zotero_mcp_enabled: bool = True
-    zotero_mcp_auto_install: bool = True
+    zotero_mcp_auto_install: bool = False
     zotero_data_dir: str = ""
 ```
 
@@ -275,9 +279,9 @@ Total: ~245 lines of production code
 - feat: add Zotero MCP adapter skeleton
 - feat: add Zotero MCP server installer
 - feat: integrate Zotero MCP server auto-start
-- feat: add list_collection_items stub to Zotero adapter
-- feat: add Semantic Scholar MCP adapter stub
-- feat: add arXiv MCP adapter stub
+- feat: implement Zotero MCP collection intake
+- feat: add Semantic Scholar MCP adapter and server
+- feat: add arXiv MCP adapter and server
 - docs: add MCP agent architecture documentation
 - docs: add JD capabilities alignment document
 - docs: add MCP integration to README

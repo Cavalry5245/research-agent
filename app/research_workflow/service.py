@@ -17,18 +17,24 @@ from app.research_workflow.knowledge_pack import (
     write_synthesis_files,
 )
 from app.research_workflow.paper_processing import PaperProcessingService
+from app.research_workflow.arxiv_mcp_adapter import ArxivMCPAdapter
 from app.research_workflow.schemas import (
     ResearchRun,
     ResearchRunCreateRequest,
     ResearchRunPaperItem,
     build_default_steps,
 )
+from app.research_workflow.semantic_scholar_mcp_adapter import SemanticScholarMCPAdapter
 from app.research_workflow.store import FileResearchRunStore
 from app.research_workflow.synthesis import (
     KnowledgePackSynthesisService,
     SynthesisResult,
 )
-from app.research_workflow.tool_adapters import ObsidianAdapter
+from app.research_workflow.tool_adapters import (
+    ArxivAdapter,
+    ObsidianAdapter,
+    SemanticScholarAdapter,
+)
 from app.research_workflow.tool_registry import (
     ToolDefinition,
     ToolRegistry,
@@ -233,6 +239,7 @@ class ResearchRunService:
         update_knowledge_pack_run_files(run)
 
         self._register_paper_processing_tool(tool_registry, paper_processor, items)
+        self._register_enrichment_tools(tool_registry)
         processed_items = []
         for index, item in enumerate(items, start=1):
             if item.status != "queued":
@@ -247,6 +254,11 @@ class ResearchRunService:
                     run=run,
                 )
                 processed_item = self._paper_item_from_tool_result(item, result)
+                processed_item = self._enrich_paper_item(
+                    processed_item,
+                    tool_registry,
+                    run,
+                )
                 processed_items.append(processed_item)
             progress = index / max(len(items), 1)
             run = run.model_copy(
@@ -441,6 +453,124 @@ class ResearchRunService:
                 required_args=("zotero_item_id", "run_output_dir"),
             )
         )
+
+    def _register_enrichment_tools(self, registry: ToolRegistry) -> None:
+        proxy = MCPToolProxy(self._mcp_manager) if self._mcp_manager is not None else None
+        running_servers = set(self._mcp_manager.list_servers()) if self._mcp_manager is not None else set()
+
+        if proxy is not None and "semantic-scholar" in running_servers:
+            semantic_adapter = SemanticScholarMCPAdapter(proxy)
+
+            def enrich_semantic(arguments):
+                papers = semantic_adapter.search_papers(
+                    str(arguments["query"]),
+                    int(arguments.get("limit") or 3),
+                )
+                return {
+                    "papers": papers,
+                    "summary": f"{len(papers)} Semantic Scholar paper(s)",
+                }
+
+            registry.register(
+                ToolDefinition(
+                    name="semantic_scholar.enrich",
+                    provider="semantic_scholar_mcp",
+                    handler=enrich_semantic,
+                    required_args=("query",),
+                    fallback_available=True,
+                    fallback_active=False,
+                )
+            )
+        else:
+            semantic_fallback = SemanticScholarAdapter(available=False)
+            registry.register(
+                ToolDefinition(
+                    name="semantic_scholar.enrich",
+                    provider="local_metadata",
+                    handler=lambda arguments: semantic_fallback.enrich(arguments),
+                    required_args=("title",),
+                    fallback_available=True,
+                    fallback_active=True,
+                )
+            )
+
+        if proxy is not None and "arxiv" in running_servers:
+            arxiv_adapter = ArxivMCPAdapter(proxy)
+
+            def find_arxiv(arguments):
+                papers = arxiv_adapter.search_papers(
+                    str(arguments["query"]),
+                    int(arguments.get("max_results") or 3),
+                )
+                return {
+                    "papers": papers,
+                    "summary": f"{len(papers)} arXiv paper(s)",
+                }
+
+            registry.register(
+                ToolDefinition(
+                    name="arxiv.find_preprint",
+                    provider="arxiv_mcp",
+                    handler=find_arxiv,
+                    required_args=("query",),
+                    fallback_available=True,
+                    fallback_active=False,
+                )
+            )
+        else:
+            arxiv_fallback = ArxivAdapter(available=False)
+            registry.register(
+                ToolDefinition(
+                    name="arxiv.find_preprint",
+                    provider="local_metadata",
+                    handler=lambda arguments: arxiv_fallback.find_preprint(arguments),
+                    required_args=("title",),
+                    fallback_available=True,
+                    fallback_active=True,
+                )
+            )
+
+    def _enrich_paper_item(
+        self,
+        item: ResearchRunPaperItem,
+        registry: ToolRegistry,
+        run: ResearchRun,
+    ) -> ResearchRunPaperItem:
+        if item.status not in {"completed", "skipped"}:
+            return item
+
+        metadata = dict(item.metadata)
+        if run.options.semantic_scholar:
+            semantic_result = registry.dispatch(
+                "semantic_scholar.enrich",
+                {
+                    "title": item.title,
+                    "query": item.title,
+                    "limit": 3,
+                    **metadata,
+                },
+                run=run,
+            )
+            if semantic_result.status == "completed":
+                metadata["semantic_scholar"] = semantic_result.result
+
+        if run.options.arxiv:
+            arxiv_result = registry.dispatch(
+                "arxiv.find_preprint",
+                {
+                    "title": item.title,
+                    "query": item.title,
+                    "max_results": 3,
+                    **metadata,
+                },
+                run=run,
+            )
+            if arxiv_result.status == "completed":
+                metadata["arxiv"] = arxiv_result.result
+
+        if metadata == item.metadata:
+            return item
+        return item.model_copy(update={"metadata": metadata})
 
     def _register_synthesis_tool(
         self,

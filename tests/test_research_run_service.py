@@ -616,6 +616,82 @@ def test_research_run_service_execute_local_run_processes_success_and_skip(tmp_p
     assert "- Skipped Papers: 1" in summary
 
 
+def test_research_run_service_records_enrichment_fallbacks_when_enabled(tmp_path):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.schemas import ResearchRunPaperItem
+
+    class FakeIntake:
+        def collect_items(self, collection_id, max_papers):
+            now = datetime.now(timezone.utc)
+            return [
+                ResearchRunPaperItem(
+                    item_id="zotero_A1",
+                    title="Paper A",
+                    zotero_item_id="A1",
+                    pdf_path=str(tmp_path / "a.pdf"),
+                    created_at=now,
+                    updated_at=now,
+                )
+            ]
+
+    class FakeProcessor:
+        def process_item(self, item, run_output_dir):
+            completed = item.model_copy(
+                update={
+                    "paper_id": "paper_20260609_001",
+                    "status": "completed",
+                    "progress": 1.0,
+                    "updated_at": datetime.now(timezone.utc),
+                    "completed_at": datetime.now(timezone.utc),
+                }
+            )
+            return PaperProcessingResult(
+                item=completed,
+                chunk_count=2,
+                note_path="note.md",
+                vector_backend="fake",
+            )
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(
+        store=store,
+        vault_root=tmp_path / "vault",
+        mcp_manager=None,
+    )
+    run = service.create_run(
+        ResearchRunCreateRequest(
+            collection_id="COLL123",
+            collection_name="IRSTD",
+            options=ResearchRunOptions(
+                semantic_scholar=True,
+                arxiv=True,
+                max_papers=1,
+            ),
+        )
+    )
+
+    executed = service.execute_local_run(
+        run.run_id,
+        intake_service=FakeIntake(),
+        paper_processor=FakeProcessor(),
+    )
+
+    records = [
+        json.loads(line)
+        for line in (Path(executed.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    records_by_tool = {record["tool_name"]: record for record in records}
+
+    assert records_by_tool["semantic_scholar.enrich"]["provider"] == "local_metadata"
+    assert records_by_tool["semantic_scholar.enrich"]["fallback_used"] is True
+    assert records_by_tool["arxiv.find_preprint"]["provider"] == "local_metadata"
+    assert records_by_tool["arxiv.find_preprint"]["fallback_used"] is True
+    assert executed.paper_items[0].metadata["semantic_scholar"]["fallback_used"] is True
+    assert executed.paper_items[0].metadata["arxiv"]["fallback_used"] is True
+
+
 def test_research_run_service_uses_zotero_mcp_when_available(tmp_path, monkeypatch):
     from app.research_workflow.zotero_intake import ZoteroCollectionItem
 

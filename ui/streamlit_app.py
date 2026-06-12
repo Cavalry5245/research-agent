@@ -365,7 +365,6 @@ if tab == "Research Workflow":
                     try:
                         run = service.execute_local_run(
                             run.run_id,
-                            intake_service=get_collection_intake_service(),
                             paper_processor=get_paper_processing_service(),
                         )
                     except Exception as exc:

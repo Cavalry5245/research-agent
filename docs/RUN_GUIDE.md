@@ -157,6 +157,70 @@ conda activate research_agent
 uvicorn app.main:app --reload
 ```
 
+## MCP Hub Demo Verification
+
+Run all commands from `E:\projects\ResearchAgent`.
+
+1. Verify Zotero local API:
+
+```powershell
+cmd /c "netstat -ano -p tcp | findstr :23119"
+curl.exe -v "http://127.0.0.1:23119/api/users/0/items?limit=1"
+```
+
+Expected:
+
+- `23119` is listening on `127.0.0.1`.
+- `curl` returns `HTTP/1.0 200 OK` or another 2xx Zotero API response.
+
+2. Verify Zotero MCP executable:
+
+```powershell
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\Scripts\zotero-mcp.exe" version
+```
+
+Expected: prints `Zotero MCP v0.4.1` or a newer installed version.
+
+3. Run MCP tests:
+
+```powershell
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe" -m pytest tests\mcp tests\research_workflow\test_zotero_mcp_adapter.py tests\test_research_agent_mcp_server.py tests\test_research_run_router.py -q
+```
+
+Expected: all selected tests pass.
+
+4. Start the API:
+
+```powershell
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Expected: `GET http://127.0.0.1:8000/health` returns `200 OK`.
+
+5. Start Streamlit:
+
+```powershell
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe" -m streamlit run ui/streamlit_app.py
+```
+
+Expected: the Research Workflow page shows MCP Hub status for Zotero, ResearchAgent, Semantic Scholar, arXiv, and Obsidian. The panel distinguishes running MCP servers, unavailable servers, discovered tool counts, and active fallbacks.
+
+6. Run the flagship workflow:
+
+- Open the Streamlit Research Workflow page.
+- Use a known Zotero collection key.
+- Set `Max papers` to `2`.
+- Enable Semantic Scholar and arXiv only when network access is available.
+- Leave Obsidian publishing disabled for the first run.
+- Click `Process Local Collection`.
+
+Expected:
+
+- The run status becomes `completed`.
+- The Knowledge Pack output directory exists.
+- `assets/tool-calls.jsonl` records the Zotero provider and fallback state.
+- The MCP Hub panel reports status honestly instead of claiming MCP availability when only a fallback is active.
+
 启动后访问：
 
 - 服务地址：http://localhost:8888

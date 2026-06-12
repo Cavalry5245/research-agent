@@ -134,7 +134,7 @@ def test_research_run_execute_local_route(tmp_path, monkeypatch):
 
         from app.routers import research_runs as router
 
-        app.dependency_overrides[router.get_collection_intake_service] = lambda: FakeIntake()
+        app.dependency_overrides[router.get_optional_collection_intake_service] = lambda: FakeIntake()
         app.dependency_overrides[router.get_paper_processing_service] = lambda: FakeProcessor()
 
         response = client.post(f"/research-runs/{created['run_id']}/execute-local")

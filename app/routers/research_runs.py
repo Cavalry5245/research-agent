@@ -56,6 +56,10 @@ def get_collection_intake_service() -> CollectionIntakeService:
     return CollectionIntakeService(ZoteroLocalHttpClient())
 
 
+def get_optional_collection_intake_service() -> CollectionIntakeService | None:
+    return None
+
+
 def get_paper_processing_service() -> PaperProcessingService | None:
     return None
 
@@ -239,7 +243,9 @@ def call_research_agent_tool(
 def execute_research_run_local(
     run_id: str,
     service: ResearchRunService = Depends(get_research_run_service),
-    intake_service: CollectionIntakeService = Depends(get_collection_intake_service),
+    intake_service: CollectionIntakeService | None = Depends(
+        get_optional_collection_intake_service
+    ),
     paper_processing_service: PaperProcessingService | None = Depends(
         get_paper_processing_service
     ),
