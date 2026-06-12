@@ -54,7 +54,7 @@ streamlit run ui/streamlit_app.py
 
 # 方式二：FastAPI 后端（提供 REST API + Swagger 文档）
 uvicorn app.main:app --reload
-# 浏览器打开 http://localhost:8000/docs 查看 API 文档
+# 浏览器打开 http://localhost:8888/docs 查看 API 文档
 ```
 
 ---
@@ -181,27 +181,27 @@ app/storage/
 ### 健康检查
 
 ```powershell
-curl http://localhost:8000/health
+curl http://localhost:8888/health
 ```
 
 ### 上传论文
 
 ```powershell
-curl -X POST http://localhost:8000/papers/upload -F "file=@your_paper.pdf"
+curl -X POST http://localhost:8888/papers/upload -F "file=@your_paper.pdf"
 # → {"paper_id":"paper_20260505_001","status":"parsed",...}
 ```
 
 ### 生成笔记
 
 ```powershell
-curl -X POST http://localhost:8000/papers/paper_20260505_001/note
+curl -X POST http://localhost:8888/papers/paper_20260505_001/note
 # → 返回 JSON，content 字段包含完整 Markdown
 ```
 
 ### 论文问答
 
 ```powershell
-curl -X POST http://localhost:8000/qa \
+curl -X POST http://localhost:8888/qa \
   -H "Content-Type: application/json" \
   -d '{"question":"核心创新点是什么？","paper_id":"paper_20260505_001","top_k":5}'
 ```
@@ -209,12 +209,12 @@ curl -X POST http://localhost:8000/qa \
 ### 多论文对比
 
 ```powershell
-curl -X POST http://localhost:8000/papers/compare \
+curl -X POST http://localhost:8888/papers/compare \
   -H "Content-Type: application/json" \
   -d '{"paper_ids":["paper_20260505_001","paper_20260505_002"]}'
 ```
 
-完整 API 文档：启动 FastAPI 后访问 `http://localhost:8000/docs`
+完整 API 文档：启动 FastAPI 后访问 `http://localhost:8888/docs`
 
 ---
 

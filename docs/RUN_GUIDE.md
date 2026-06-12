@@ -159,8 +159,8 @@ uvicorn app.main:app --reload
 
 启动后访问：
 
-- 服务地址：http://localhost:8000
-- API 文档：http://localhost:8000/docs
+- 服务地址：http://localhost:8888
+- API 文档：http://localhost:8888/docs
 
 ## 6. 推荐使用流程
 
@@ -229,7 +229,7 @@ uvicorn app.main:app --reload
 - `POST /qa`：论文问答
 - `POST /papers/compare`：多论文对比
 
-建议直接通过 `http://localhost:8000/docs` 查看 Swagger 文档并测试。
+建议直接通过 `http://localhost:8888/docs` 查看 Swagger 文档并测试。
 
 ## 8. 数据存储说明
 

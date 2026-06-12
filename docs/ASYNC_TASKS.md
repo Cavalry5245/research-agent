@@ -40,13 +40,13 @@ Common fields:
 Submit note generation:
 
 ```bash
-curl -X POST http://localhost:8000/tasks/note/paper_001
+curl -X POST http://localhost:8888/tasks/note/paper_001
 ```
 
 Submit comparison:
 
 ```bash
-curl -X POST http://localhost:8000/tasks/compare \
+curl -X POST http://localhost:8888/tasks/compare \
   -H "Content-Type: application/json" \
   -d '{"paper_ids":["paper_001","paper_002"]}'
 ```
@@ -54,31 +54,31 @@ curl -X POST http://localhost:8000/tasks/compare \
 List tasks:
 
 ```bash
-curl http://localhost:8000/tasks
+curl http://localhost:8888/tasks
 ```
 
 Get status:
 
 ```bash
-curl http://localhost:8000/tasks/<job_id>
+curl http://localhost:8888/tasks/<job_id>
 ```
 
 Get result:
 
 ```bash
-curl http://localhost:8000/tasks/<job_id>/result
+curl http://localhost:8888/tasks/<job_id>/result
 ```
 
 Cancel task:
 
 ```bash
-curl -X DELETE http://localhost:8000/tasks/<job_id>
+curl -X DELETE http://localhost:8888/tasks/<job_id>
 ```
 
 Retry failed task:
 
 ```bash
-curl -X POST http://localhost:8000/tasks/<job_id>/retry
+curl -X POST http://localhost:8888/tasks/<job_id>/retry
 ```
 
 ## Cancellation and retry semantics

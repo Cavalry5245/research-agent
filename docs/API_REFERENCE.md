@@ -2,7 +2,7 @@
 
 > 自动生成自 FastAPI OpenAPI schema — 36 endpoints / 28 paths
 
-Base URL: `http://localhost:8000`
+Base URL: `http://localhost:8888`
 
 ## 系统
 
@@ -80,25 +80,25 @@ Base URL: `http://localhost:8000`
 
 ### 上传论文
 ```bash
-curl -X POST http://localhost:8000/papers/upload -F "file=@paper.pdf"
+curl -X POST http://localhost:8888/papers/upload -F "file=@paper.pdf"
 ```
 
 ### RAG 问答
 ```bash
-curl -X POST http://localhost:8000/qa \
+curl -X POST http://localhost:8888/qa \
   -H "Content-Type: application/json" \
   -d '{"question": "核心创新点是什么？", "top_k": 5}'
 ```
 
 ### Agent 执行（Supervisor 模式）
 ```bash
-curl -X POST http://localhost:8000/agent/execute \
+curl -X POST http://localhost:8888/agent/execute \
   -H "Content-Type: application/json" \
   -d '{"task": "帮我分析这篇论文的方法", "mode": "supervisor"}'
 ```
 
 ### 查询执行追踪
 ```bash
-curl "http://localhost:8000/api/traces?limit=20"
-curl "http://localhost:8000/api/traces/stats"
+curl "http://localhost:8888/api/traces?limit=20"
+curl "http://localhost:8888/api/traces/stats"
 ```

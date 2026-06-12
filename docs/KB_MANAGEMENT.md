@@ -62,17 +62,17 @@ Phase 4 引入轻量级知识库管理功能：增量索引、版本元数据、
 
 ```bash
 # 新建知识库
-curl -X POST http://localhost:8000/kb \
+curl -X POST http://localhost:8888/kb \
   -H "Content-Type: application/json" \
   -d '{"kb_id":"robotics","name":"机器人","description":"机器人相关论文"}'
 
 # 添加论文
-curl -X POST http://localhost:8000/kb/robotics/papers \
+curl -X POST http://localhost:8888/kb/robotics/papers \
   -H "Content-Type: application/json" \
   -d '{"paper_id":"paper_20260101_001"}'
 
 # 列出全部 KB
-curl http://localhost:8000/kb
+curl http://localhost:8888/kb
 ```
 
 ## 限制与后续
