@@ -8,8 +8,9 @@ from uuid import uuid4
 
 from app.config import settings
 from app.mcp.client_manager import MCPClientManager
-from app.mcp.installer import ensure_zotero_mcp_installed
+from app.mcp.installer import build_zotero_mcp_command, ensure_zotero_mcp_installed
 from app.mcp.schemas import MCPServerConfig
+from app.mcp.tool_proxy import MCPToolProxy
 from app.research_workflow.knowledge_pack import (
     create_knowledge_pack_skeleton,
     update_knowledge_pack_run_files,
@@ -35,8 +36,10 @@ from app.research_workflow.tool_registry import (
 )
 from app.research_workflow.zotero_intake import (
     CollectionIntakeService,
+    ZoteroCollectionItem,
     ZoteroLocalHttpClient,
 )
+from app.research_workflow.zotero_mcp_adapter import ZoteroMCPAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +50,14 @@ class ResearchRunNotFoundError(KeyError):
 
 class ResearchRunConflictError(RuntimeError):
     pass
+
+
+class _PrefetchedZoteroClient:
+    def __init__(self, items: list[ZoteroCollectionItem]) -> None:
+        self._items = items
+
+    def list_collection_items(self, _collection_id: str) -> list[ZoteroCollectionItem]:
+        return list(self._items)
 
 
 class ResearchRunService:
@@ -71,22 +82,50 @@ class ResearchRunService:
 
         # Start Zotero MCP server if enabled
         if settings.zotero_mcp_enabled:
-            if settings.zotero_mcp_auto_install:
-                success, error = ensure_zotero_mcp_installed()
-                if not success:
-                    logger.warning(f"Failed to install Zotero MCP: {error}")
-                    return manager
+            success, error = ensure_zotero_mcp_installed(settings.zotero_mcp_command)
+            if not success:
+                logger.warning("Zotero MCP unavailable: %s", error)
+            else:
+                try:
+                    command = build_zotero_mcp_command(settings.zotero_mcp_command)
+                    config = MCPServerConfig(
+                        name="zotero",
+                        command=command,
+                        env={
+                            "ZOTERO_LOCAL": "true" if settings.zotero_local else "false",
+                            "ZOTERO_LIBRARY_ID": settings.zotero_library_id,
+                            "ZOTERO_LIBRARY_TYPE": settings.zotero_library_type,
+                            **({"ZOTERO_DATA_DIR": settings.zotero_data_dir} if settings.zotero_data_dir else {}),
+                        },
+                    )
+                    manager.start_server(config)
+                    logger.info("Zotero MCP server started with command: %s", command)
+                except Exception as e:
+                    logger.warning(f"Failed to start Zotero MCP server: {e}")
 
+        if settings.semantic_scholar_mcp_enabled:
             try:
-                config = MCPServerConfig(
-                    name="zotero",
-                    command=["zotero-mcp"],
-                    env={"ZOTERO_DATA_DIR": settings.zotero_data_dir} if settings.zotero_data_dir else {}
+                manager.start_server(
+                    MCPServerConfig(
+                        name="semantic-scholar",
+                        command=["python", "-m", "app.mcp.minimal_semantic_scholar_server"],
+                    )
                 )
-                manager.start_server(config)
-                logger.info("Zotero MCP server started")
+                logger.info("Semantic Scholar MCP server started")
             except Exception as e:
-                logger.warning(f"Failed to start Zotero MCP server: {e}")
+                logger.warning(f"Failed to start Semantic Scholar MCP server: {e}")
+
+        if settings.arxiv_mcp_enabled:
+            try:
+                manager.start_server(
+                    MCPServerConfig(
+                        name="arxiv",
+                        command=["python", "-m", "app.mcp.minimal_arxiv_server"],
+                    )
+                )
+                logger.info("arXiv MCP server started")
+            except Exception as e:
+                logger.warning(f"Failed to start arXiv MCP server: {e}")
 
         return manager
 
@@ -144,15 +183,23 @@ class ResearchRunService:
         update_knowledge_pack_run_files(run)
 
         try:
-            intake_service = intake_service or CollectionIntakeService(
-                ZoteroLocalHttpClient()
-            )
+            intake_provider = "custom"
+            intake_fallback_active = False
+            if intake_service is None:
+                intake_service, intake_provider, intake_fallback_active = (
+                    self._create_zotero_intake_service(run.collection_id)
+                )
             paper_processor = paper_processor or self._default_paper_processor()
         except Exception as exc:
             return self._fail_run(run, "collection_intake", exc)
 
         tool_registry = self._tool_registry_factory()
-        self._register_intake_tool(tool_registry, intake_service)
+        self._register_intake_tool(
+            tool_registry,
+            intake_service,
+            provider=intake_provider,
+            fallback_active=intake_fallback_active,
+        )
         intake_result = tool_registry.dispatch(
             "zotero.list_collection_items",
             {
@@ -327,20 +374,39 @@ class ResearchRunService:
         self,
         registry: ToolRegistry,
         intake_service: CollectionIntakeService,
+        provider: str = "local_http",
+        fallback_active: bool = True,
     ) -> None:
         registry.register(
             ToolDefinition(
                 name="zotero.list_collection_items",
-                provider="local_http",
+                provider=provider,
                 handler=lambda arguments: intake_service.collect_items(
                     str(arguments["collection_id"]),
                     int(arguments["max_papers"]),
                 ),
                 required_args=("collection_id", "max_papers"),
                 fallback_available=True,
-                fallback_active=True,
+                fallback_active=fallback_active,
             )
         )
+
+    def _create_zotero_intake_service(
+        self,
+        collection_id: str,
+    ) -> tuple[CollectionIntakeService, str, bool]:
+        if self._mcp_manager is not None and "zotero" in self._mcp_manager.list_servers():
+            try:
+                proxy = MCPToolProxy(self._mcp_manager)
+                adapter = ZoteroMCPAdapter(proxy)
+                items = adapter.list_collection_items(collection_id)
+                return CollectionIntakeService(_PrefetchedZoteroClient(items)), "zotero_mcp", False
+            except Exception as exc:
+                logger.warning(
+                    "Zotero MCP unavailable, falling back to local HTTP: %s",
+                    exc,
+                )
+        return CollectionIntakeService(ZoteroLocalHttpClient()), "local_http", True
 
     def _register_paper_processing_tool(
         self,

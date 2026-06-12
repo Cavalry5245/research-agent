@@ -616,6 +616,141 @@ def test_research_run_service_execute_local_run_processes_success_and_skip(tmp_p
     assert "- Skipped Papers: 1" in summary
 
 
+def test_research_run_service_uses_zotero_mcp_when_available(tmp_path, monkeypatch):
+    from app.research_workflow.zotero_intake import ZoteroCollectionItem
+
+    class FakeMCPManager:
+        def list_servers(self):
+            return ["zotero"]
+
+    class FakeMCPAdapter:
+        def __init__(self, _proxy):
+            pass
+
+        def list_collection_items(self, _collection_id):
+            return [
+                ZoteroCollectionItem(
+                    key="MCP12345",
+                    title="MCP Paper",
+                    attachments=[],
+                )
+            ]
+
+    monkeypatch.setattr("app.research_workflow.service.ZoteroMCPAdapter", FakeMCPAdapter)
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(
+        store=store,
+        vault_root=tmp_path / "vault",
+        mcp_manager=FakeMCPManager(),
+    )
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="Demo")
+    )
+
+    executed = service.execute_local_run(run.run_id)
+
+    assert executed.status == "completed"
+    assert executed.paper_items[0].title == "MCP Paper"
+    records = [
+        json.loads(line)
+        for line in (Path(executed.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert records[0]["provider"] == "zotero_mcp"
+    assert records[0]["fallback_used"] is False
+
+
+def test_research_run_service_uses_http_fallback_when_zotero_mcp_unavailable(
+    tmp_path,
+    monkeypatch,
+):
+    from app.research_workflow.zotero_intake import ZoteroCollectionItem
+
+    class FakeMCPManager:
+        def list_servers(self):
+            return ["zotero"]
+
+    class FakeMCPAdapter:
+        def __init__(self, _proxy):
+            pass
+
+        def list_collection_items(self, _collection_id):
+            raise RuntimeError("mcp down")
+
+    class FakeHttpClient:
+        def list_collection_items(self, _collection_id):
+            return [
+                ZoteroCollectionItem(
+                    key="ABCD1234",
+                    title="Fallback Paper",
+                    attachments=[],
+                )
+            ]
+
+    monkeypatch.setattr("app.research_workflow.service.ZoteroMCPAdapter", FakeMCPAdapter)
+    monkeypatch.setattr("app.research_workflow.service.ZoteroLocalHttpClient", FakeHttpClient)
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(
+        store=store,
+        vault_root=tmp_path / "vault",
+        mcp_manager=FakeMCPManager(),
+    )
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="Demo")
+    )
+
+    executed = service.execute_local_run(run.run_id)
+
+    assert executed.status == "completed"
+    assert executed.paper_items[0].title == "Fallback Paper"
+    records = [
+        json.loads(line)
+        for line in (Path(executed.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert records[0]["provider"] == "local_http"
+    assert records[0]["fallback_used"] is True
+
+
+def test_research_run_service_can_start_optional_mcp_servers(tmp_path, monkeypatch):
+    started = []
+
+    class FakeManager:
+        def start_server(self, config):
+            started.append((config.name, config.command))
+
+        def list_servers(self):
+            return [name for name, _command in started]
+
+        def shutdown_all(self):
+            pass
+
+    monkeypatch.setattr("app.research_workflow.service.MCPClientManager", FakeManager)
+    monkeypatch.setattr(
+        "app.research_workflow.service.ensure_zotero_mcp_installed",
+        lambda _command="": (False, "disabled"),
+    )
+    monkeypatch.setattr("app.research_workflow.service.settings.mcp_enabled", True)
+    monkeypatch.setattr("app.research_workflow.service.settings.zotero_mcp_enabled", False)
+    monkeypatch.setattr(
+        "app.research_workflow.service.settings.semantic_scholar_mcp_enabled",
+        True,
+    )
+    monkeypatch.setattr("app.research_workflow.service.settings.arxiv_mcp_enabled", True)
+
+    ResearchRunService(store=FileResearchRunStore(tmp_path / "runs.json"), vault_root=tmp_path)
+
+    assert (
+        "semantic-scholar",
+        ["python", "-m", "app.mcp.minimal_semantic_scholar_server"],
+    ) in started
+    assert ("arxiv", ["python", "-m", "app.mcp.minimal_arxiv_server"]) in started
+
+
 def test_research_run_service_execute_local_run_marks_intake_exception_failed(
     tmp_path,
 ):
