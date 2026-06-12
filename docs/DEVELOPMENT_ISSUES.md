@@ -1,7 +1,7 @@
 # 开发问题记录
 
 > 维护目的：记录 ResearchAgent 开发和调试过程中遇到的真实问题、影响、解决方式和后续预防措施，避免同类问题反复出现。
-> 最近更新：2026-06-11
+> 最近更新：2026-06-12
 
 ## 记录规范
 
@@ -9,6 +9,29 @@
 - 只记录已经验证过的问题；不要仅凭终端乱码或猜测下结论。
 - 如果问题依赖本机环境、外部账号、token 或第三方服务，需要明确标注“本地已处理”和“外部待处理”的边界。
 - 本项目禁止批量删除文件或目录；清理临时文件时只能一次处理一个明确文件路径，目录清理交给用户确认后手动执行。
+
+## 2026-06-12：Zotero API 端口没通时，ResearchAgent 读不到 collection
+
+- 状态：本地已处理，今天验证通过。
+- 现象：ResearchAgent 的 Zotero collection intake 看起来像是“拿不到文献”或者“Zotero 这一步没反应”，但代码本身不一定坏。它默认是去连本机 Zotero Desktop 暴露出来的 HTTP API，也就是 `http://127.0.0.1:23119/api`。
+- 真正的问题：如果 Zotero 没开、Zotero 本地 API 没起来，或者 `23119` 这个端口没在监听，ResearchAgent 就没法从 Zotero 里拉 collection/items。这个问题很容易被误判成 MCP、Python 或 intake 代码的问题。
+- 怎么查：先看端口有没有起来：
+
+```powershell
+cmd /c "netstat -ano -p tcp | findstr :23119"
+```
+
+  正常情况应该能看到 `127.0.0.1:23119 LISTENING`。
+
+- 再直接打 Zotero local API：
+
+```powershell
+curl.exe -v "http://127.0.0.1:23119/api/users/0/items?limit=1"
+```
+
+  正常情况应该返回 `HTTP 200`。今天本机验证结果是：`netstat` 能看到 `127.0.0.1:23119 LISTENING`，`curl` 返回 `200`。
+- 解决方式：先保证 Zotero Desktop 正常启动，再确认 `23119` 端口能访问。ResearchAgent 这边暂时不用改端口，因为当前 `ZoteroLocalHttpClient` 默认就是连 `http://127.0.0.1:23119/api`。
+- 以后遇到类似问题：不要一上来就改 MCP 或 workflow 代码，先跑上面两条命令。只要 `23119` 不通，优先处理 Zotero 本地服务；端口通了再继续查 collection id、PDF attachment 或 workflow 逻辑。
 
 ## 2026-06-11：Research Run Major 问题修复
 

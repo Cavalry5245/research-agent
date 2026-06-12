@@ -42,7 +42,10 @@ class Settings(BaseSettings):
 
     # Zotero MCP
     zotero_mcp_enabled: bool = True
-    zotero_mcp_auto_install: bool = True
+    zotero_mcp_auto_install: bool = False
+    semantic_scholar_mcp_enabled: bool = False
+    arxiv_mcp_enabled: bool = False
+    research_agent_mcp_enabled: bool = True
 
     # Phase 4: Rerank
     enable_rerank: bool = False
