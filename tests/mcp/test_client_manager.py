@@ -4,44 +4,67 @@ from app.mcp.schemas import MCPServerConfig
 
 def test_manager_init():
     manager = MCPClientManager()
-    assert manager is not None
-    assert len(manager.list_servers()) == 0
+    try:
+        assert manager.list_servers() == []
+    finally:
+        manager.shutdown_all()
 
 
-def test_start_mock_server(tmp_path):
-    # Create a mock server script
-    mock_script = tmp_path / "mock_mcp.py"
-    mock_script.write_text("""
-import sys
-import time
-while True:
-    time.sleep(0.1)
-""")
-
+def test_start_mock_server():
     manager = MCPClientManager()
     config = MCPServerConfig(
-        name="test",
-        command=["python", str(mock_script)]
+        name="mock",
+        command=["python", "-m", "app.mcp.mock_server"],
     )
 
     manager.start_server(config)
-    assert "test" in manager.list_servers()
+    try:
+        assert "mock" in manager.list_servers()
+        assert manager.get_server("mock").is_running()
+    finally:
+        manager.shutdown_all()
 
-    server = manager.get_server("test")
-    assert server.is_running()
 
-    manager.shutdown_all()
-
-
-def test_stop_server(tmp_path):
-    mock_script = tmp_path / "mock.py"
-    mock_script.write_text("import time\nwhile True: time.sleep(0.1)")
-
+def test_stop_server():
     manager = MCPClientManager()
-    config = MCPServerConfig(name="test", command=["python", str(mock_script)])
+    config = MCPServerConfig(
+        name="mock",
+        command=["python", "-m", "app.mcp.mock_server"],
+    )
 
     manager.start_server(config)
-    assert "test" in manager.list_servers()
+    manager.stop_server("mock")
+    try:
+        assert manager.list_servers() == []
+    finally:
+        manager.shutdown_all()
 
-    manager.stop_server("test")
-    assert "test" not in manager.list_servers()
+
+def test_manager_lists_tools_from_mock_server():
+    manager = MCPClientManager()
+    config = MCPServerConfig(
+        name="mock",
+        command=["python", "-m", "app.mcp.mock_server"],
+    )
+
+    manager.start_server(config)
+    try:
+        assert "mock_echo" in manager.list_tools("mock")
+    finally:
+        manager.shutdown_all()
+
+
+def test_manager_returns_existing_session_when_started_twice():
+    manager = MCPClientManager()
+    config = MCPServerConfig(
+        name="mock",
+        command=["python", "-m", "app.mcp.mock_server"],
+    )
+
+    first = manager.start_server(config)
+    second = manager.start_server(config)
+    try:
+        assert first is second
+        assert manager.list_servers() == ["mock"]
+    finally:
+        manager.shutdown_all()
