@@ -139,13 +139,21 @@ def test_research_workflow_ui_contains_tool_health_status():
     source = _streamlit_source()
 
     for token in (
-        "Tool Health",
+        "MCP Hub",
         "fallback",
         "ResearchAgent MCP Server",
         "Semantic Scholar",
         "arXiv",
     ):
         assert token in source
+
+
+def test_research_workflow_ui_labels_mcp_fallbacks():
+    source = _streamlit_source()
+
+    assert "MCP Hub" in source
+    assert "fallback_active" in source
+    assert "tools discovered" in source or "tool(s) discovered" in source
 
 
 def test_research_workflow_ui_contains_m4_result_signals():

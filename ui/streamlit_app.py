@@ -8,16 +8,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.config import settings
 from app.research_workflow.paper_processing import PaperProcessingService
+from app.research_workflow.mcp_health import build_mcp_hub_health
 from app.research_workflow.schemas import ResearchRunCreateRequest, ResearchRunOptions
 from app.research_workflow.service import ResearchRunService
 from app.research_workflow.store import FileResearchRunStore
-from app.research_workflow.tool_adapters import (
-    ArxivAdapter,
-    ObsidianAdapter,
-    SemanticScholarAdapter,
-    ZoteroAdapter,
-)
-from app.research_workflow.tool_registry import build_default_tool_registry
 from app.research_workflow.zotero_intake import CollectionIntakeService, ZoteroLocalHttpClient
 from app.schemas import Chunk, PaperParseResult, QARequest, SourceItem
 from app.services.chunker import chunk_paper
@@ -89,30 +83,10 @@ def get_paper_processing_service():
 @st.cache_data(ttl=30)
 def get_tool_health_status():
     storage_root = Path(settings.metadata_dir).parent
-    health = [
-        item.model_dump(mode="json")
-        for item in build_default_tool_registry().health()
-    ]
-    health.extend(
-        item.model_dump(mode="json")
-        for item in (
-            ZoteroAdapter().health(),
-            ObsidianAdapter(storage_root / "knowledge_packs").health(),
-            SemanticScholarAdapter(available=False).health(),
-            ArxivAdapter(available=False).health(),
-        )
+    return build_mcp_hub_health(
+        service=get_research_run_service(),
+        storage_root=storage_root,
     )
-    health.append(
-        {
-            "tool_name": "ResearchAgent MCP Server",
-            "provider": "in_process",
-            "available": True,
-            "fallback_available": False,
-            "fallback_active": False,
-            "message": "ResearchAgent MCP Server facade is available",
-        }
-    )
-    return health
 
 
 def refresh_papers():
@@ -284,13 +258,20 @@ if tab == "Research Workflow":
     service = get_research_run_service()
     selected_research_run_id = st.session_state.get("selected_research_run_id")
 
-    st.subheader("Tool Health")
+    st.subheader("MCP Hub")
     for tool in get_tool_health_status():
-        label = tool["tool_name"]
-        provider = tool["provider"]
-        fallback = "fallback active" if tool.get("fallback_active") else "primary"
-        status_text = "available" if tool.get("available") else "unavailable"
-        st.caption(f"{label} ({provider}): {status_text}, {fallback}")
+        tool_name = tool.get("tool_name", "unknown")
+        provider = tool.get("provider", "unknown")
+        available = bool(tool.get("available"))
+        fallback_active = bool(tool.get("fallback_active"))
+        fallback_available = bool(tool.get("fallback_available"))
+        message = tool.get("message", "")
+        state = "available" if available else "unavailable"
+        if fallback_active:
+            state = "fallback active"
+        fallback = "fallback available" if fallback_available else "no fallback"
+        st.caption(f"{tool_name} ({provider}): {state}, {fallback}. {message}")
+    st.caption("MCP Hub shows real server state, tool(s) discovered, and fallback activity.")
     st.caption("ResearchAgent MCP Server, Semantic Scholar, arXiv, Zotero, and Obsidian status are shown above.")
 
     with st.form("research_run_form"):

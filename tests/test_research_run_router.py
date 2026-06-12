@@ -165,6 +165,42 @@ def test_research_run_tools_health_route(tmp_path, monkeypatch):
         app.dependency_overrides.clear()
 
 
+def test_tool_health_reports_mcp_state(tmp_path, monkeypatch):
+    service = _override_research_run_service(tmp_path, monkeypatch)
+
+    class FakeManager:
+        def list_servers(self):
+            return ["zotero"]
+
+        def list_tools(self, server_name):
+            assert server_name == "zotero"
+            return ["zotero_get_collection_items", "zotero_get_item"]
+
+    service._mcp_manager = FakeManager()
+
+    try:
+        client = TestClient(app)
+        response = client.get("/research-runs/tools/health")
+
+        assert response.status_code == 200
+        tools = response.json()["tools"]
+        assert all("provider" in tool for tool in tools)
+        assert all("fallback_active" in tool for tool in tools)
+        assert all("state" in tool for tool in tools)
+
+        zotero = next(
+            tool for tool in tools if tool["tool_name"] == "Zotero MCP Server"
+        )
+        assert zotero["provider"] == "mcp"
+        assert zotero["available"] is True
+        assert zotero["fallback_active"] is False
+        assert zotero["tool_count"] == 2
+        assert "MCP tool(s) discovered" in zotero["message"]
+        assert any(tool["tool_name"] == "ResearchAgent MCP Server" for tool in tools)
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_research_run_tool_call_route(tmp_path, monkeypatch):
     _override_research_run_service(tmp_path, monkeypatch)
 

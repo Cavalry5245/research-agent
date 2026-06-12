@@ -22,13 +22,7 @@ from app.research_workflow.service import (
     ResearchRunService,
 )
 from app.research_workflow.store import FileResearchRunStore
-from app.research_workflow.tool_adapters import (
-    ArxivAdapter,
-    ObsidianAdapter,
-    SemanticScholarAdapter,
-    ZoteroAdapter,
-)
-from app.research_workflow.tool_registry import build_default_tool_registry
+from app.research_workflow.mcp_health import build_mcp_hub_health
 from app.research_workflow.zotero_intake import (
     CollectionIntakeService,
     ZoteroLocalHttpClient,
@@ -224,34 +218,13 @@ def list_research_runs(
 
 
 @router.get("/tools/health")
-def get_research_run_tools_health() -> dict[str, object]:
+def get_research_run_tools_health(
+    service: ResearchRunService = Depends(get_research_run_service),
+) -> dict[str, object]:
     from app.config import settings
 
     storage_root = Path(settings.metadata_dir).parent
-    tools = [
-        health.model_dump(mode="json")
-        for health in build_default_tool_registry().health()
-    ]
-    tools.extend(
-        health.model_dump(mode="json")
-        for health in (
-            ZoteroAdapter().health(),
-            ObsidianAdapter(storage_root / "knowledge_packs").health(),
-            SemanticScholarAdapter(available=False).health(),
-            ArxivAdapter(available=False).health(),
-        )
-    )
-    tools.append(
-        {
-            "tool_name": "ResearchAgent MCP Server",
-            "provider": "in_process",
-            "available": True,
-            "fallback_available": False,
-            "fallback_active": False,
-            "message": "ResearchAgent MCP Server facade is available",
-        }
-    )
-    return {"tools": tools}
+    return {"tools": build_mcp_hub_health(service=service, storage_root=storage_root)}
 
 
 @router.post("/tools/call", response_model=MCPToolResponse)
