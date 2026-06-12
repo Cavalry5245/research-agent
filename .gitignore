@@ -34,3 +34,4 @@ app/storage/memory.db
 .claude/
 .agents/
 app/storage/research_runs.json
+tests/debug/
