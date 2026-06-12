@@ -33,3 +33,4 @@ app/storage/memory.db
 .github/
 .claude/
 .agents/
+app/storage/research_runs.json
