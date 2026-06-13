@@ -89,6 +89,19 @@ def get_tool_health_status():
     )
 
 
+@st.cache_data(ttl=60)
+def load_zotero_collections(limit: int = 100) -> list[dict]:
+    client = ZoteroLocalHttpClient()
+    return [collection.model_dump() for collection in client.list_collections(limit=limit)]
+
+
+def format_zotero_collection_option(collection: dict) -> str:
+    label = f"{collection.get('name') or collection.get('key')} ({collection.get('key')})"
+    if collection.get("num_items") is not None:
+        label = f"{label}, {collection['num_items']} items"
+    return label
+
+
 def refresh_papers():
     papers = list_papers(settings.metadata_dir)
     st.session_state["papers"] = papers
@@ -274,9 +287,54 @@ if tab == "Research Workflow":
     st.caption("MCP Hub shows real server state, tool(s) discovered, and fallback activity.")
     st.caption("ResearchAgent MCP Server, Semantic Scholar, arXiv, Zotero, and Obsidian status are shown above.")
 
+    if st.button("Load Zotero Collections", use_container_width=True):
+        try:
+            load_zotero_collections.clear()
+            st.session_state["zotero_collections"] = load_zotero_collections()
+            st.session_state["zotero_collection_selector"] = 0
+        except Exception as exc:
+            st.error(
+                "Unable to load Zotero Collections. "
+                "Please confirm Zotero is open and Local API port 23119 is reachable. "
+                f"Details: {exc}"
+            )
+        else:
+            if st.session_state["zotero_collections"]:
+                st.success(
+                    f"Loaded {len(st.session_state['zotero_collections'])} Zotero collections."
+                )
+            else:
+                st.warning("No Zotero collections were returned. Manual input is still available.")
+
+    zotero_collections = st.session_state.get("zotero_collections", [])
+    selected_collection = None
+    if zotero_collections:
+        selected_index = st.session_state.get("zotero_collection_selector", 0)
+        if selected_index not in range(len(zotero_collections)):
+            st.session_state["zotero_collection_selector"] = 0
+        selected_collection_index = st.selectbox(
+            "Zotero Collection",
+            range(len(zotero_collections)),
+            format_func=lambda index: format_zotero_collection_option(
+                zotero_collections[index]
+            ),
+            key="zotero_collection_selector",
+        )
+        selected_collection = zotero_collections[selected_collection_index]
+        st.session_state["research_collection_id_input"] = selected_collection["key"]
+        st.session_state["research_collection_name_input"] = selected_collection["name"]
+
     with st.form("research_run_form"):
-        collection_id = st.text_input("Zotero Collection ID", placeholder="COLL123")
-        collection_name = st.text_input("Collection Name", placeholder="IRSTD")
+        collection_id = st.text_input(
+            "Zotero Collection ID",
+            placeholder="COLL123",
+            key="research_collection_id_input",
+        )
+        collection_name = st.text_input(
+            "Collection Name",
+            placeholder="IRSTD",
+            key="research_collection_name_input",
+        )
         goal = st.text_area(
             "Goal",
             value="Generate a literature review and experiment plan from this Zotero collection.",
@@ -310,9 +368,8 @@ if tab == "Research Workflow":
                 st.error(f"Unable to initialize research run: {exc}")
             else:
                 st.session_state["selected_research_run_id"] = run.run_id
-                st.session_state["research_run_selector"] = run.run_id
-                selected_research_run_id = run.run_id
                 st.success(f"Research run initialized: {run.run_id}")
+                st.rerun()
 
     try:
         runs = service.list_runs()
@@ -332,7 +389,6 @@ if tab == "Research Workflow":
         if selected_research_run_id not in run_ids:
             selected_research_run_id = run_ids[0]
             st.session_state["selected_research_run_id"] = selected_research_run_id
-            st.session_state["research_run_selector"] = selected_research_run_id
 
         selected_run_index = run_ids.index(selected_research_run_id)
         selected_run_id = st.selectbox(
@@ -371,7 +427,6 @@ if tab == "Research Workflow":
                         st.error(f"Unable to process local collection: {exc}")
                     else:
                         st.session_state["selected_research_run_id"] = run.run_id
-                        st.session_state["research_run_selector"] = run.run_id
                         if run.status == "failed" or run.error:
                             st.error(
                                 f"Local collection processing failed: {run.error or 'Unknown error'}"

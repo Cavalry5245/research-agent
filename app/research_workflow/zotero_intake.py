@@ -19,6 +19,14 @@ class ZoteroAttachment(BaseModel):
     raw: dict[str, Any] = Field(default_factory=dict)
 
 
+class ZoteroCollection(BaseModel):
+    key: str
+    name: str
+    parent_key: str | None = None
+    num_items: int | None = None
+    raw: dict[str, Any] = Field(default_factory=dict)
+
+
 class ZoteroCollectionItem(BaseModel):
     key: str
     title: str
@@ -75,6 +83,14 @@ class ZoteroLocalHttpClient:
         self.base_url = base_url.rstrip("/")
         self.library_path = library_path.strip("/")
         self.timeout = timeout
+
+    def list_collections(self, limit: int = 100) -> list[ZoteroCollection]:
+        response = httpx.get(
+            f"{self._library_url}/collections?limit={int(limit)}",
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        return [_collection_from_local_api(raw) for raw in response.json()]
 
     def list_collection_items(self, collection_id: str) -> list[ZoteroCollectionItem]:
         response = httpx.get(
@@ -181,6 +197,23 @@ def _item_from_local_api(
     )
 
 
+def _collection_from_local_api(raw: dict[str, Any]) -> ZoteroCollection:
+    data = raw.get("data") or raw
+    key = str(raw.get("key") or data.get("key") or "")
+    meta = raw.get("meta") or {}
+    num_items = meta.get("numItems")
+    if num_items is not None:
+        num_items = int(num_items)
+
+    return ZoteroCollection(
+        key=key,
+        name=str(data.get("name") or key),
+        parent_key=data.get("parentCollection") or None,
+        num_items=num_items,
+        raw=raw,
+    )
+
+
 def _attachments_from_local_payload(raw: dict[str, Any]) -> list[ZoteroAttachment]:
     data = raw.get("data") or raw
     attachments: list[ZoteroAttachment] = []
@@ -238,9 +271,11 @@ def _attachment_from_local_child_item(
 
 
 def _attachment_href(raw: dict[str, Any]) -> str | None:
-    attachment_link = (raw.get("links") or {}).get("attachment")
-    if isinstance(attachment_link, dict) and attachment_link.get("href"):
-        return str(attachment_link["href"])
+    links = raw.get("links") or {}
+    for link_name in ("enclosure", "attachment"):
+        attachment_link = links.get(link_name)
+        if isinstance(attachment_link, dict) and attachment_link.get("href"):
+            return str(attachment_link["href"])
     return None
 
 

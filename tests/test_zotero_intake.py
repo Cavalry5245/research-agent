@@ -3,6 +3,7 @@ from pathlib import Path
 from app.research_workflow.zotero_intake import (
     CollectionIntakeService,
     ZoteroAttachment,
+    ZoteroCollection,
     ZoteroCollectionItem,
     ZoteroLocalHttpClient,
     resolve_first_existing_pdf,
@@ -162,6 +163,93 @@ def test_zotero_local_http_client_uses_default_user_library_path(monkeypatch):
     ]
 
 
+def test_zotero_local_http_client_lists_collections(monkeypatch):
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return [
+                {
+                    "key": "WY47EPBS",
+                    "data": {
+                        "key": "WY47EPBS",
+                        "name": "IRSTD Papers",
+                        "parentCollection": "PARENT1",
+                    },
+                    "meta": {"numItems": 12},
+                },
+                {
+                    "key": "ABC123",
+                    "data": {
+                        "key": "ABC123",
+                        "name": "Baselines",
+                    },
+                    "meta": {"numItems": 3},
+                },
+            ]
+
+    calls = []
+
+    def fake_get(url, timeout):
+        calls.append((url, timeout))
+        return FakeResponse()
+
+    monkeypatch.setattr("httpx.get", fake_get)
+
+    collections = ZoteroLocalHttpClient().list_collections(limit=25)
+
+    assert calls == [
+        ("http://127.0.0.1:23119/api/users/0/collections?limit=25", 10.0)
+    ]
+    assert collections == [
+        ZoteroCollection(
+            key="WY47EPBS",
+            name="IRSTD Papers",
+            parent_key="PARENT1",
+            num_items=12,
+            raw={
+                "key": "WY47EPBS",
+                "data": {
+                    "key": "WY47EPBS",
+                    "name": "IRSTD Papers",
+                    "parentCollection": "PARENT1",
+                },
+                "meta": {"numItems": 12},
+            },
+        ),
+        ZoteroCollection(
+            key="ABC123",
+            name="Baselines",
+            num_items=3,
+            raw={
+                "key": "ABC123",
+                "data": {
+                    "key": "ABC123",
+                    "name": "Baselines",
+                },
+                "meta": {"numItems": 3},
+            },
+        ),
+    ]
+
+
+def test_zotero_local_http_client_collection_name_falls_back_to_key(monkeypatch):
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return [{"key": "NO_NAME", "data": {"key": "NO_NAME"}}]
+
+    monkeypatch.setattr("httpx.get", lambda url, timeout: FakeResponse())
+
+    collections = ZoteroLocalHttpClient().list_collections()
+
+    assert collections[0].key == "NO_NAME"
+    assert collections[0].name == "NO_NAME"
+
+
 def test_zotero_local_http_client_adds_pdf_child_attachments(monkeypatch):
     class FakeResponse:
         def __init__(self, payload):
@@ -215,3 +303,57 @@ def test_zotero_local_http_client_adds_pdf_child_attachments(monkeypatch):
     ]
     assert items[0].attachments[0].key == "ATT1"
     assert items[0].attachments[0].path == "file:///C:/Users/HC/Zotero/storage/A1/paper.pdf"
+
+
+def test_zotero_local_http_client_uses_enclosure_href_for_imported_pdf(monkeypatch):
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    def fake_get(url, timeout):
+        if url.endswith("/users/0/collections/COLL123/items"):
+            return FakeResponse(
+                [
+                    {
+                        "key": "A1",
+                        "data": {
+                            "title": "Paper A",
+                            "itemType": "journalArticle",
+                        },
+                    }
+                ]
+            )
+        if url.endswith("/users/0/items/A1/children"):
+            return FakeResponse(
+                [
+                    {
+                        "key": "ATT1",
+                        "links": {
+                            "enclosure": {
+                                "href": "file:///D:/HC/Zotero/storage/ATT1/paper.pdf",
+                                "type": "application/pdf",
+                            }
+                        },
+                        "data": {
+                            "title": "Full Text PDF",
+                            "itemType": "attachment",
+                            "contentType": "application/pdf",
+                            "filename": "paper.pdf",
+                        },
+                    }
+                ]
+            )
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr("httpx.get", fake_get)
+
+    items = ZoteroLocalHttpClient().list_collection_items("COLL123")
+
+    assert items[0].attachments[0].key == "ATT1"
+    assert items[0].attachments[0].path == "file:///D:/HC/Zotero/storage/ATT1/paper.pdf"

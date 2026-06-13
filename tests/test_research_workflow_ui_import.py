@@ -58,6 +58,21 @@ def test_research_workflow_ui_source_contains_required_wiring():
         assert token in source
 
 
+def test_research_workflow_ui_contains_zotero_collection_selector():
+    source = _streamlit_source()
+
+    for token in (
+        "Load Zotero Collections",
+        "load_zotero_collections",
+        "zotero_collections",
+        "Zotero Collection",
+        "format_zotero_collection_option",
+        "Zotero Collection ID",
+        "Collection Name",
+    ):
+        assert token in source
+
+
 def test_research_workflow_is_first_navigation_item():
     tree = _streamlit_tree()
 

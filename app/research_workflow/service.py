@@ -44,6 +44,7 @@ from app.research_workflow.zotero_intake import (
     CollectionIntakeService,
     ZoteroCollectionItem,
     ZoteroLocalHttpClient,
+    resolve_first_existing_pdf,
 )
 from app.research_workflow.zotero_mcp_adapter import ZoteroMCPAdapter
 
@@ -412,6 +413,7 @@ class ResearchRunService:
                 proxy = MCPToolProxy(self._mcp_manager)
                 adapter = ZoteroMCPAdapter(proxy)
                 items = adapter.list_collection_items(collection_id)
+                items = self._hydrate_missing_zotero_pdf_paths(collection_id, items)
                 return CollectionIntakeService(_PrefetchedZoteroClient(items)), "zotero_mcp", False
             except Exception as exc:
                 logger.warning(
@@ -419,6 +421,46 @@ class ResearchRunService:
                     exc,
                 )
         return CollectionIntakeService(ZoteroLocalHttpClient()), "local_http", True
+
+    def _hydrate_missing_zotero_pdf_paths(
+        self,
+        collection_id: str,
+        items: list[ZoteroCollectionItem],
+    ) -> list[ZoteroCollectionItem]:
+        if all(
+            resolve_first_existing_pdf([attachment.path for attachment in item.attachments])
+            for item in items
+        ):
+            return items
+
+        try:
+            local_items = ZoteroLocalHttpClient().list_collection_items(collection_id)
+        except Exception as exc:
+            logger.warning("Unable to hydrate Zotero PDF paths from local HTTP: %s", exc)
+            return items
+
+        local_by_key = {item.key: item for item in local_items}
+        hydrated: list[ZoteroCollectionItem] = []
+        for item in items:
+            if resolve_first_existing_pdf([attachment.path for attachment in item.attachments]):
+                hydrated.append(item)
+                continue
+            local_item = local_by_key.get(item.key)
+            if local_item is None:
+                hydrated.append(item)
+                continue
+            hydrated.append(
+                item.model_copy(
+                    update={
+                        "attachments": local_item.attachments or item.attachments,
+                        "raw": {
+                            **({"mcp": item.raw} if item.raw else {}),
+                            **({"local_http": local_item.raw} if local_item.raw else {}),
+                        },
+                    }
+                )
+            )
+        return hydrated
 
     def _register_paper_processing_tool(
         self,

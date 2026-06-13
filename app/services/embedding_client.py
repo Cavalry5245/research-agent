@@ -6,6 +6,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 _MODULE_AVAILABLE = None
+_MODULE_IMPORT_ERROR = None
 BGE_MODEL_ALIASES = {
     "bge-small-zh-v1.5": "BAAI/bge-small-zh-v1.5",
     "bge-small-en-v1.5": "BAAI/bge-small-en-v1.5",
@@ -28,7 +29,7 @@ CLOSED_CLIENT_MARKERS = (
 
 
 def _check_available() -> bool:
-    global _MODULE_AVAILABLE
+    global _MODULE_AVAILABLE, _MODULE_IMPORT_ERROR
     if _MODULE_AVAILABLE is not None:
         return _MODULE_AVAILABLE
     try:
@@ -36,8 +37,10 @@ def _check_available() -> bool:
         from sentence_transformers import SentenceTransformer  # noqa: F401
 
         _MODULE_AVAILABLE = True
-    except Exception:
+        _MODULE_IMPORT_ERROR = None
+    except Exception as exc:
         _MODULE_AVAILABLE = False
+        _MODULE_IMPORT_ERROR = exc
     return _MODULE_AVAILABLE
 
 
@@ -85,10 +88,11 @@ class EmbeddingClient:
         if self._model is not None:
             return
         if not _check_available():
+            detail = f"原始错误: {_MODULE_IMPORT_ERROR}" if _MODULE_IMPORT_ERROR else ""
             raise RuntimeError(
-                "sentence-transformers / torch 在当前环境中不可用，"
-                "请确认已安装 Visual C++ Redistributable。"
-            )
+                "sentence-transformers / torch 在当前环境中不可用。"
+                f"{detail}"
+            ) from _MODULE_IMPORT_ERROR
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as e:

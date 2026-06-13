@@ -738,6 +738,113 @@ def test_research_run_service_uses_zotero_mcp_when_available(tmp_path, monkeypat
     assert records[0]["fallback_used"] is False
 
 
+def test_research_run_service_hydrates_missing_mcp_pdf_paths(
+    tmp_path,
+    monkeypatch,
+):
+    from app.research_workflow.paper_processing import PaperProcessingResult
+    from app.research_workflow.zotero_intake import (
+        ZoteroAttachment,
+        ZoteroCollectionItem,
+    )
+
+    pdf_path = tmp_path / "paper.pdf"
+    pdf_path.write_bytes(b"%PDF fake")
+
+    class FakeMCPManager:
+        def list_servers(self):
+            return ["zotero"]
+
+    class FakeMCPAdapter:
+        def __init__(self, _proxy):
+            pass
+
+        def list_collection_items(self, _collection_id):
+            return [
+                ZoteroCollectionItem(
+                    key="MCP12345",
+                    title="MCP Paper",
+                    attachments=[
+                        ZoteroAttachment(
+                            key="",
+                            title="PDF attachment",
+                            content_type="application/pdf",
+                        )
+                    ],
+                    raw={"source": "mcp"},
+                )
+            ]
+
+    class FakeHttpClient:
+        def list_collection_items(self, _collection_id):
+            return [
+                ZoteroCollectionItem(
+                    key="MCP12345",
+                    title="MCP Paper",
+                    attachments=[
+                        ZoteroAttachment(
+                            key="PDF12345",
+                            title="Full Text PDF",
+                            path=str(pdf_path),
+                            content_type="application/pdf",
+                        )
+                    ],
+                    raw={"source": "local_http"},
+                )
+            ]
+
+    class FakeProcessor:
+        def __init__(self):
+            self.seen_pdf_paths = []
+
+        def process_item(self, item, run_output_dir):
+            self.seen_pdf_paths.append(item.pdf_path)
+            completed = item.model_copy(
+                update={
+                    "paper_id": "paper_20260613_001",
+                    "status": "completed",
+                    "progress": 1.0,
+                    "updated_at": datetime.now(timezone.utc),
+                    "completed_at": datetime.now(timezone.utc),
+                }
+            )
+            return PaperProcessingResult(
+                item=completed,
+                chunk_count=2,
+                note_path="note.md",
+                vector_backend="fake",
+            )
+
+    monkeypatch.setattr("app.research_workflow.service.ZoteroMCPAdapter", FakeMCPAdapter)
+    monkeypatch.setattr("app.research_workflow.service.ZoteroLocalHttpClient", FakeHttpClient)
+
+    store = FileResearchRunStore(tmp_path / "runs.json")
+    service = ResearchRunService(
+        store=store,
+        vault_root=tmp_path / "vault",
+        mcp_manager=FakeMCPManager(),
+    )
+    run = service.create_run(
+        ResearchRunCreateRequest(collection_id="COLL123", collection_name="Demo")
+    )
+    processor = FakeProcessor()
+
+    executed = service.execute_local_run(run.run_id, paper_processor=processor)
+
+    assert processor.seen_pdf_paths == [str(pdf_path)]
+    assert executed.paper_items[0].status != "skipped"
+    assert executed.paper_items[0].metadata["attachments"][0]["path"] == str(pdf_path)
+    assert executed.paper_items[0].metadata["attachments"][0]["key"] == "PDF12345"
+    records = [
+        json.loads(line)
+        for line in (Path(executed.output_dir) / "assets" / "tool-calls.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert records[0]["provider"] == "zotero_mcp"
+    assert records[0]["fallback_used"] is False
+
+
 def test_research_run_service_uses_http_fallback_when_zotero_mcp_unavailable(
     tmp_path,
     monkeypatch,

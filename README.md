@@ -332,6 +332,32 @@ python -m pytest tests -q
 # 493 passed
 ```
 
+## 性能测试
+
+快速验证系统性能（30秒）：
+
+```bash
+python tests/performance/quick_check.py
+```
+
+完整性能基准测试（包含延迟分解、吞吐量、并发、压力测试）：
+
+```bash
+# 运行所有性能测试（10-20分钟）
+python tests/performance/run_benchmarks.py
+
+# 生成可视化报告
+python tests/performance/generate_report.py
+```
+
+**关键性能指标**：
+- QA P95延迟: <2000ms (95%的查询在2秒内完成)
+- QA QPS: >1 (单机每秒处理查询数)
+- Embedding P95: <100ms
+- 向量查询P95: <500ms
+
+详细文档：[docs/PERFORMANCE_TESTING_GUIDE.md](docs/PERFORMANCE_TESTING_GUIDE.md)
+
 ## 后续升级
 
 > 📋 **详细升级路线图**：[JD_ALIGNED_ROADMAP.md](docs/JD_ALIGNED_ROADMAP.md)  
