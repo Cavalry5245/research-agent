@@ -95,6 +95,13 @@ class Chunk(BaseModel):
     page_number: int | None = None
     chunk_start: int | None = None
     chunk_end: int | None = None
+    # Parent-child architecture fields (optional for backward compatibility)
+    parent_id: str | None = None
+    section_path: str | None = None
+    page_range: str | None = None
+    element_type: str | None = None
+    content_for_embedding: str | None = None
+    context_header: str | None = None
 
 
 class NoteReadResponse(BaseModel):
@@ -134,6 +141,12 @@ class SourceItem(BaseModel):
     page_number: int | None = None
     chunk_start: int | None = None
     chunk_end: int | None = None
+    # Parent-child architecture fields (optional for backward compatibility)
+    parent_id: str | None = None
+    page_range: str | None = None
+    section_path: str | None = None
+    element_type: str | None = None
+    citation_label: str | None = None
 
 
 class QARequest(BaseModel):
@@ -337,3 +350,61 @@ class KBListResponse(BaseModel):
 
 class KBAddPaperRequest(BaseModel):
     paper_id: str
+
+
+# ==================== Parent-Child Document Architecture Models ====================
+
+
+class PdfProfile(BaseModel):
+    """PDF 类型和版式识别结果"""
+
+    paper_id: str
+    page_count: int
+    is_text_pdf: bool  # 是否为文本型 PDF（非扫描版）
+    layout_type: Literal["single_column", "double_column", "mixed", "unknown"]
+    text_density: float  # 平均每页字符数
+    has_tables: bool
+    has_figures: bool
+    reference_page_start: int | None = None  # 参考文献起始页
+    warnings: list[str] = Field(default_factory=list)  # 解析警告
+
+
+class DocumentElement(BaseModel):
+    """结构化解析的最小元素"""
+
+    element_id: str
+    paper_id: str
+    type: Literal[
+        "title",
+        "abstract",
+        "heading",
+        "paragraph",
+        "table",
+        "figure_caption",
+        "equation",
+        "reference",
+    ]
+    text: str
+    page_number: int
+    bbox: tuple[float, float, float, float] | None = None  # (x0, y0, x1, y1)
+    section_path: str | None = None  # e.g., "Introduction/Background"
+    order_index: int  # 阅读顺序
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ParentDocument(BaseModel):
+    """父文档保存完整上下文"""
+
+    parent_id: str
+    paper_id: str
+    title: str  # 论文标题
+    section_path: str | None = None  # 章节路径
+    content: str  # 完整内容
+    page_range: str | None = None  # e.g., "3-5"
+    element_type: Literal["abstract", "section", "table", "figure", "mixed"] = "section"
+    element_ids: list[str] = Field(default_factory=list)  # 包含的元素 ID
+    bbox_refs: list[tuple[int, tuple[float, float, float, float]]] = Field(
+        default_factory=list
+    )  # [(page, bbox), ...]
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
