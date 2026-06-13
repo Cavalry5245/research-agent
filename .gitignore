@@ -35,3 +35,6 @@ app/storage/memory.db
 .agents/
 app/storage/research_runs.json
 tests/debug/
+
+# Resume documents (personal use only)
+docs/RESUME_*.md
