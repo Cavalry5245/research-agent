@@ -27,7 +27,7 @@ def test_classify_error_maps_known_exceptions():
     mod = _load_module()
     checker = mod.LLMChecker()
 
-    # 用最简构造：这些异常需要 request/response，改用消息关键词回退路径验证
+    # Test keyword fallback: RuntimeError with message keywords
     assert checker._classify_error(RuntimeError("Connection error.")) == "connection_error"
     assert checker._classify_error(RuntimeError("request timed out")) == "timeout"
     assert checker._classify_error(RuntimeError("invalid api key")) == "authentication_failed"
@@ -38,14 +38,20 @@ def test_classify_error_maps_known_exceptions():
 
 def test_classify_error_prefers_exception_type():
     mod = _load_module()
+    checker = mod.LLMChecker()
 
+    # Test type-based classification: exception class name matching
     class FakeRateLimit(Exception):
         pass
+    class FakeAuthError(Exception):
+        pass
+    class FakeTimeout(Exception):
+        pass
 
-    # 通过类名匹配（不依赖 openai 构造签名）
     FakeRateLimit.__name__ = "RateLimitError"
-    assert checker_classify(mod, FakeRateLimit("x")) == "rate_limit"
+    FakeAuthError.__name__ = "AuthenticationError"
+    FakeTimeout.__name__ = "APITimeoutError"
 
-
-def checker_classify(mod, exc):
-    return mod.LLMChecker()._classify_error(exc)
+    assert checker._classify_error(FakeRateLimit("x")) == "rate_limit"
+    assert checker._classify_error(FakeAuthError("x")) == "authentication_failed"
+    assert checker._classify_error(FakeTimeout("x")) == "timeout"
