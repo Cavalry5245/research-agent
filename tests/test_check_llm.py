@@ -331,3 +331,42 @@ def test_print_terminal_failure_shows_suggestions(capsys):
     assert "常见问题排查" in out
     assert "LLM_API_KEY" in out
     assert "无法使用" in out
+
+
+def test_main_returns_zero_on_success(monkeypatch, capsys):
+    mod = _load_module()
+
+    class FakeClient:
+        def generate_text(self, prompt):
+            return "你好。"
+
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "https://api.deepseek.com/v1",
+        "llm_api_key": "sk-abcdefghijklmnop",
+        "llm_model": "deepseek-chat",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+    monkeypatch.setattr(
+        mod.LLMChecker, "_get_client", lambda self: FakeClient(), raising=True
+    )
+
+    code = mod.main(["--json"])
+    out = capsys.readouterr().out
+    assert code == 0
+    parsed = json.loads(out)
+    assert parsed["success"] is True
+
+
+def test_main_returns_one_on_failure(monkeypatch, capsys):
+    mod = _load_module()
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "https://api.example.com/v1",
+        "llm_api_key": "",
+        "llm_model": "gpt-4",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+
+    code = mod.main([])
+    assert code == 1

@@ -443,8 +443,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
-    # 后续任务填充调度逻辑
-    return 0
+
+    checker = LLMChecker(verbose=args.verbose)
+    result = checker.run(deep=args.deep)
+
+    formatter = OutputFormatter(use_color=not args.as_json)
+    if args.as_json:
+        formatter.print_json(result)
+    else:
+        formatter.print_terminal(result, verbose=args.verbose)
+
+    return 0 if result["success"] else 1
 
 
 if __name__ == "__main__":
