@@ -138,3 +138,45 @@ def test_mask_key_boundary_cases():
     mod = _load_module()
     assert mod._mask_key("12345678") == "****"  # exactly 8
     assert mod._mask_key("123456789") == "1234****6789"  # 9 chars
+
+
+def test_quick_check_success(monkeypatch):
+    mod = _load_module()
+
+    class FakeClient:
+        def generate_text(self, prompt):
+            return "你好！很高兴见到你。"
+
+    checker = mod.LLMChecker(client_factory=lambda: FakeClient())
+    result = checker.quick_check()
+    assert result["success"] is True
+    assert result["response_preview"]
+    assert isinstance(result["latency_seconds"], float)
+    assert result["latency_seconds"] >= 0
+
+
+def test_quick_check_empty_response_fails(monkeypatch):
+    mod = _load_module()
+
+    class FakeClient:
+        def generate_text(self, prompt):
+            return ""
+
+    checker = mod.LLMChecker(client_factory=lambda: FakeClient())
+    result = checker.quick_check()
+    assert result["success"] is False
+    assert result["error_category"] == "unknown"
+
+
+def test_quick_check_exception_classified(monkeypatch):
+    mod = _load_module()
+
+    class FakeClient:
+        def generate_text(self, prompt):
+            raise RuntimeError("invalid api key")
+
+    checker = mod.LLMChecker(client_factory=lambda: FakeClient())
+    result = checker.quick_check()
+    assert result["success"] is False
+    assert result["error_category"] == "authentication_failed"
+    assert result["suggestions"]

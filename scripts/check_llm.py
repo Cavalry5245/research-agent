@@ -16,6 +16,7 @@ import argparse
 import os
 import platform
 import sys
+import time
 from pathlib import Path
 
 # 确保可以导入 app 包
@@ -101,8 +102,20 @@ def _mask_key(key: str) -> str:
 class LLMChecker:
     """LLM 可用性检查核心逻辑。"""
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, client_factory=None):
         self.verbose = verbose
+        self._client_factory = client_factory
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            if self._client_factory is not None:
+                self._client = self._client_factory()
+            else:
+                from app.services.llm_client import LLMClient
+
+                self._client = LLMClient()
+        return self._client
 
     def _classify_error(self, exc: Exception) -> str:
         """将异常归类为 ERROR_SUGGESTIONS 中的键。
@@ -169,6 +182,43 @@ class LLMChecker:
             "api_key_masked": _mask_key(api_key),
             "valid": valid,
             "error_category": error_category,
+        }
+
+    def _call(self, prompt: str) -> tuple[str, float]:
+        start = time.perf_counter()
+        response = self._get_client().generate_text(prompt)
+        elapsed = time.perf_counter() - start
+        return response, elapsed
+
+    def quick_check(self) -> dict:
+        prompt = "你好，请用一句话回复。"
+        try:
+            response, elapsed = self._call(prompt)
+        except Exception as exc:  # noqa: BLE001
+            category = self._classify_error(exc)
+            return {
+                "name": "快速检查",
+                "success": False,
+                "error_category": category,
+                "error_message": str(exc),
+                "suggestions": ERROR_SUGGESTIONS.get(category, ERROR_SUGGESTIONS["unknown"]),
+            }
+
+        if not response or not response.strip():
+            return {
+                "name": "快速检查",
+                "success": False,
+                "error_category": "unknown",
+                "error_message": "LLM 返回了空内容",
+                "suggestions": ERROR_SUGGESTIONS["unknown"],
+            }
+
+        preview = response.strip().replace("\n", " ")[:60]
+        return {
+            "name": "快速检查",
+            "success": True,
+            "latency_seconds": round(elapsed, 3),
+            "response_preview": preview,
         }
 
 
