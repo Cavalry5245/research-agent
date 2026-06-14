@@ -13,10 +13,12 @@ Author: ResearchAgent Project
 """
 
 import argparse
+import json
 import os
 import platform
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 # 确保可以导入 app 包
@@ -296,6 +298,37 @@ class LLMChecker:
             self._test_long_context(),
         ]
 
+    def run(self, deep: bool = False) -> dict:
+        config = self.check_config()
+        result = {
+            "success": False,
+            "config": config,
+            "quick_check": None,
+            "deep_check": {"enabled": deep, "tests": []},
+        }
+
+        if not config["valid"]:
+            category = config["error_category"] or "unknown"
+            result["error_category"] = category
+            result["suggestions"] = ERROR_SUGGESTIONS.get(
+                category, ERROR_SUGGESTIONS["unknown"]
+            )
+            return result
+
+        quick = self.quick_check()
+        result["quick_check"] = quick
+        if not quick["success"]:
+            return result
+
+        if not deep:
+            result["success"] = True
+            return result
+
+        deep_results = self.deep_check()
+        result["deep_check"]["tests"] = deep_results
+        result["success"] = all(r["success"] for r in deep_results)
+        return result
+
 
 class OutputFormatter:
     """检查结果输出格式化。"""
@@ -304,6 +337,16 @@ class OutputFormatter:
         self.use_color = use_color and supports_color()
         if not self.use_color:
             Colors.disable()
+
+    def to_json(self, result: dict) -> str:
+        payload = dict(result)
+        payload["timestamp"] = datetime.now(timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        return json.dumps(payload, ensure_ascii=False, indent=2)
+
+    def print_json(self, result: dict) -> None:
+        print(self.to_json(result))
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

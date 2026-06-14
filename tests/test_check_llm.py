@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -210,3 +211,66 @@ def test_deep_check_handles_failure(monkeypatch):
     assert len(results) == 3
     assert all(r["success"] is False for r in results)
     assert all(r["error_category"] == "rate_limit" for r in results)
+
+
+def test_run_aggregates_quick_only(monkeypatch):
+    mod = _load_module()
+
+    class FakeClient:
+        def generate_text(self, prompt):
+            return "你好。"
+
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "https://api.deepseek.com/v1",
+        "llm_api_key": "sk-abcdefghijklmnop",
+        "llm_model": "deepseek-chat",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+
+    checker = mod.LLMChecker(client_factory=lambda: FakeClient())
+    result = checker.run(deep=False)
+    assert result["success"] is True
+    assert result["config"]["model"] == "deepseek-chat"
+    assert result["quick_check"]["success"] is True
+    assert result["deep_check"]["enabled"] is False
+
+
+def test_run_short_circuits_on_invalid_config(monkeypatch):
+    mod = _load_module()
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "https://api.example.com/v1",
+        "llm_api_key": "",
+        "llm_model": "gpt-4",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+
+    checker = mod.LLMChecker()  # 不应实例化真实 client
+    result = checker.run(deep=False)
+    assert result["success"] is False
+    assert result["config"]["valid"] is False
+    assert result["quick_check"] is None
+
+
+def test_json_output_is_parseable(monkeypatch):
+    mod = _load_module()
+
+    class FakeClient:
+        def generate_text(self, prompt):
+            return "你好。"
+
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "https://api.deepseek.com/v1",
+        "llm_api_key": "sk-abcdefghijklmnop",
+        "llm_model": "deepseek-chat",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+
+    checker = mod.LLMChecker(client_factory=lambda: FakeClient())
+    result = checker.run(deep=False)
+    payload = mod.OutputFormatter().to_json(result)
+    parsed = json.loads(payload)
+    assert parsed["success"] is True
+    assert "timestamp" in parsed
