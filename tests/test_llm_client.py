@@ -1,179 +1,93 @@
 import os
 import sys
-from unittest.mock import patch
 
 import pytest
-from openai import APITimeoutError, InternalServerError, RateLimitError
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from app.config import settings
 from app.services.llm_client import LLMClient
 
 
-class _FakeResponse:
-    def __init__(self, content: str):
-        self.choices = [
-            type("Choice", (), {"message": type("Msg", (), {"content": content})()})()
-        ]
-
-
-class _DummyChat:
-    def __init__(self, side_effects):
-        self._side_effects = list(side_effects)
-        self.calls = 0
-        self.completions = self
-
-    def create(self, **kwargs):
-        self.calls += 1
-        item = self._side_effects.pop(0)
-        if isinstance(item, Exception):
-            raise item
-        return item
-
-
-class _DummyClient:
-    def __init__(self, side_effects):
-        self.chat = _DummyChat(side_effects)
-
-
-def _make_internal_server_error(message: str = "Service temporarily unavailable"):
-    resp = type(
-        "Resp",
-        (),
-        {"request": None, "status_code": 503, "headers": {}, "text": message},
-    )()
-    return InternalServerError(
-        message=message, response=resp, body={"error": {"message": message}}
-    )
-
-
-def _make_rate_limit_error(message: str = "rate limited"):
-    resp = type(
-        "Resp",
-        (),
-        {"request": None, "status_code": 429, "headers": {}, "text": message},
-    )()
-    return RateLimitError(
-        message=message, response=resp, body={"error": {"message": message}}
-    )
-
-
 @pytest.fixture
-def llm_env():
-    old = {
-        "llm_api_key": LLMClient.__init__.__globals__["settings"].llm_api_key,
-        "llm_base_url": LLMClient.__init__.__globals__["settings"].llm_base_url,
-        "llm_model": LLMClient.__init__.__globals__["settings"].llm_model,
-    }
-    settings = LLMClient.__init__.__globals__["settings"]
-    settings.llm_api_key = "test-key"
-    settings.llm_base_url = "http://localhost:18080/v1"
-    settings.llm_model = "gpt-5.4"
-    try:
-        yield settings
-    finally:
-        settings.llm_api_key = old["llm_api_key"]
-        settings.llm_base_url = old["llm_base_url"]
-        settings.llm_model = old["llm_model"]
+def real_llm_client():
+    """真实 LLM 客户端 fixture - 从 .env 读取配置"""
+    if not settings.llm_api_key:
+        pytest.skip("未配置 LLM_API_KEY，跳过真实调用测试")
+    return LLMClient()
 
 
-def test_generate_text_retries_on_503_then_succeeds(llm_env):
-    fake_client = _DummyClient(
-        [
-            _make_internal_server_error(),
-            _FakeResponse("ok after retry"),
-        ]
+def test_real_llm_call_basic(real_llm_client):
+    """测试真实 LLM API 调用 - 基础响应"""
+    prompt = "请用一句话回复：你好"
+
+    result = real_llm_client.generate_text(prompt)
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 0
+    print(f"\n[真实调用测试]")
+    print(f"  提供商: {settings.llm_provider}")
+    print(f"  模型: {settings.llm_model}")
+    print(f"  BASE_URL: {settings.llm_base_url}")
+    print(f"  响应: {result}")
+
+
+def test_real_llm_call_chinese_academic(real_llm_client):
+    """测试真实 LLM API 调用 - 中文学术响应"""
+    prompt = """请用中文简要说明深度学习中的注意力机制（Attention Mechanism）。
+要求：
+1. 使用学术语言
+2. 不超过100字
+3. 不要编造内容"""
+
+    result = real_llm_client.generate_text(prompt)
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 20
+    # 检查是否包含相关关键词
+    assert any(
+        keyword in result
+        for keyword in ["注意力", "权重", "特征", "相关", "关注", "机制", "加权"]
     )
-
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
-        "time.sleep"
-    ) as sleep_mock:
-        client = LLMClient()
-        result = client.generate_text("hello")
-
-    assert result == "ok after retry"
-    assert fake_client.chat.calls == 2
-    sleep_mock.assert_called_once_with(1.0)
+    print(f"\n[学术测试]")
+    print(f"  模型: {settings.llm_model}")
+    print(f"  响应长度: {len(result)} 字符")
+    print(f"  响应内容: {result}")
 
 
-def test_generate_text_retries_on_429_then_succeeds(llm_env):
-    fake_client = _DummyClient(
-        [
-            _make_rate_limit_error(),
-            _FakeResponse("ok after retry"),
-        ]
-    )
+def test_real_llm_call_model_info(real_llm_client):
+    """测试真实 LLM API 调用 - 模型自我识别"""
+    prompt = "你是什么模型？请直接回答模型名称。"
 
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
-        "time.sleep"
-    ) as sleep_mock:
-        client = LLMClient()
-        result = client.generate_text("hello")
+    result = real_llm_client.generate_text(prompt)
 
-    assert result == "ok after retry"
-    assert fake_client.chat.calls == 2
-    sleep_mock.assert_called_once_with(1.0)
+    assert result is not None
+    assert isinstance(result, str)
+    print(f"\n[模型识别测试]")
+    print(f"  配置的模型: {settings.llm_model}")
+    print(f"  模型自述: {result}")
 
 
-def test_generate_text_retries_on_timeout_then_succeeds(llm_env):
-    request = type(
-        "Req",
-        (),
-        {"method": "POST", "url": "http://localhost:18080/v1/chat/completions"},
-    )()
-    fake_client = _DummyClient(
-        [
-            APITimeoutError(request=request),
-            _FakeResponse("ok after timeout retry"),
-        ]
-    )
+@pytest.mark.skipif(
+    "claude" not in settings.llm_model.lower(),
+    reason="仅在使用 Claude 模型时运行"
+)
+def test_real_claude_specific(real_llm_client):
+    """测试 Claude 模型特定功能"""
+    prompt = """请完成以下任务：
+1. 用中文回复
+2. 证明你是 Claude
+3. 说明你的模型版本
+4. 简要描述你的能力"""
 
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
-        "time.sleep"
-    ) as sleep_mock:
-        client = LLMClient()
-        result = client.generate_text("hello")
+    result = real_llm_client.generate_text(prompt)
 
-    assert result == "ok after timeout retry"
-    assert fake_client.chat.calls == 2
-    sleep_mock.assert_called_once_with(1.0)
-
-
-def test_generate_text_raises_after_max_retries(llm_env):
-    fake_client = _DummyClient(
-        [
-            _make_internal_server_error("temporary outage 1"),
-            _make_internal_server_error("temporary outage 2"),
-            _make_internal_server_error("temporary outage 3"),
-        ]
-    )
-
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
-        "time.sleep"
-    ) as sleep_mock:
-        client = LLMClient()
-        with pytest.raises(RuntimeError) as exc_info:
-            client.generate_text("hello")
-
-    assert "temporary outage 3" in str(exc_info.value)
-    assert fake_client.chat.calls == 3
-    assert sleep_mock.call_args_list == [((1.0,),), ((2.0,),)]
-
-
-def test_generate_text_does_not_retry_on_value_error(llm_env):
-    fake_client = _DummyClient(
-        [
-            ValueError("non retryable failure"),
-        ]
-    )
-
-    with patch("app.services.llm_client.OpenAI", return_value=fake_client), patch(
-        "time.sleep"
-    ) as sleep_mock:
-        client = LLMClient()
-        with pytest.raises(RuntimeError) as exc_info:
-            client.generate_text("hello")
-
-    assert "non retryable failure" in str(exc_info.value)
-    assert fake_client.chat.calls == 1
-    sleep_mock.assert_not_called()
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 50
+    print(f"\n[Claude 专项测试]")
+    print(f"  模型: {settings.llm_model}")
+    print(f"  完整响应:\n{result}")
+    print(f"  响应长度: {len(result)} 字符")

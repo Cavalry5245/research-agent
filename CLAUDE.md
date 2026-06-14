@@ -81,10 +81,19 @@ tests/
 
 - All output goes through LLM with strict prompts: Chinese output, academic tone, no fabrication, mark "原文未明确说明" when info missing
 - Paper notes follow the 13-section Markdown template in `docs/MVP_REQUIREMENTS.md`
-- Chunk config: `chunk_size=800`, `chunk_overlap=100`
 - Paper IDs are generated as `paper_YYYYMMDD_NNN`
-- Retriever must include paper_id, section name, and chunk_id in its results
 - Errors must surface clear messages to the UI — never raw stack traces
+
+## RAG 架构（父子文档）
+
+- **父文档存储**: `app/storage/parent_docs/` (JSON)
+- **子块索引**: VectorStore + BM25
+- **检索策略**: Hybrid retrieval with parent backfill
+- **引用格式**: `[paper_id p.X-Y Section]`
+- **窗口大小**: 子块 500 字符，重叠 100 字符
+- **父文档边界**: Abstract 独立，主章节独立，二级章节 >2000 字符独立
+
+详见 `docs/RAG_ARCHITECTURE.md`
 
 ## Config-driven design
 

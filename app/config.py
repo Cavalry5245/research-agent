@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     query_rewrite: str = "off"
     hyde: str = "off"
 
+    # PDF RAG 父子文档配置
+    pdf_parse_mode: str = "structured"
+    chunk_strategy: str = "parent_child_sliding_window"
+    parent_doc_store: str = "json"
+    parent_doc_dir: str = "app/storage/parent_docs"
+    child_chunk_size: int = 500
+    child_chunk_overlap: int = 100
+    preserve_page_citations: bool = True
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

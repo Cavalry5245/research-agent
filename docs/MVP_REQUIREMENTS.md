@@ -979,30 +979,31 @@ app/prompts/paper_note_prompt.py
 
 ---
 
-## 11.4 阶段四：RAG 检索问答
+## 11.4 阶段四：RAG 检索问答（✅ 完成 - 父子文档架构）
 
-目标：
+### 当前状态
+已完成父子文档架构升级，实现高精度检索和完整上下文回填。
 
-- 实现文本切块。
-- 实现 embedding。
-- 实现 Chroma 写入与检索。
-- 实现基于论文内容的问答。
+### 架构特性
+- **父文档**: 保存完整章节上下文（不进入向量索引）
+- **子块**: 滑动窗口切分（500 字符，100 重叠）
+- **检索**: Dense + BM25 hybrid search
+- **回填**: 自动加载父文档提供完整上下文
+- **引用**: 页码级别准确引用
 
-核心文件：
+### 关键组件
+- `parent_doc_store.py` - 父文档存储（JSON）
+- `parent_chunker.py` - 父文档构建和子块切分
+- `paper_qa.py` - 检索回填逻辑
+- `vector_store.py` - Hybrid search 实现
+- `embedding_client.py` - 向量化服务
 
-```text
-app/services/chunker.py
-app/services/embedding_client.py
-app/services/vector_store.py
-app/services/paper_qa.py
-app/prompts/qa_prompt.py
-```
+### 验收
+- ✅ 可以将论文加入知识库（父子文档索引）
+- ✅ 可以基于论文内容回答问题（完整上下文）
+- ✅ 回答包含准确引用（页码范围）
 
-验收：
-
-- 可以将论文加入知识库。
-- 可以基于论文内容回答问题。
-- 回答包含依据片段。
+详见 `docs/RAG_ARCHITECTURE.md`
 
 ---
 
