@@ -55,3 +55,48 @@ def test_classify_error_prefers_exception_type():
     assert checker._classify_error(FakeRateLimit("x")) == "rate_limit"
     assert checker._classify_error(FakeAuthError("x")) == "authentication_failed"
     assert checker._classify_error(FakeTimeout("x")) == "timeout"
+
+
+def test_mask_key_hides_middle():
+    mod = _load_module()
+    assert mod._mask_key("sk-1234567890abcdef") == "sk-1****cdef"
+    assert mod._mask_key("") == "(未设置)"
+    assert mod._mask_key("short") == "****"
+
+
+def test_check_config_returns_summary(monkeypatch):
+    mod = _load_module()
+    checker = mod.LLMChecker()
+
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "https://api.deepseek.com/v1",
+        "llm_api_key": "sk-abcdefghijklmnop",
+        "llm_model": "deepseek-chat",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+
+    cfg = checker.check_config()
+    assert cfg["provider"] == "openai_compatible"
+    assert cfg["base_url"] == "https://api.deepseek.com/v1"
+    assert cfg["model"] == "deepseek-chat"
+    assert cfg["api_key_present"] is True
+    assert cfg["valid"] is True
+    assert "sk-abcdefghijklmnop" not in cfg["api_key_masked"]
+
+
+def test_check_config_flags_missing_key(monkeypatch):
+    mod = _load_module()
+    checker = mod.LLMChecker()
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "https://api.example.com/v1",
+        "llm_api_key": "",
+        "llm_model": "gpt-4",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+
+    cfg = checker.check_config()
+    assert cfg["valid"] is False
+    assert cfg["api_key_present"] is False
+    assert cfg["error_category"] == "api_key_missing"

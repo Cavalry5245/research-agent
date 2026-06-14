@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from app.config import settings  # noqa: E402
+
 
 class Colors:
     """ANSI color codes for terminal output."""
@@ -87,6 +89,15 @@ ERROR_SUGGESTIONS = {
 }
 
 
+def _mask_key(key: str) -> str:
+    """脱敏 API Key，仅保留首尾少量字符。"""
+    if not key:
+        return "(未设置)"
+    if len(key) <= 8:
+        return "****"
+    return f"{key[:4]}****{key[-4:]}"
+
+
 class LLMChecker:
     """LLM 可用性检查核心逻辑。"""
 
@@ -130,6 +141,35 @@ class LLMChecker:
             if keyword in message:
                 return category
         return "unknown"
+
+    def check_config(self) -> dict:
+        """读取并校验 .env 配置，返回配置摘要字典。"""
+        provider = getattr(settings, "llm_provider", "")
+        base_url = getattr(settings, "llm_base_url", "")
+        api_key = getattr(settings, "llm_api_key", "")
+        model = getattr(settings, "llm_model", "")
+
+        valid = True
+        error_category = None
+        if not api_key:
+            valid = False
+            error_category = "api_key_missing"
+        elif not base_url:
+            valid = False
+            error_category = "bad_request"
+        elif not model:
+            valid = False
+            error_category = "bad_request"
+
+        return {
+            "provider": provider,
+            "base_url": base_url,
+            "model": model,
+            "api_key_present": bool(api_key),
+            "api_key_masked": _mask_key(api_key),
+            "valid": valid,
+            "error_category": error_category,
+        }
 
 
 class OutputFormatter:
