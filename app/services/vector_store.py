@@ -116,6 +116,10 @@ class VectorStore:
                     "chunk_start": chunk.chunk_start,
                     "chunk_end": chunk.chunk_end,
                     "score": score,
+                    "parent_id": chunk.parent_id,
+                    "section_path": chunk.section_path,
+                    "page_range": chunk.page_range,
+                    "element_type": chunk.element_type,
                 }
             )
 

@@ -80,12 +80,12 @@ def test_build_context():
         },
     ]
     ctx = _build_context(results)
-    assert "[片段 1]" in ctx
-    assert "[片段 2]" in ctx
-    assert "Paper: p1" in ctx
-    assert "Paper: p2" in ctx
+    # New format: [paper_id p.page section]
+    assert "[p1 p.? Method]" in ctx
+    assert "[p2 p.? Experiments]" in ctx
     assert "Method content." in ctx
     assert "Experiment content." in ctx
+    assert "---" in ctx  # Separator between chunks
 
 
 def test_answer_question_with_results():

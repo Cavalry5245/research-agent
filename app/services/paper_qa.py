@@ -5,6 +5,7 @@ from typing import Protocol
 from app.prompts.qa_prompt import build_qa_prompt
 from app.services.embedding_client import EmbeddingClient
 from app.services.llm_client import LLMClient
+from app.services.parent_doc_store import ParentDocumentStore
 from app.services.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -29,16 +30,37 @@ class RetrieverProtocol(Protocol):
 
 
 def _build_context(results: list[dict]) -> str:
+    """
+    构建 QA 上下文。
+
+    优先使用父文档内容（避免重复），向后兼容无父文档的旧数据。
+    """
+    seen_parents = set()
     parts = []
-    for i, r in enumerate(results, 1):
-        parts.append(
-            f"[片段 {i}] "
-            f"Paper: {r['paper_id']}, "
-            f"Title: {r['title']}, "
-            f"Section: {r['section']}\n"
-            f"{r['content']}"
-        )
-    return "\n\n".join(parts)
+
+    for r in results:
+        parent_doc = r.get('parent_document')
+
+        if parent_doc:
+            # 有父文档：使用完整父文档内容，避免重复
+            if parent_doc.parent_id not in seen_parents:
+                citation_label = (
+                    f"[{parent_doc.paper_id} "
+                    f"p.{parent_doc.page_range or '?'} "
+                    f"{parent_doc.section_path or 'Unknown'}]"
+                )
+                parts.append(f"{citation_label}\n{parent_doc.content}")
+                seen_parents.add(parent_doc.parent_id)
+        else:
+            # 向后兼容：没有父文档时使用子块
+            citation_label = (
+                f"[{r['paper_id']} "
+                f"p.{r.get('page_number', '?')} "
+                f"{r['section']}]"
+            )
+            parts.append(f"{citation_label}\n{r['content']}")
+
+    return "\n\n---\n\n".join(parts)
 
 
 def _is_closed_client_error(exc: Exception) -> bool:
@@ -83,7 +105,19 @@ def answer_question(
     reranker: RerankerProtocol | None = None,
     recall_top_k: int | None = None,
     retriever: RetrieverProtocol | None = None,
+    parent_store: ParentDocumentStore | None = None,
 ) -> dict:
+    """
+    回答问题，使用父子文档架构。
+
+    新增逻辑：
+    1. dense + BM25 hybrid search 子块
+    2. optional rerank 子块
+    3. 按 parent_id 分组
+    4. 从 ParentDocumentStore 加载父文档
+    5. 使用父文档构建 prompt context
+    6. 生成答案
+    """
     logger.info(
         "QA: question='%s', paper_id=%s, top_k=%d", question[:80], paper_id, top_k
     )
@@ -124,6 +158,40 @@ def answer_question(
     results = _apply_reranker(
         question=question, results=results, reranker=reranker, top_k=top_k
     )
+
+    # 父文档回填逻辑
+    if parent_store is None:
+        parent_store = ParentDocumentStore()
+
+    # 提取 parent_ids（去重）
+    parent_ids = list(set([
+        chunk.get('parent_id')
+        for chunk in results
+        if chunk.get('parent_id')
+    ]))
+
+    # 如果有 parent_id，加载父文档
+    if parent_ids:
+        logger.info("Loading %d parent documents for QA context", len(parent_ids))
+        parents = parent_store.get_parents(parent_ids)
+        # 构建 parent_id -> ParentDocument 映射
+        parent_map = {p.parent_id: p for p in parents}
+
+        # 为每个子块关联父文档
+        for chunk in results:
+            pid = chunk.get('parent_id')
+            if pid and pid in parent_map:
+                chunk['parent_document'] = parent_map[pid]
+
+        logger.info(
+            "Successfully loaded %d/%d parent documents",
+            len(parent_map),
+            len(parent_ids)
+        )
+    else:
+        # 向后兼容：没有 parent_id 的旧数据
+        logger.debug("No parent_ids found in results, using child chunks directly")
+
     context = _build_context(results)
     prompt = build_qa_prompt(question, context)
 
@@ -151,6 +219,14 @@ def answer_question(
             "page_number": r.get("page_number"),
             "chunk_start": r.get("chunk_start"),
             "chunk_end": r.get("chunk_end"),
+            "parent_id": r.get("parent_id"),
+            "section_path": r.get("section_path"),
+            "page_range": (
+                r["parent_document"].page_range
+                if r.get("parent_document")
+                else r.get("page_range")
+            ),
+            "element_type": r.get("element_type"),
         }
         for r in results
     ]
