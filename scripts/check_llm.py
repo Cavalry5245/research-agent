@@ -93,6 +93,44 @@ class LLMChecker:
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
 
+    def _classify_error(self, exc: Exception) -> str:
+        """将异常归类为 ERROR_SUGGESTIONS 中的键。
+
+        优先按异常类名匹配（兼容 openai SDK 异常），
+        无法匹配时回退到异常消息关键词匹配。
+        """
+        name = type(exc).__name__.lower()
+        type_map = {
+            "ratelimiterror": "rate_limit",
+            "authenticationerror": "authentication_failed",
+            "permissiondeniederror": "authentication_failed",
+            "notfounderror": "model_not_found",
+            "badrequesterror": "bad_request",
+            "apitimeouterror": "timeout",
+            "apiconnectionerror": "connection_error",
+        }
+        if name in type_map:
+            return type_map[name]
+
+        message = str(exc).lower()
+        keyword_map = [
+            ("rate limit", "rate_limit"),
+            ("timed out", "timeout"),
+            ("timeout", "timeout"),
+            ("api key", "authentication_failed"),
+            ("authentication", "authentication_failed"),
+            ("unauthorized", "authentication_failed"),
+            ("does not exist", "model_not_found"),
+            ("model not found", "model_not_found"),
+            ("connection error", "connection_error"),
+            ("connection", "connection_error"),
+            ("bad request", "bad_request"),
+        ]
+        for keyword, category in keyword_map:
+            if keyword in message:
+                return category
+        return "unknown"
+
 
 class OutputFormatter:
     """检查结果输出格式化。"""
