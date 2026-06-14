@@ -100,3 +100,41 @@ def test_check_config_flags_missing_key(monkeypatch):
     assert cfg["valid"] is False
     assert cfg["api_key_present"] is False
     assert cfg["error_category"] == "api_key_missing"
+
+
+def test_check_config_flags_missing_base_url(monkeypatch):
+    mod = _load_module()
+    checker = mod.LLMChecker()
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "",
+        "llm_api_key": "sk-validkey123",
+        "llm_model": "gpt-4",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+
+    cfg = checker.check_config()
+    assert cfg["valid"] is False
+    assert cfg["error_category"] == "bad_request"
+
+
+def test_check_config_flags_missing_model(monkeypatch):
+    mod = _load_module()
+    checker = mod.LLMChecker()
+    fake = type("S", (), {
+        "llm_provider": "openai_compatible",
+        "llm_base_url": "https://api.example.com/v1",
+        "llm_api_key": "sk-validkey123",
+        "llm_model": "",
+    })()
+    monkeypatch.setattr(mod, "settings", fake, raising=False)
+
+    cfg = checker.check_config()
+    assert cfg["valid"] is False
+    assert cfg["error_category"] == "bad_request"
+
+
+def test_mask_key_boundary_cases():
+    mod = _load_module()
+    assert mod._mask_key("12345678") == "****"  # exactly 8
+    assert mod._mask_key("123456789") == "1234****6789"  # 9 chars
