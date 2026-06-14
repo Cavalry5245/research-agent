@@ -348,6 +348,81 @@ class OutputFormatter:
     def print_json(self, result: dict) -> None:
         print(self.to_json(result))
 
+    def _icon(self, ok: bool) -> str:
+        return f"{Colors.GREEN}✓{Colors.RESET}" if ok else f"{Colors.RED}✗{Colors.RESET}"
+
+    def _print_suggestions(self, suggestions) -> None:
+        if not suggestions:
+            return
+        print(f"\n{Colors.YELLOW}常见问题排查:{Colors.RESET}")
+        for i, s in enumerate(suggestions, 1):
+            print(f"  {i}. {s}")
+
+    def print_terminal(self, result: dict, verbose: bool = False) -> None:
+        cfg = result["config"]
+        deep_enabled = result["deep_check"]["enabled"]
+
+        title = "LLM 可用性检查（深度模式）" if deep_enabled else "LLM 可用性检查"
+        print(f"\n{Colors.BOLD}{Colors.BLUE}=== {title} ==={Colors.RESET}\n")
+
+        print("配置信息:")
+        print(f"  Provider: {cfg['provider']}")
+        print(f"  Base URL: {cfg['base_url']}")
+        print(f"  Model: {cfg['model']}")
+        print(f"  API Key: {cfg['api_key_masked']}")
+
+        # 配置无效：直接给出结论
+        if not cfg["valid"]:
+            print(f"\n[配置检查]")
+            print(f"{self._icon(False)} 配置校验失败")
+            self._print_suggestions(result.get("suggestions"))
+            print(f"\n结论: {self._icon(False)} LLM 配置异常，无法使用")
+            return
+
+        # 快速检查
+        quick = result["quick_check"]
+        print(f"\n[快速检查]")
+        if quick and quick["success"]:
+            print(f"{self._icon(True)} API 连通性测试通过")
+            print(f"  响应时间: {quick['latency_seconds']}s")
+            print(f"  响应内容: {quick['response_preview']}")
+        else:
+            print(f"{self._icon(False)} API 连通性测试失败")
+            if quick:
+                print(f"  错误信息: {quick.get('error_message', '')}")
+                if verbose:
+                    print(f"  错误类别: {quick.get('error_category', '')}")
+                self._print_suggestions(quick.get("suggestions"))
+            print(f"\n结论: {self._icon(False)} LLM 配置异常，无法使用")
+            return
+
+        # 深度检查
+        if deep_enabled:
+            print(f"\n[深度检查]")
+            latencies = []
+            for t in result["deep_check"]["tests"]:
+                print(f"{self._icon(t['success'])} {t['name']}")
+                if t["success"]:
+                    print(f"  {t.get('detail', '')} ({t['latency_seconds']}s)")
+                    latencies.append(t["latency_seconds"])
+                else:
+                    print(f"  错误信息: {t.get('error_message', '')}")
+                    self._print_suggestions(t.get("suggestions"))
+            if latencies:
+                avg = round(sum(latencies) / len(latencies), 3)
+                print(f"\n性能统计:")
+                print(f"  平均响应时间: {avg}s")
+
+        ok = result["success"]
+        conclusion = (
+            "LLM 配置正常，所有功能测试通过"
+            if deep_enabled and ok
+            else "LLM 配置正常，可以使用"
+            if ok
+            else "部分功能测试未通过"
+        )
+        print(f"\n结论: {self._icon(ok)} {conclusion}")
+
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(

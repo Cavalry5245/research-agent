@@ -274,3 +274,60 @@ def test_json_output_is_parseable(monkeypatch):
     parsed = json.loads(payload)
     assert parsed["success"] is True
     assert "timestamp" in parsed
+
+
+def test_print_terminal_success_contains_conclusion(capsys):
+    mod = _load_module()
+    mod.Colors.disable()
+    result = {
+        "success": True,
+        "config": {
+            "provider": "openai_compatible",
+            "base_url": "https://api.deepseek.com/v1",
+            "model": "deepseek-chat",
+            "api_key_present": True,
+            "api_key_masked": "sk-1****cdef",
+            "valid": True,
+            "error_category": None,
+        },
+        "quick_check": {
+            "name": "快速检查",
+            "success": True,
+            "latency_seconds": 1.23,
+            "response_preview": "你好！",
+        },
+        "deep_check": {"enabled": False, "tests": []},
+    }
+    mod.OutputFormatter(use_color=False).print_terminal(result)
+    out = capsys.readouterr().out
+    assert "配置信息" in out
+    assert "deepseek-chat" in out
+    assert "快速检查" in out
+    assert "LLM 配置正常" in out
+    assert "sk-1****cdef" in out
+
+
+def test_print_terminal_failure_shows_suggestions(capsys):
+    mod = _load_module()
+    mod.Colors.disable()
+    result = {
+        "success": False,
+        "config": {
+            "provider": "openai_compatible",
+            "base_url": "https://api.example.com/v1",
+            "model": "gpt-4",
+            "api_key_present": False,
+            "api_key_masked": "(未设置)",
+            "valid": False,
+            "error_category": "api_key_missing",
+        },
+        "quick_check": None,
+        "deep_check": {"enabled": False, "tests": []},
+        "error_category": "api_key_missing",
+        "suggestions": ["在 .env 文件中设置 LLM_API_KEY", "参考 .env.example 文件"],
+    }
+    mod.OutputFormatter(use_color=False).print_terminal(result)
+    out = capsys.readouterr().out
+    assert "常见问题排查" in out
+    assert "LLM_API_KEY" in out
+    assert "无法使用" in out
