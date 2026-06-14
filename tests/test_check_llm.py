@@ -180,3 +180,33 @@ def test_quick_check_exception_classified(monkeypatch):
     assert result["success"] is False
     assert result["error_category"] == "authentication_failed"
     assert result["suggestions"]
+
+
+def test_deep_check_runs_three_tests(monkeypatch):
+    mod = _load_module()
+
+    class FakeClient:
+        def generate_text(self, prompt):
+            # 返回含中文与关键词的文本，满足三项验证
+            return "深度学习是一种基于神经网络的机器学习方法，通过多层特征表示学习数据规律。"
+
+    checker = mod.LLMChecker(client_factory=lambda: FakeClient())
+    results = checker.deep_check()
+    assert len(results) == 3
+    names = {r["name"] for r in results}
+    assert names == {"中文支持测试", "学术文本生成测试", "长文本处理测试"}
+    assert all(r["success"] for r in results)
+
+
+def test_deep_check_handles_failure(monkeypatch):
+    mod = _load_module()
+
+    class FakeClient:
+        def generate_text(self, prompt):
+            raise RuntimeError("rate limit exceeded")
+
+    checker = mod.LLMChecker(client_factory=lambda: FakeClient())
+    results = checker.deep_check()
+    assert len(results) == 3
+    assert all(r["success"] is False for r in results)
+    assert all(r["error_category"] == "rate_limit" for r in results)

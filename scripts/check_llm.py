@@ -221,6 +221,81 @@ class LLMChecker:
             "response_preview": preview,
         }
 
+    def _run_test(self, name: str, prompt: str, validate) -> dict:
+        try:
+            response, elapsed = self._call(prompt)
+        except Exception as exc:  # noqa: BLE001
+            category = self._classify_error(exc)
+            return {
+                "name": name,
+                "success": False,
+                "error_category": category,
+                "error_message": str(exc),
+                "suggestions": ERROR_SUGGESTIONS.get(category, ERROR_SUGGESTIONS["unknown"]),
+            }
+        ok, detail = validate(response)
+        return {
+            "name": name,
+            "success": ok,
+            "latency_seconds": round(elapsed, 3),
+            "detail": detail,
+            "response_length": len(response.strip()),
+        }
+
+    @staticmethod
+    def _has_chinese(text: str) -> bool:
+        return any("一" <= ch <= "鿿" for ch in text)
+
+    def _test_chinese_support(self) -> dict:
+        prompt = "请用中文简要说明什么是深度学习。要求：学术语言，不超过50字。"
+
+        def validate(resp: str):
+            resp = (resp or "").strip()
+            if self._has_chinese(resp) and len(resp) >= 5:
+                return True, f"响应长度: {len(resp)} 字符"
+            return False, "未检测到有效中文响应"
+
+        return self._run_test("中文支持测试", prompt, validate)
+
+    def _test_academic_text(self) -> dict:
+        prompt = (
+            "以下是一段论文摘要，请用学术语言总结其核心贡献，不超过80字：\n"
+            "本文提出一种基于注意力机制的神经网络模型，用于提升长文本语义理解能力，"
+            "在多个基准数据集上取得了优于现有方法的性能。"
+        )
+        keywords = ["注意力", "模型", "方法", "性能", "神经网络", "语义", "贡献"]
+
+        def validate(resp: str):
+            resp = (resp or "").strip()
+            if self._has_chinese(resp) and any(k in resp for k in keywords):
+                return True, "关键词检测: 通过"
+            return False, "关键词检测: 未通过"
+
+        return self._run_test("学术文本生成测试", prompt, validate)
+
+    def _test_long_context(self) -> dict:
+        long_text = (
+            "深度学习近年来在计算机视觉、自然语言处理和语音识别等领域取得了显著进展。"
+            * 12
+        )
+        prompt = f"请用一句话总结以下文本的主题：\n{long_text}"
+        input_len = len(prompt)
+
+        def validate(resp: str):
+            resp = (resp or "").strip()
+            if len(resp) >= 5:
+                return True, f"输入/输出: {input_len} 字 / {len(resp)} 字"
+            return False, "响应过短或为空"
+
+        return self._run_test("长文本处理测试", prompt, validate)
+
+    def deep_check(self) -> list[dict]:
+        return [
+            self._test_chinese_support(),
+            self._test_academic_text(),
+            self._test_long_context(),
+        ]
+
 
 class OutputFormatter:
     """检查结果输出格式化。"""
