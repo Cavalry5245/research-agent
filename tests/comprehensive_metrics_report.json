@@ -1,0 +1,87 @@
+{
+  "timestamp": "2026-06-15T10:07:21.003810",
+  "llm_config": {
+    "provider": "agnes",
+    "model": "agnes-2.0-flash"
+  },
+  "core_metrics": {
+    "child_hit@5": 86.66666666666667,
+    "parent_hit@5": 86.66666666666667,
+    "citation_accuracy": 86.66666666666667,
+    "answer_pass_rate": 93.33333333333333,
+    "abstain_accuracy": 100.0
+  },
+  "performance_metrics": {
+    "retrieval_latency_ms": 55.511407732098064,
+    "backfill_latency_ms": 14.828366804049669,
+    "llm_inference_latency_ms": 854.2931725247604,
+    "e2e_latency_ms": 924.6329470609081
+  },
+  "resource_metrics": {
+    "parent_doc_store_size_mb": 0.0,
+    "vector_store_size_mb": 32.0645227432251,
+    "total_index_size_mb": 32.0645227432251,
+    "memory_usage_mb": 23.78125,
+    "cpu_percent": 12.9
+  },
+  "extended_metrics": {
+    "avg_query_time": 0.00034352938334147133,
+    "qps": 2910.9591449590525,
+    "samples_evaluated": 15,
+    "answer_types_covered": 7
+  },
+  "by_answer_type": {
+    "abstract": {
+      "count": 2,
+      "child_hit@5": 100.0,
+      "parent_hit@5": 100.0,
+      "citation_accuracy": 100.0,
+      "answer_pass_rate": 100.0
+    },
+    "method": {
+      "count": 3,
+      "child_hit@5": 100.0,
+      "parent_hit@5": 100.0,
+      "citation_accuracy": 100.0,
+      "answer_pass_rate": 100.0
+    },
+    "result": {
+      "count": 3,
+      "child_hit@5": 100.0,
+      "parent_hit@5": 100.0,
+      "citation_accuracy": 100.0,
+      "answer_pass_rate": 100.0
+    },
+    "cross_section": {
+      "count": 3,
+      "child_hit@5": 100.0,
+      "parent_hit@5": 100.0,
+      "citation_accuracy": 100.0,
+      "answer_pass_rate": 100.0
+    },
+    "out_of_scope": {
+      "count": 2,
+      "child_hit@5": 0.0,
+      "parent_hit@5": 0.0,
+      "citation_accuracy": 0.0,
+      "answer_pass_rate": 50.0
+    },
+    "table": {
+      "count": 1,
+      "child_hit@5": 100.0,
+      "parent_hit@5": 100.0,
+      "citation_accuracy": 100.0,
+      "answer_pass_rate": 100.0
+    },
+    "figure": {
+      "count": 1,
+      "child_hit@5": 100.0,
+      "parent_hit@5": 100.0,
+      "citation_accuracy": 100.0,
+      "answer_pass_rate": 100.0
+    }
+  },
+  "failure_categories": {
+    "child_retrieval_miss": 2
+  }
+}
