@@ -248,6 +248,53 @@ def _executor_query_optimization(ctx: RealScenarioContext):
     return run
 
 
+def _executor_hyde(ctx: RealScenarioContext):
+    from app.services.hyde import HyDE
+
+    ctx.ensure_basic()
+    ctx.ensure_llm()
+    samples = ctx.samples
+
+    def run(variant) -> dict[str, float]:
+        params = variant.parameters or {}
+        retriever_name = params.get("retriever", "vector")
+        top_k = int(params.get("top_k", 5))
+
+        if retriever_name == "hyde":
+            hyde_retriever = HyDE(
+                llm_client=ctx.llm_client,
+                embedding_client=ctx.embedding_client,
+                vector_store=ctx.vector_store,
+            )
+
+            def do_search(question, paper_id):
+                return hyde_retriever.search(question, top_k=top_k, paper_id=paper_id)
+
+        else:
+
+            def do_search(question, paper_id):
+                return _vector_search(ctx, question, paper_id, top_k)
+
+        hits = []
+        rrs = []
+        retrieval_times = []
+        for s in samples:
+            t0 = time.perf_counter()
+            results = do_search(s["question"], s.get("paper_id"))
+            retrieval_times.append(time.perf_counter() - t0)
+            hit, rr = _score_retrieval(s, results, top_k=top_k)
+            hits.append(hit)
+            rrs.append(rr)
+        n = len(samples)
+        return {
+            "hit_at_5": sum(hits) / n if n else 0.0,
+            "mrr": sum(rrs) / n if n else 0.0,
+            "retrieval_time": (sum(retrieval_times) / n) if n else 0.0,
+        }
+
+    return run
+
+
 def _executor_chunk(ctx: RealScenarioContext):
     """Chunk A/B: build an in-memory index per variant and run paper-scoped
     retrieval over the 168 samples. Uses hit@3 to match scenario metric_keys.
@@ -420,6 +467,7 @@ def _executor_prompt(ctx: RealScenarioContext):
 _DISPATCH: dict[str, Callable[[RealScenarioContext], Callable]] = {
     "rerank_comparison": _executor_rerank,
     "hybrid_comparison": _executor_hybrid,
+    "hyde_comparison": _executor_hyde,
     "query_optimization": _executor_query_optimization,
     "chunk_comparison": _executor_chunk,
     "prompt_comparison": _executor_prompt,

@@ -39,6 +39,7 @@ _llm_client_instance: Any | None = None
 _reranker_instance: Any | None = None
 _retriever_instance: Any | None = None
 _bm25_retriever_instance: Any | None = None
+_hyde_retriever_instance: Any | None = None
 
 
 def get_research_run_service() -> ResearchRunService:
@@ -107,7 +108,7 @@ def get_reranker() -> Any | None:
 def get_retriever() -> Any | None:
     from app.config import settings
 
-    global _bm25_retriever_instance, _retriever_instance
+    global _bm25_retriever_instance, _retriever_instance, _hyde_retriever_instance
     if settings.retriever == "vector":
         return None
     if settings.retriever == "bm25":
@@ -131,6 +132,16 @@ def get_retriever() -> Any | None:
                 recall_top_k=settings.hybrid_recall_top_k,
             )
         return _retriever_instance
+    if settings.retriever == "hyde":
+        if _hyde_retriever_instance is None:
+            from app.services.hyde import HyDE
+
+            _hyde_retriever_instance = HyDE(
+                llm_client=get_llm_client(),
+                embedding_client=get_embedding_client(),
+                vector_store=get_vector_store(),
+            )
+        return _hyde_retriever_instance
     return None
 
 

@@ -956,10 +956,11 @@ def _get_reranker():
 
 _bm25_retriever = None
 _hybrid_retriever = None
+_hyde_retriever = None
 
 
 def _get_retriever():
-    global _bm25_retriever, _hybrid_retriever
+    global _bm25_retriever, _hybrid_retriever, _hyde_retriever
     mode = settings.retriever
     if mode == "vector":
         return None
@@ -983,6 +984,16 @@ def _get_retriever():
                 recall_top_k=settings.hybrid_recall_top_k,
             )
         return _hybrid_retriever
+    if mode == "hyde":
+        if _hyde_retriever is None:
+            from app.services.hyde import HyDE
+
+            _hyde_retriever = HyDE(
+                llm_client=_get_llm_client(),
+                embedding_client=_get_embedding_client(),
+                vector_store=_get_vector_store(),
+            )
+        return _hyde_retriever
     return None
 
 
