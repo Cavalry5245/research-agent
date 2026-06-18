@@ -332,6 +332,19 @@ python -m pytest tests -q
 # 493 passed
 ```
 
+### 检查 LLM 可用性
+
+切换 LLM 供应商或模型后，可用独立脚本快速验证连通性：
+
+```bash
+python scripts/check_llm.py            # 快速连通性检查
+python scripts/check_llm.py --deep     # 深度检查（中文/学术/长文本）
+python scripts/check_llm.py --verbose  # 详细诊断
+python scripts/check_llm.py --json     # JSON 输出（便于脚本解析）
+```
+
+退出码：0 表示可用，1 表示异常。配置读取自 `.env`。
+
 ## 性能测试
 
 快速验证系统性能（30秒）：
