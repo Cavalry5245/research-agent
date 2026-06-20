@@ -12,6 +12,54 @@ class HealthResponse(BaseModel):
     config: dict[str, bool] = Field(default_factory=dict)
 
 
+class SystemStatusCounts(BaseModel):
+    papers: int
+    chunks: int
+    tasks: int
+    research_runs: int
+
+
+class SystemStatusModelInfo(BaseModel):
+    provider: str
+    model: str
+    configured: bool
+    device: str | None = None
+    batch_size: int | None = None
+
+
+class SystemStatusVectorStore(BaseModel):
+    available: bool
+    backend: str | None = None
+    store_path: str | None = None
+    chunk_count: int = 0
+    error: str | None = None
+
+
+class SystemStatusStorage(BaseModel):
+    upload_dir: str
+    note_dir: str
+    metadata_dir: str
+    writable: bool
+
+
+class SystemStatusIntegration(BaseModel):
+    enabled: bool
+    configured: bool
+    local_api_url: str | None = None
+    path: str | None = None
+
+
+class SystemStatusResponse(BaseModel):
+    project: str
+    status: str
+    counts: SystemStatusCounts
+    models: dict[str, SystemStatusModelInfo]
+    vector_store: SystemStatusVectorStore
+    storage: SystemStatusStorage
+    integrations: dict[str, SystemStatusIntegration]
+    mcp_hub: list[dict[str, Any]]
+
+
 class ErrorResponse(BaseModel):
     error: str
     message: str

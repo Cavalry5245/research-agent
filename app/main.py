@@ -1,6 +1,7 @@
 import os
 import shutil
 import time
+from pathlib import Path
 from typing import Protocol
 
 from fastapi import (
@@ -50,7 +51,10 @@ from app.schemas import (
     QARequest,
     QAResponse,
     SourceItem,
+    SystemStatusResponse,
 )
+from app.research_workflow.mcp_health import build_mcp_hub_health
+from app.research_workflow.store import FileResearchRunStore
 from app.services.chunker import chunk_paper
 from app.services.embedding_client import EmbeddingClient
 from app.services.job_store import FileJobStore, InMemoryJobStore, utc_now_iso
@@ -119,6 +123,32 @@ def _resolve_upload_dir() -> str:
     return settings.upload_dir
 
 
+def _storage_is_writable() -> bool:
+    for directory in [_resolve_upload_dir(), _resolve_note_dir(), _resolve_metadata_dir()]:
+        probe = os.path.join(
+            directory,
+            f".system_status_probe.{os.getpid()}.{time.time_ns()}",
+        )
+        try:
+            os.makedirs(directory, exist_ok=True)
+            with open(probe, "w", encoding="utf-8") as f:
+                f.write("ok")
+        except OSError:
+            return False
+        finally:
+            try:
+                if os.path.exists(probe):
+                    os.remove(probe)
+            except OSError:
+                return False
+    return True
+
+
+def _get_research_run_service_for_status() -> FileResearchRunStore:
+    storage_root = Path(settings.metadata_dir).parent
+    return FileResearchRunStore(storage_root / "research_runs.json")
+
+
 def _paper_not_found(paper_id: str):
     raise HTTPException(status_code=404, detail=f"论文 {paper_id} 不存在")
 
@@ -159,6 +189,130 @@ async def health_check():
             "embedding_model_configured": bool(settings.embedding_model),
             "vector_store_configured": bool(settings.vector_store),
         },
+    )
+
+
+@app.get("/system/status", response_model=SystemStatusResponse, summary="System status")
+async def system_status():
+    storage_root = Path(settings.metadata_dir).parent
+    storage_writable = _storage_is_writable()
+
+    vector_payload = {
+        "available": True,
+        "backend": None,
+        "store_path": None,
+        "chunk_count": 0,
+        "error": None,
+    }
+    try:
+        vector_store = _get_vector_store()
+        vector_meta = vector_store.metadata()
+        vector_payload.update(
+            {
+                "available": True,
+                "backend": vector_meta.get("backend"),
+                "store_path": vector_meta.get("store_path"),
+                "chunk_count": int(vector_store.count()),
+            }
+        )
+    except Exception as exc:
+        vector_payload.update(
+            {
+                "available": False,
+                "backend": None,
+                "store_path": None,
+                "chunk_count": 0,
+                "error": str(exc),
+            }
+        )
+
+    try:
+        paper_count = len(list_papers(_resolve_metadata_dir()))
+    except Exception:
+        paper_count = 0
+
+    try:
+        task_count = len(_get_job_store().list())
+    except Exception:
+        task_count = 0
+
+    try:
+        research_store = _get_research_run_service_for_status()
+        if hasattr(research_store, "list_runs"):
+            research_runs = research_store.list_runs()
+        else:
+            research_runs = research_store.list()
+        mcp_hub = build_mcp_hub_health(
+            service=None,
+            storage_root=storage_root,
+        )
+    except Exception as exc:
+        research_runs = []
+        mcp_hub = [
+            {
+                "tool_name": "MCP Hub",
+                "provider": "system",
+                "available": False,
+                "fallback_available": False,
+                "fallback_active": False,
+                "message": str(exc),
+                "tool_count": 0,
+                "state": "unavailable",
+            }
+        ]
+
+    status = "ok" if storage_writable and vector_payload["available"] else "degraded"
+
+    return SystemStatusResponse(
+        project="ResearchAgent",
+        status=status,
+        counts={
+            "papers": paper_count,
+            "chunks": int(vector_payload["chunk_count"]),
+            "tasks": task_count,
+            "research_runs": len(research_runs),
+        },
+        models={
+            "llm": {
+                "provider": settings.llm_provider,
+                "model": settings.llm_model,
+                "configured": bool(settings.llm_api_key),
+            },
+            "embedding": {
+                "provider": settings.embedding_provider,
+                "model": settings.embedding_model,
+                "configured": bool(settings.embedding_model),
+                "device": settings.embedding_device,
+                "batch_size": settings.embedding_batch_size,
+            },
+        },
+        vector_store=vector_payload,
+        storage={
+            "upload_dir": settings.upload_dir,
+            "note_dir": settings.note_dir,
+            "metadata_dir": settings.metadata_dir,
+            "writable": storage_writable,
+        },
+        integrations={
+            "zotero": {
+                "enabled": (
+                    settings.enable_zotero
+                    or settings.zotero_local
+                    or settings.zotero_mcp_enabled
+                ),
+                "configured": settings.zotero_local
+                or bool(settings.zotero_mcp_command),
+                "local_api_url": (
+                    f"http://127.0.0.1:23119/api/users/{settings.zotero_library_id}"
+                ),
+            },
+            "obsidian": {
+                "enabled": bool(settings.obsidian_vault_root),
+                "configured": bool(settings.obsidian_vault_root),
+                "path": settings.obsidian_vault_root,
+            },
+        },
+        mcp_hub=mcp_hub,
     )
 
 
