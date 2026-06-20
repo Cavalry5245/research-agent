@@ -138,6 +138,32 @@ uvicorn app.main:app --reload
 # → API 文档: http://localhost:8888/docs
 ```
 
+### React Frontend Preview
+
+The React frontend is being introduced as a staged replacement for the Streamlit UI. During migration, Streamlit remains available and React runs as a separate development server.
+
+Start the FastAPI backend:
+
+```powershell
+uvicorn app.main:app --reload --port 8888
+```
+
+Start the React frontend:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open:
+
+```text
+http://127.0.0.1:5173
+```
+
+The first React slice includes the workspace shell and dashboard. Streamlit remains the primary documented end-user path until the React Papers, Workflow, QA, Compare, Agent, and Monitor pages reach parity.
+
 ## 使用流程
 
 ### 1. 上传论文
