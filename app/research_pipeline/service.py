@@ -127,7 +127,7 @@ class ResearchPipelineService:
         Get detailed run information with frontend-ready response structure.
 
         Returns stages, events, candidates, cards, plan, and report summary.
-        For MVP, candidates/cards/plan/report are empty arrays/None.
+        Candidates are populated from store; cards/plan/report remain empty for MVP.
 
         Args:
             run_id: Run ID to retrieve.
