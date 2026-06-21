@@ -329,14 +329,14 @@ def create_run(
 
 def get_run_detail(db_path: str, run_id: str) -> dict[str, Any] | None:
     """
-    Get detailed information about a run including stages and events.
+    Get detailed information about a run including stages, events, and candidates.
 
     Args:
         db_path: Path to SQLite database file.
         run_id: Run ID.
 
     Returns:
-        Dictionary with run details, stages, and events, or None if not found.
+        Dictionary with run details, stages, events, and candidates, or None if not found.
     """
     conn = _get_connection(db_path)
     conn.row_factory = sqlite3.Row
@@ -363,6 +363,9 @@ def get_run_detail(db_path: str, run_id: str) -> dict[str, Any] | None:
             (run_id,),
         )
         event_rows = cursor.fetchall()
+
+        # Get candidates
+        candidates = get_candidates(db_path, run_id)
 
         # Build response
         return {
@@ -410,6 +413,7 @@ def get_run_detail(db_path: str, run_id: str) -> dict[str, Any] | None:
                 }
                 for event in event_rows
             ],
+            "candidates": candidates,
         }
 
     finally:
@@ -636,6 +640,130 @@ def append_event(
 
         conn.commit()
         return event_id
+
+    finally:
+        conn.close()
+
+
+# ==================== Candidate CRUD Operations ====================
+
+
+def create_candidate(
+    db_path: str,
+    run_id: str,
+    candidate: Any,  # PaperCandidate
+) -> str:
+    """
+    Create a paper candidate record.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+        candidate: PaperCandidate instance.
+
+    Returns:
+        candidate_id: The generated candidate ID.
+    """
+    now = datetime.utcnow().isoformat()
+    candidate_id = f"cand_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+
+    conn = _get_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO paper_candidates (
+                id, run_id, paper_id, source, title, authors_json, year, venue,
+                abstract, doi, arxiv_id, semantic_scholar_id, zotero_item_id,
+                url, pdf_url, local_pdf_path, citation_count, relevance_score,
+                selected_for_reader, metadata_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                candidate_id,
+                run_id,
+                candidate.paper_id,
+                candidate.source,
+                candidate.title,
+                json.dumps(candidate.authors),
+                candidate.year,
+                candidate.venue,
+                candidate.abstract,
+                candidate.doi,
+                candidate.arxiv_id,
+                candidate.semantic_scholar_id,
+                candidate.zotero_item_id,
+                candidate.url,
+                candidate.pdf_url,
+                candidate.local_pdf_path,
+                candidate.citation_count,
+                candidate.relevance_score,
+                0,  # selected_for_reader
+                json.dumps(candidate.metadata),
+                now,
+            ),
+        )
+
+        conn.commit()
+        return candidate_id
+
+    finally:
+        conn.close()
+
+
+def get_candidates(db_path: str, run_id: str) -> list[dict[str, Any]]:
+    """
+    Get all paper candidates for a run.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        List of candidate dictionaries.
+    """
+    conn = _get_connection(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT * FROM paper_candidates
+            WHERE run_id = ?
+            ORDER BY created_at
+            """,
+            (run_id,),
+        )
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "run_id": row["run_id"],
+                "paper_id": row["paper_id"],
+                "source": row["source"],
+                "title": row["title"],
+                "authors": json.loads(row["authors_json"]),
+                "year": row["year"],
+                "venue": row["venue"],
+                "abstract": row["abstract"],
+                "doi": row["doi"],
+                "arxiv_id": row["arxiv_id"],
+                "semantic_scholar_id": row["semantic_scholar_id"],
+                "zotero_item_id": row["zotero_item_id"],
+                "url": row["url"],
+                "pdf_url": row["pdf_url"],
+                "local_pdf_path": row["local_pdf_path"],
+                "citation_count": row["citation_count"],
+                "relevance_score": row["relevance_score"],
+                "selected_for_reader": row["selected_for_reader"],
+                "metadata": json.loads(row["metadata_json"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     finally:
         conn.close()

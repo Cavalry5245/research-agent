@@ -33,5 +33,8 @@ All 7 tasks completed successfully. The research pipeline infrastructure is read
 ## Slice 2: Real Retriever Sources (Tasks 8-12)
 
 Task 8: complete (commits 312ee41..5685d13, review clean, minor notes on title dedupe edge cases)
+Task 9: complete (commits 5685d13..e665431, review clean, minor note on import placement)
+Task 10: complete (commits e665431..4571a82, review clean)
+Task 11: complete (commits 4571a82..6ca8143, review clean)
 
-**Current Status:** Ready to begin Task 9: Add Zotero Source Adapter
+**Current Status:** Ready to begin Task 12: Implement Retriever Agent (final task of Slice 2)

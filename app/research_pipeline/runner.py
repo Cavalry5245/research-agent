@@ -8,6 +8,10 @@ import traceback
 from typing import Any, Callable
 
 from app.research_pipeline import events, store
+from app.research_pipeline.agents.retriever import RetrieverAgent
+from app.research_pipeline.sources.arxiv import ArxivSourceAdapter
+from app.research_pipeline.sources.semantic_scholar import SemanticScholarSourceAdapter
+from app.research_pipeline.sources.zotero import ZoteroSourceAdapter
 
 
 class StubAgent:
@@ -284,3 +288,32 @@ class PipelineRunner:
 
             # Re-raise to fail the run
             raise
+
+
+def create_default_agent(stage: str, db_path: str, run_id: str) -> Any:
+    """
+    Default agent factory that creates real agents for each stage.
+
+    Args:
+        stage: Stage name.
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        Agent instance for the given stage.
+    """
+    if stage == "retriever":
+        # Create retriever agent with real source adapters
+        # Note: In production, these would be initialized with proper config
+        # For now, we use None and they'll be initialized with defaults
+        return RetrieverAgent(
+            db_path=db_path,
+            run_id=run_id,
+            semantic_scholar_adapter=SemanticScholarSourceAdapter(client=None),
+            arxiv_adapter=ArxivSourceAdapter(client=None),
+            zotero_adapter=ZoteroSourceAdapter(client=None),
+        )
+    else:
+        # For other stages, use stub agents
+        return StubAgent(stage, db_path, run_id)
+
