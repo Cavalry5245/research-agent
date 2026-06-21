@@ -8,7 +8,7 @@ import traceback
 from typing import Any, Callable
 
 from app.research_pipeline import events, store
-from app.research_pipeline.agents.planner import PlannerAgent
+from app.research_pipeline.agents.planner_wrapper import PlannerAgentWrapper
 from app.research_pipeline.agents.reader import ReaderAgent
 from app.research_pipeline.agents.retriever import RetrieverAgent
 from app.research_pipeline.sources.arxiv import ArxivSourceAdapter
@@ -493,7 +493,7 @@ def create_default_agent(stage: str, db_path: str, run_id: str) -> Any:
         Agent instance for the given stage.
     """
     if stage == "planner":
-        return PlannerAgent(db_path=db_path)
+        return PlannerAgentWrapper(stage, db_path, run_id)
     elif stage == "retriever":
         # Create retriever agent with real source adapters
         # Note: In production, these would be initialized with proper config

@@ -16,6 +16,7 @@ from app.research_pipeline.schemas import (
     ResearchStage,
     ResearchEvent,
     PaperCandidate,
+    PaperCard,
 )
 
 
@@ -206,6 +207,29 @@ class ResearchPipelineService:
             for c in detail["candidates"]
         ]
 
+        # Parse paper cards
+        cards = [
+            PaperCard(
+                paper_id=card["paper_id"],
+                status=card["status"],
+                extraction_mode=card["extraction_mode"],
+                title=card["title"],
+                bibliographic_metadata=card["bibliographic_metadata"],
+                research_problem=card["research_problem"],
+                method=card["method"],
+                datasets=card["datasets"],
+                metrics=card["metrics"],
+                key_results=card["key_results"],
+                limitations=card["limitations"],
+                assumptions=card["assumptions"],
+                future_work=card["future_work"],
+                claims=card["claims"],
+                evidence=card["evidence"],
+                error=card["error"],
+            )
+            for card in detail.get("cards", [])
+        ]
+
         return ResearchRunDetailResponse(
             run_id=detail["run_id"],
             question=detail["question"],
@@ -244,7 +268,7 @@ class ResearchPipelineService:
             stages=stages,
             events=events,
             candidates=candidates,
-            cards=[],  # Empty for MVP
+            cards=cards,
             plan=None,  # No plan yet for MVP
             report=None,  # No report yet for MVP
         )
