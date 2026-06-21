@@ -1,0 +1,141 @@
+9267859 feat: create research_pipeline package skeleton
+ app/research_pipeline/__init__.py            | 8 ++++++++
+ app/research_pipeline/agents/__init__.py     | 5 +++++
+ app/research_pipeline/evaluation/__init__.py | 5 +++++
+ app/research_pipeline/events.py              | 5 +++++
+ app/research_pipeline/indexing/__init__.py   | 5 +++++
+ app/research_pipeline/router.py              | 7 +++++++
+ app/research_pipeline/runner.py              | 5 +++++
+ app/research_pipeline/schemas.py             | 7 +++++++
+ app/research_pipeline/service.py             | 5 +++++
+ app/research_pipeline/sources/__init__.py    | 5 +++++
+ app/research_pipeline/store.py               | 5 +++++
+ 11 files changed, 62 insertions(+)
+diff --git a/app/research_pipeline/__init__.py b/app/research_pipeline/__init__.py
+new file mode 100644
+index 0000000..b59e098
+--- /dev/null
++++ b/app/research_pipeline/__init__.py
+@@ -0,0 +1,8 @@
++"""
++Research Pipeline Package
++
++新的研究流程实现，独立于 app.research_workflow。
++提供论文搜索、下载、索引、评估的完整 pipeline。
++"""
++
++__version__ = "0.1.0"
+diff --git a/app/research_pipeline/agents/__init__.py b/app/research_pipeline/agents/__init__.py
+new file mode 100644
+index 0000000..8cf1f98
+--- /dev/null
++++ b/app/research_pipeline/agents/__init__.py
+@@ -0,0 +1,5 @@
++"""
++Research Pipeline Agents
++
++LLM agent 实现，负责论文分析、总结等任务。
++"""
+diff --git a/app/research_pipeline/evaluation/__init__.py b/app/research_pipeline/evaluation/__init__.py
+new file mode 100644
+index 0000000..de19a01
+--- /dev/null
++++ b/app/research_pipeline/evaluation/__init__.py
+@@ -0,0 +1,5 @@
++"""
++Research Pipeline Evaluation
++
++论文评估和质量打分模块。
++"""
+diff --git a/app/research_pipeline/events.py b/app/research_pipeline/events.py
+new file mode 100644
+index 0000000..91a7c5d
+--- /dev/null
++++ b/app/research_pipeline/events.py
+@@ -0,0 +1,5 @@
++"""
++Research Pipeline Events
++
++定义 pipeline 执行过程中的事件类型和处理。
++"""
+diff --git a/app/research_pipeline/indexing/__init__.py b/app/research_pipeline/indexing/__init__.py
+new file mode 100644
+index 0000000..e74156b
+--- /dev/null
++++ b/app/research_pipeline/indexing/__init__.py
+@@ -0,0 +1,5 @@
++"""
++Research Pipeline Indexing
++
++向量化索引和检索功能。
++"""
+diff --git a/app/research_pipeline/router.py b/app/research_pipeline/router.py
+new file mode 100644
+index 0000000..1531a84
+--- /dev/null
++++ b/app/research_pipeline/router.py
+@@ -0,0 +1,7 @@
++"""
++Research Pipeline Router
++
++FastAPI 路由定义，暴露 pipeline API 端点。
++"""
++
++from fastapi import APIRouter
+diff --git a/app/research_pipeline/runner.py b/app/research_pipeline/runner.py
+new file mode 100644
+index 0000000..534eac0
+--- /dev/null
++++ b/app/research_pipeline/runner.py
+@@ -0,0 +1,5 @@
++"""
++Research Pipeline Runner
++
++执行 pipeline 各阶段的调度器。
++"""
+diff --git a/app/research_pipeline/schemas.py b/app/research_pipeline/schemas.py
+new file mode 100644
+index 0000000..badcbc1
+--- /dev/null
++++ b/app/research_pipeline/schemas.py
+@@ -0,0 +1,7 @@
++"""
++Research Pipeline Schemas
++
++定义 research pipeline 的数据模型。
++"""
++
++from pydantic import BaseModel
+diff --git a/app/research_pipeline/service.py b/app/research_pipeline/service.py
+new file mode 100644
+index 0000000..c464848
+--- /dev/null
++++ b/app/research_pipeline/service.py
+@@ -0,0 +1,5 @@
++"""
++Research Pipeline Service
++
++核心业务逻辑层，协调各模块完成研究任务。
++"""
+diff --git a/app/research_pipeline/sources/__init__.py b/app/research_pipeline/sources/__init__.py
+new file mode 100644
+index 0000000..1132d7b
+--- /dev/null
++++ b/app/research_pipeline/sources/__init__.py
+@@ -0,0 +1,5 @@
++"""
++Research Pipeline Sources
++
++论文源管理，支持 arXiv、Semantic Scholar 等数据源。
++"""
+diff --git a/app/research_pipeline/store.py b/app/research_pipeline/store.py
+new file mode 100644
+index 0000000..dd69555
+--- /dev/null
++++ b/app/research_pipeline/store.py
+@@ -0,0 +1,5 @@
++"""
++Research Pipeline Store
++
++管理 pipeline 状态的持久化存储。
++"""
