@@ -100,6 +100,10 @@ from app.routers.research_runs import router as research_runs_router
 
 app.include_router(research_runs_router)
 
+from app.research_pipeline.router import router as research_pipeline_router
+
+app.include_router(research_pipeline_router)
+
 
 class JobStore(Protocol):
     def upsert(self, job: JobStatusResponse) -> JobStatusResponse: ...
