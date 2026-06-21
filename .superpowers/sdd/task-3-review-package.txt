@@ -1,0 +1,681 @@
+5f68fff feat(research-pipeline): implement SQLite schema initialization
+ app/research_pipeline/store.py               | 219 +++++++++++++
+ tests/research_pipeline/test_store_schema.py | 442 +++++++++++++++++++++++++++
+ 2 files changed, 661 insertions(+)
+diff --git a/app/research_pipeline/store.py b/app/research_pipeline/store.py
+index dd69555..4ad7f11 100644
+--- a/app/research_pipeline/store.py
++++ b/app/research_pipeline/store.py
+@@ -1,5 +1,224 @@
+ """
+ Research Pipeline Store
+ 
+ 管理 pipeline 状态的持久化存储。
+ """
++
++import sqlite3
++from pathlib import Path
++
++
++def init_db(db_path: str | None = None) -> None:
++    """
++    Initialize the research pipeline SQLite database with all required tables.
++
++    Creates 9 tables for storing research run state, stages, events, candidates,
++    paper cards, evidence, reports, and claims. This function is idempotent and
++    can be safely called multiple times.
++
++    Args:
++        db_path: Path to SQLite database file. If None, uses default from settings.
++
++    Tables created:
++        - research_runs: Main run metadata and configuration
++        - research_run_stages: Stage progress (planner, retriever, reader, synthesis, harness)
++        - research_run_events: Event log for frontend display
++        - research_plans: Planner output (initial and candidate_selection phases)
++        - paper_candidates: Candidate papers from retriever
++        - paper_cards: Extracted paper content from reader
++        - paper_evidence: Evidence snippets with citations
++        - research_reports: Final markdown reports
++        - report_claims: Claims with verification status from harness
++    """
++    if db_path is None:
++        from app.config import settings
++        db_path = f"{settings.metadata_dir}/research_pipeline.sqlite3"
++
++    # Ensure parent directory exists
++    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
++
++    conn = sqlite3.connect(db_path)
++    cursor = conn.cursor()
++
++    # Enable foreign key constraints
++    cursor.execute("PRAGMA foreign_keys = ON")
++
++    # 1. research_runs
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS research_runs (
++            id TEXT PRIMARY KEY,
++            question TEXT NOT NULL,
++            normalized_question TEXT,
++            source_mode TEXT NOT NULL,
++            zotero_collection_key TEXT,
++            status TEXT NOT NULL,
++            max_reader_papers INTEGER NOT NULL,
++            reader_concurrency INTEGER NOT NULL,
++            year_start INTEGER,
++            year_end INTEGER,
++            venue_filter_json TEXT NOT NULL DEFAULT '[]',
++            keywords_json TEXT NOT NULL DEFAULT '[]',
++            created_at TEXT NOT NULL,
++            started_at TEXT,
++            completed_at TEXT,
++            failed_at TEXT,
++            cancelled_at TEXT,
++            error TEXT
++        )
++    """)
++
++    # 2. research_run_stages
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS research_run_stages (
++            id TEXT PRIMARY KEY,
++            run_id TEXT NOT NULL,
++            stage TEXT NOT NULL,
++            status TEXT NOT NULL,
++            progress REAL NOT NULL DEFAULT 0,
++            message TEXT NOT NULL DEFAULT '',
++            started_at TEXT,
++            completed_at TEXT,
++            error TEXT,
++            FOREIGN KEY(run_id) REFERENCES research_runs(id)
++        )
++    """)
++
++    # 3. research_run_events
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS research_run_events (
++            id TEXT PRIMARY KEY,
++            run_id TEXT NOT NULL,
++            stage TEXT NOT NULL,
++            level TEXT NOT NULL,
++            message TEXT NOT NULL,
++            payload_json TEXT NOT NULL DEFAULT '{}',
++            created_at TEXT NOT NULL,
++            FOREIGN KEY(run_id) REFERENCES research_runs(id)
++        )
++    """)
++
++    # 4. research_plans
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS research_plans (
++            id TEXT PRIMARY KEY,
++            run_id TEXT NOT NULL,
++            version INTEGER NOT NULL,
++            phase TEXT NOT NULL,
++            plan_json TEXT NOT NULL,
++            created_at TEXT NOT NULL,
++            FOREIGN KEY(run_id) REFERENCES research_runs(id)
++        )
++    """)
++
++    # 5. paper_candidates
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS paper_candidates (
++            id TEXT PRIMARY KEY,
++            run_id TEXT NOT NULL,
++            paper_id TEXT NOT NULL,
++            source TEXT NOT NULL,
++            title TEXT NOT NULL,
++            authors_json TEXT NOT NULL DEFAULT '[]',
++            year INTEGER,
++            venue TEXT,
++            abstract TEXT,
++            doi TEXT,
++            arxiv_id TEXT,
++            semantic_scholar_id TEXT,
++            zotero_item_id TEXT,
++            url TEXT,
++            pdf_url TEXT,
++            local_pdf_path TEXT,
++            citation_count INTEGER,
++            relevance_score REAL,
++            selected_for_reader INTEGER NOT NULL DEFAULT 0,
++            metadata_json TEXT NOT NULL DEFAULT '{}',
++            created_at TEXT NOT NULL,
++            UNIQUE(run_id, paper_id),
++            FOREIGN KEY(run_id) REFERENCES research_runs(id)
++        )
++    """)
++
++    # 6. paper_cards
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS paper_cards (
++            id TEXT PRIMARY KEY,
++            run_id TEXT NOT NULL,
++            paper_id TEXT NOT NULL,
++            candidate_id TEXT NOT NULL,
++            status TEXT NOT NULL,
++            extraction_mode TEXT NOT NULL,
++            title TEXT NOT NULL,
++            bibliographic_json TEXT NOT NULL DEFAULT '{}',
++            research_problem TEXT,
++            method TEXT,
++            datasets_json TEXT NOT NULL DEFAULT '[]',
++            metrics_json TEXT NOT NULL DEFAULT '[]',
++            key_results_json TEXT NOT NULL DEFAULT '[]',
++            limitations_json TEXT NOT NULL DEFAULT '[]',
++            assumptions_json TEXT NOT NULL DEFAULT '[]',
++            future_work_json TEXT NOT NULL DEFAULT '[]',
++            claims_json TEXT NOT NULL DEFAULT '[]',
++            evidence_json TEXT NOT NULL DEFAULT '[]',
++            error TEXT,
++            created_at TEXT NOT NULL,
++            updated_at TEXT NOT NULL,
++            FOREIGN KEY(run_id) REFERENCES research_runs(id),
++            FOREIGN KEY(candidate_id) REFERENCES paper_candidates(id)
++        )
++    """)
++
++    # 7. paper_evidence
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS paper_evidence (
++            id TEXT PRIMARY KEY,
++            run_id TEXT NOT NULL,
++            paper_id TEXT NOT NULL,
++            paper_card_id TEXT NOT NULL,
++            claim_id TEXT,
++            snippet TEXT NOT NULL,
++            section TEXT,
++            page INTEGER,
++            source_url TEXT,
++            evidence_type TEXT NOT NULL,
++            confidence REAL,
++            metadata_json TEXT NOT NULL DEFAULT '{}',
++            FOREIGN KEY(run_id) REFERENCES research_runs(id),
++            FOREIGN KEY(paper_card_id) REFERENCES paper_cards(id)
++        )
++    """)
++
++    # 8. research_reports
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS research_reports (
++            id TEXT PRIMARY KEY,
++            run_id TEXT NOT NULL,
++            status TEXT NOT NULL,
++            markdown TEXT NOT NULL,
++            template_version TEXT NOT NULL,
++            created_at TEXT NOT NULL,
++            updated_at TEXT NOT NULL,
++            FOREIGN KEY(run_id) REFERENCES research_runs(id)
++        )
++    """)
++
++    # 9. report_claims
++    cursor.execute("""
++        CREATE TABLE IF NOT EXISTS report_claims (
++            id TEXT PRIMARY KEY,
++            run_id TEXT NOT NULL,
++            report_id TEXT NOT NULL,
++            claim_text TEXT NOT NULL,
++            claim_type TEXT NOT NULL,
++            citation_ids_json TEXT NOT NULL DEFAULT '[]',
++            evidence_ids_json TEXT NOT NULL DEFAULT '[]',
++            verification_status TEXT NOT NULL,
++            verification_reason TEXT NOT NULL DEFAULT '',
++            created_at TEXT NOT NULL,
++            FOREIGN KEY(run_id) REFERENCES research_runs(id),
++            FOREIGN KEY(report_id) REFERENCES research_reports(id)
++        )
++    """)
++
++    conn.commit()
++    conn.close()
+diff --git a/tests/research_pipeline/test_store_schema.py b/tests/research_pipeline/test_store_schema.py
+new file mode 100644
+index 0000000..7fcf42b
+--- /dev/null
++++ b/tests/research_pipeline/test_store_schema.py
+@@ -0,0 +1,442 @@
++"""
++Tests for Research Pipeline SQLite schema initialization.
++
++Verifies that init_db() creates all required tables with correct schemas,
++is idempotent, and uses temporary files for testing.
++"""
++
++import sqlite3
++import tempfile
++from pathlib import Path
++
++import pytest
++
++from app.research_pipeline.store import init_db
++
++
++@pytest.fixture
++def temp_db():
++    """Create a temporary SQLite database for testing."""
++    with tempfile.NamedTemporaryFile(suffix=".sqlite3", delete=False) as f:
++        db_path = f.name
++
++    yield db_path
++
++    # Cleanup
++    Path(db_path).unlink(missing_ok=True)
++
++
++def test_init_db_creates_all_tables(temp_db):
++    """Test that init_db creates all 9 required tables."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++
++    # Get list of tables
++    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
++    tables = [row[0] for row in cursor.fetchall()]
++
++    expected_tables = [
++        "paper_candidates",
++        "paper_cards",
++        "paper_evidence",
++        "report_claims",
++        "research_plans",
++        "research_reports",
++        "research_run_events",
++        "research_run_stages",
++        "research_runs",
++    ]
++
++    assert sorted(tables) == sorted(expected_tables), f"Expected {expected_tables}, got {tables}"
++
++    conn.close()
++
++
++def test_init_db_is_idempotent(temp_db):
++    """Test that init_db can be called multiple times without errors."""
++    # First call
++    init_db(temp_db)
++
++    # Second call should not raise
++    init_db(temp_db)
++
++    # Third call should also work
++    init_db(temp_db)
++
++    # Verify tables still exist
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
++    table_count = cursor.fetchone()[0]
++    conn.close()
++
++    assert table_count == 9
++
++
++def test_research_runs_table_schema(temp_db):
++    """Test research_runs table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(research_runs)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}  # name: type
++
++    required_columns = {
++        "id": "TEXT",
++        "question": "TEXT",
++        "normalized_question": "TEXT",
++        "source_mode": "TEXT",
++        "zotero_collection_key": "TEXT",
++        "status": "TEXT",
++        "max_reader_papers": "INTEGER",
++        "reader_concurrency": "INTEGER",
++        "year_start": "INTEGER",
++        "year_end": "INTEGER",
++        "venue_filter_json": "TEXT",
++        "keywords_json": "TEXT",
++        "created_at": "TEXT",
++        "started_at": "TEXT",
++        "completed_at": "TEXT",
++        "failed_at": "TEXT",
++        "cancelled_at": "TEXT",
++        "error": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from research_runs"
++        assert columns[col_name] == col_type, f"Column {col_name} has type {columns[col_name]}, expected {col_type}"
++
++    conn.close()
++
++
++def test_research_run_stages_table_schema(temp_db):
++    """Test research_run_stages table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(research_run_stages)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}
++
++    required_columns = {
++        "id": "TEXT",
++        "run_id": "TEXT",
++        "stage": "TEXT",
++        "status": "TEXT",
++        "progress": "REAL",
++        "message": "TEXT",
++        "started_at": "TEXT",
++        "completed_at": "TEXT",
++        "error": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from research_run_stages"
++
++    conn.close()
++
++
++def test_research_run_events_table_schema(temp_db):
++    """Test research_run_events table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(research_run_events)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}
++
++    required_columns = {
++        "id": "TEXT",
++        "run_id": "TEXT",
++        "stage": "TEXT",
++        "level": "TEXT",
++        "message": "TEXT",
++        "payload_json": "TEXT",
++        "created_at": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from research_run_events"
++
++    conn.close()
++
++
++def test_research_plans_table_schema(temp_db):
++    """Test research_plans table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(research_plans)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}
++
++    required_columns = {
++        "id": "TEXT",
++        "run_id": "TEXT",
++        "version": "INTEGER",
++        "phase": "TEXT",
++        "plan_json": "TEXT",
++        "created_at": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from research_plans"
++
++    conn.close()
++
++
++def test_paper_candidates_table_schema(temp_db):
++    """Test paper_candidates table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(paper_candidates)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}
++
++    required_columns = {
++        "id": "TEXT",
++        "run_id": "TEXT",
++        "paper_id": "TEXT",
++        "source": "TEXT",
++        "title": "TEXT",
++        "authors_json": "TEXT",
++        "year": "INTEGER",
++        "venue": "TEXT",
++        "abstract": "TEXT",
++        "doi": "TEXT",
++        "arxiv_id": "TEXT",
++        "semantic_scholar_id": "TEXT",
++        "zotero_item_id": "TEXT",
++        "url": "TEXT",
++        "pdf_url": "TEXT",
++        "local_pdf_path": "TEXT",
++        "citation_count": "INTEGER",
++        "relevance_score": "REAL",
++        "selected_for_reader": "INTEGER",
++        "metadata_json": "TEXT",
++        "created_at": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from paper_candidates"
++
++    conn.close()
++
++
++def test_paper_cards_table_schema(temp_db):
++    """Test paper_cards table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(paper_cards)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}
++
++    required_columns = {
++        "id": "TEXT",
++        "run_id": "TEXT",
++        "paper_id": "TEXT",
++        "candidate_id": "TEXT",
++        "status": "TEXT",
++        "extraction_mode": "TEXT",
++        "title": "TEXT",
++        "bibliographic_json": "TEXT",
++        "research_problem": "TEXT",
++        "method": "TEXT",
++        "datasets_json": "TEXT",
++        "metrics_json": "TEXT",
++        "key_results_json": "TEXT",
++        "limitations_json": "TEXT",
++        "assumptions_json": "TEXT",
++        "future_work_json": "TEXT",
++        "claims_json": "TEXT",
++        "evidence_json": "TEXT",
++        "error": "TEXT",
++        "created_at": "TEXT",
++        "updated_at": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from paper_cards"
++
++    conn.close()
++
++
++def test_paper_evidence_table_schema(temp_db):
++    """Test paper_evidence table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(paper_evidence)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}
++
++    required_columns = {
++        "id": "TEXT",
++        "run_id": "TEXT",
++        "paper_id": "TEXT",
++        "paper_card_id": "TEXT",
++        "claim_id": "TEXT",
++        "snippet": "TEXT",
++        "section": "TEXT",
++        "page": "INTEGER",
++        "source_url": "TEXT",
++        "evidence_type": "TEXT",
++        "confidence": "REAL",
++        "metadata_json": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from paper_evidence"
++
++    conn.close()
++
++
++def test_research_reports_table_schema(temp_db):
++    """Test research_reports table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(research_reports)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}
++
++    required_columns = {
++        "id": "TEXT",
++        "run_id": "TEXT",
++        "status": "TEXT",
++        "markdown": "TEXT",
++        "template_version": "TEXT",
++        "created_at": "TEXT",
++        "updated_at": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from research_reports"
++
++    conn.close()
++
++
++def test_report_claims_table_schema(temp_db):
++    """Test report_claims table has all required columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++    cursor.execute("PRAGMA table_info(report_claims)")
++    columns = {row[1]: row[2] for row in cursor.fetchall()}
++
++    required_columns = {
++        "id": "TEXT",
++        "run_id": "TEXT",
++        "report_id": "TEXT",
++        "claim_text": "TEXT",
++        "claim_type": "TEXT",
++        "citation_ids_json": "TEXT",
++        "evidence_ids_json": "TEXT",
++        "verification_status": "TEXT",
++        "verification_reason": "TEXT",
++        "created_at": "TEXT",
++    }
++
++    for col_name, col_type in required_columns.items():
++        assert col_name in columns, f"Column {col_name} missing from report_claims"
++
++    conn.close()
++
++
++def test_foreign_key_constraints(temp_db):
++    """Test that foreign key constraints are defined (even if not enforced by default)."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++
++    # Check research_run_stages has foreign key to research_runs
++    cursor.execute("PRAGMA foreign_key_list(research_run_stages)")
++    fks = cursor.fetchall()
++    assert len(fks) > 0, "research_run_stages should have foreign key constraint"
++    assert any(fk[2] == "research_runs" for fk in fks), "FK should reference research_runs"
++
++    # Check paper_candidates has foreign key to research_runs
++    cursor.execute("PRAGMA foreign_key_list(paper_candidates)")
++    fks = cursor.fetchall()
++    assert len(fks) > 0, "paper_candidates should have foreign key constraint"
++
++    # Check paper_cards has foreign keys
++    cursor.execute("PRAGMA foreign_key_list(paper_cards)")
++    fks = cursor.fetchall()
++    assert len(fks) >= 2, "paper_cards should have at least 2 foreign key constraints"
++
++    conn.close()
++
++
++def test_unique_constraints(temp_db):
++    """Test that unique constraints exist where specified."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++
++    # paper_candidates should have UNIQUE(run_id, paper_id)
++    cursor.execute("PRAGMA index_list(paper_candidates)")
++    indexes = cursor.fetchall()
++
++    # Look for a unique index on (run_id, paper_id)
++    has_unique_constraint = False
++    for idx in indexes:
++        idx_name = idx[1]
++        is_unique = idx[2]  # 1 if unique, 0 if not
++        if is_unique:
++            cursor.execute(f"PRAGMA index_info({idx_name})")
++            cols = [col[2] for col in cursor.fetchall()]
++            if "run_id" in cols and "paper_id" in cols:
++                has_unique_constraint = True
++                break
++
++    assert has_unique_constraint, "paper_candidates should have UNIQUE(run_id, paper_id) constraint"
++
++    conn.close()
++
++
++def test_default_values(temp_db):
++    """Test that default values are set correctly for JSON columns."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++
++    # Insert a minimal research_runs row and check defaults
++    cursor.execute("""
++        INSERT INTO research_runs
++        (id, question, source_mode, status, max_reader_papers, reader_concurrency, created_at)
++        VALUES ('test_id', 'test question', 'web_search', 'queued', 8, 3, '2026-06-21T00:00:00Z')
++    """)
++
++    cursor.execute("SELECT venue_filter_json, keywords_json FROM research_runs WHERE id='test_id'")
++    row = cursor.fetchone()
++
++    assert row[0] == '[]', "venue_filter_json should default to '[]'"
++    assert row[1] == '[]', "keywords_json should default to '[]'"
++
++    conn.close()
++
++
++def test_not_null_constraints(temp_db):
++    """Test that NOT NULL constraints are enforced for required fields."""
++    init_db(temp_db)
++
++    conn = sqlite3.connect(temp_db)
++    cursor = conn.cursor()
++
++    # Try to insert research_runs without required fields
++    with pytest.raises(sqlite3.IntegrityError):
++        cursor.execute("""
++            INSERT INTO research_runs (id) VALUES ('test_id')
++        """)
++
++    conn.close()
