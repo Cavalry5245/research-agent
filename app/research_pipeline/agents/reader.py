@@ -4,6 +4,7 @@ Reader Agent for Research Pipeline.
 Extracts structured information from papers in abstract-only or PDF mode.
 """
 
+import concurrent.futures
 import logging
 from typing import Any
 
@@ -63,6 +64,188 @@ class ReaderAgent:
         else:
             # PDF mode
             return self._read_pdf(candidate, reading_focus)
+
+    def batch_read_papers(
+        self,
+        candidates: list[PaperCandidate],
+        reading_focus: str | None = None,
+        concurrency: int = 3,
+    ) -> dict[str, Any]:
+        """
+        Read multiple papers concurrently with failure isolation.
+
+        Each paper is processed independently - if one fails, others continue.
+        Failed papers get a PaperCard with status="failed" and error message.
+
+        Args:
+            candidates: List of paper candidates to read.
+            reading_focus: Optional reading focus for all papers.
+            concurrency: Maximum number of papers to process concurrently (default: 3).
+
+        Returns:
+            Dictionary with:
+            - cards: List of PaperCard objects (successful and failed)
+            - summary: Dict with counts (total, successful, failed, degraded)
+        """
+        if not candidates:
+            return {
+                "cards": [],
+                "summary": {
+                    "total": 0,
+                    "successful": 0,
+                    "failed": 0,
+                    "degraded": 0,
+                },
+            }
+
+        logger.info(
+            "Starting batch read of %d papers with concurrency=%d",
+            len(candidates),
+            concurrency,
+        )
+
+        cards: list[PaperCard] = []
+
+        # Process papers concurrently using ThreadPoolExecutor
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+            # Submit all papers for processing
+            future_to_candidate = {
+                executor.submit(self._read_paper_safe, candidate, reading_focus): candidate
+                for candidate in candidates
+            }
+
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(future_to_candidate):
+                candidate = future_to_candidate[future]
+                try:
+                    card = future.result()
+                    cards.append(card)
+                    logger.info(
+                        "Completed reading paper_id=%s (status=%s)",
+                        card.paper_id,
+                        card.status,
+                    )
+                except Exception as e:
+                    # This should not happen since _read_paper_safe catches all exceptions
+                    # but we handle it defensively
+                    logger.error(
+                        "Unexpected error in batch read for paper_id=%s: %s",
+                        candidate.paper_id,
+                        e,
+                    )
+                    # Create a failed card
+                    failed_card = self._create_failed_card(candidate, str(e))
+                    cards.append(failed_card)
+
+        # Compute summary statistics
+        summary = self._compute_summary(cards)
+
+        logger.info(
+            "Batch read completed: %d total, %d successful, %d failed, %d degraded",
+            summary["total"],
+            summary["successful"],
+            summary["failed"],
+            summary["degraded"],
+        )
+
+        return {
+            "cards": cards,
+            "summary": summary,
+        }
+
+    def _read_paper_safe(
+        self,
+        candidate: PaperCandidate,
+        reading_focus: str | None = None,
+    ) -> PaperCard:
+        """
+        Safely read a paper with exception handling.
+
+        Wraps read_paper() to catch any exceptions and return a failed PaperCard.
+
+        Args:
+            candidate: Paper candidate to read.
+            reading_focus: Optional reading focus.
+
+        Returns:
+            PaperCard (either successful or failed).
+        """
+        try:
+            return self.read_paper(candidate, reading_focus)
+        except Exception as e:
+            logger.error(
+                "Failed to read paper_id=%s: %s",
+                candidate.paper_id,
+                e,
+                exc_info=True,
+            )
+            return self._create_failed_card(candidate, str(e))
+
+    def _create_failed_card(
+        self,
+        candidate: PaperCandidate,
+        error_message: str,
+    ) -> PaperCard:
+        """
+        Create a failed PaperCard for a paper that could not be read.
+
+        Args:
+            candidate: Paper candidate that failed.
+            error_message: Error message describing the failure.
+
+        Returns:
+            PaperCard with status="failed".
+        """
+        bibliographic_metadata = {
+            "authors": candidate.authors,
+            "year": candidate.year,
+            "venue": candidate.venue,
+            "doi": candidate.doi,
+            "source": candidate.source,
+            "url": candidate.url,
+            "citation_count": candidate.citation_count,
+        }
+
+        return PaperCard(
+            paper_id=candidate.paper_id,
+            status="failed",
+            extraction_mode="abstract_only",  # Default to abstract_only for failed cards
+            title=candidate.title,
+            bibliographic_metadata=bibliographic_metadata,
+            research_problem="",
+            method="",
+            datasets=[],
+            metrics=[],
+            key_results=[],
+            limitations=[],
+            assumptions=[],
+            future_work=[],
+            claims=[],
+            evidence=[],
+            error=error_message,
+        )
+
+    def _compute_summary(self, cards: list[PaperCard]) -> dict[str, int]:
+        """
+        Compute summary statistics from a list of paper cards.
+
+        Args:
+            cards: List of PaperCard objects.
+
+        Returns:
+            Dictionary with total, successful, failed, and degraded counts.
+        """
+        total = len(cards)
+        successful = sum(1 for card in cards if card.status == "completed")
+        failed = sum(1 for card in cards if card.status == "failed")
+        degraded = sum(1 for card in cards if card.status == "degraded")
+
+        return {
+            "total": total,
+            "successful": successful,
+            "failed": failed,
+            "degraded": degraded,
+        }
 
     def _read_abstract_only(
         self,

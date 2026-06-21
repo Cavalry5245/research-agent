@@ -8,6 +8,8 @@ import traceback
 from typing import Any, Callable
 
 from app.research_pipeline import events, store
+from app.research_pipeline.agents.planner import PlannerAgent
+from app.research_pipeline.agents.reader import ReaderAgent
 from app.research_pipeline.agents.retriever import RetrieverAgent
 from app.research_pipeline.sources.arxiv import ArxivSourceAdapter
 from app.research_pipeline.sources.semantic_scholar import SemanticScholarSourceAdapter
@@ -142,6 +144,191 @@ class StubAgent:
         return result
 
 
+class ReaderAgentWrapper:
+    """
+    Wrapper for ReaderAgent that implements the execute() interface.
+
+    Integrates with pipeline runner by:
+    - Reading the candidate selection plan
+    - Filtering candidates based on selected_paper_ids
+    - Running batch_read_papers with concurrency control
+    - Saving PaperCards to store
+    - Writing events for progress tracking
+    - Determining stage status based on success/failure counts
+    """
+
+    def __init__(self, stage: str, db_path: str, run_id: str):
+        """
+        Initialize reader agent wrapper.
+
+        Args:
+            stage: Stage name (should be "reader").
+            db_path: Path to SQLite database file.
+            run_id: Run ID.
+        """
+        self.stage = stage
+        self.db_path = db_path
+        self.run_id = run_id
+        self.reader = ReaderAgent(db_path=db_path)
+
+    def execute(self) -> dict[str, Any]:
+        """
+        Execute reader stage.
+
+        Returns:
+            Dictionary with stage results including cards_created, papers_read, etc.
+        """
+        # Write start event
+        events.write_stage_start_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+        )
+
+        # Get run details to extract reader_concurrency
+        run_detail = store.get_run_detail(self.db_path, self.run_id)
+        reader_concurrency = run_detail.get("reader_concurrency", 3)
+        reading_focus = run_detail.get("reading_focus")
+
+        # Get the latest candidate_selection plan
+        plans = store.get_plans_by_run(self.db_path, self.run_id)
+        candidate_plans = [p for p in plans if p["phase"] == "candidate_selection"]
+
+        if not candidate_plans:
+            # No selection plan yet - this shouldn't happen in normal flow
+            events.write_stage_error_event(
+                db_path=self.db_path,
+                run_id=self.run_id,
+                stage=self.stage,
+                message="No candidate selection plan found",
+            )
+            raise RuntimeError("No candidate selection plan found for run")
+
+        latest_plan = max(candidate_plans, key=lambda p: p["version"])
+        selected_paper_ids = latest_plan["plan_data"].get("selected_paper_ids", [])
+
+        if not selected_paper_ids:
+            # No papers selected
+            events.write_stage_complete_event(
+                db_path=self.db_path,
+                run_id=self.run_id,
+                stage=self.stage,
+                payload={"papers_read": 0, "cards_created": 0, "message": "No papers selected"},
+            )
+            return {"papers_read": 0, "cards_created": 0}
+
+        # Get all candidates and filter by selected_paper_ids
+        all_candidates_raw = store.get_candidates(self.db_path, self.run_id)
+        # Convert dict to PaperCandidate objects
+        from app.research_pipeline.schemas import PaperCandidate
+
+        all_candidates = [PaperCandidate(**c) for c in all_candidates_raw]
+        selected_candidates = [
+            c for c in all_candidates if c.paper_id in selected_paper_ids
+        ]
+
+        events.write_stage_progress_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+            message=f"Reading {len(selected_candidates)} selected papers",
+            payload={"total_papers": len(selected_candidates), "concurrency": reader_concurrency},
+        )
+
+        # Read papers in batch with concurrency control
+        result = self.reader.batch_read_papers(
+            candidates=selected_candidates,
+            reading_focus=reading_focus,
+            concurrency=reader_concurrency,
+        )
+
+        cards = result["cards"]
+        summary = result["summary"]
+
+        # Save all cards to store
+        for card in cards:
+            store.create_paper_card(self.db_path, self.run_id, card)
+
+        # Write events for each card
+        for card in cards:
+            if card.status == "failed":
+                events.write_stage_error_event(
+                    db_path=self.db_path,
+                    run_id=self.run_id,
+                    stage=self.stage,
+                    message=f"Failed to read {card.paper_id}: {card.error}",
+                    payload={"paper_id": card.paper_id, "error": card.error},
+                )
+            elif card.status == "degraded":
+                events.write_stage_progress_event(
+                    db_path=self.db_path,
+                    run_id=self.run_id,
+                    stage=self.stage,
+                    message=f"Read {card.paper_id} with degraded extraction",
+                    payload={"paper_id": card.paper_id, "mode": card.extraction_mode},
+                )
+            else:
+                events.write_stage_progress_event(
+                    db_path=self.db_path,
+                    run_id=self.run_id,
+                    stage=self.stage,
+                    message=f"Successfully read {card.paper_id}",
+                    payload={"paper_id": card.paper_id, "mode": card.extraction_mode},
+                )
+
+        # Determine stage status based on success/failure counts
+        # Rule: at least one success → completed or degraded
+        #       all failed → stage failed (will be handled by exception)
+        has_success = summary["successful"] > 0 or summary["degraded"] > 0
+        all_failed = summary["failed"] == summary["total"]
+
+        if all_failed:
+            # All papers failed - raise exception to fail the stage
+            events.write_stage_error_event(
+                db_path=self.db_path,
+                run_id=self.run_id,
+                stage=self.stage,
+                message=f"All {summary['total']} papers failed to read",
+                payload=summary,
+            )
+            raise RuntimeError(f"All {summary['total']} papers failed to read")
+
+        # At least one success - stage completed or degraded
+        # If there are failures, mark as degraded; otherwise completed
+        stage_status = "degraded" if summary["failed"] > 0 else "completed"
+
+        final_message = (
+            f"Read {summary['total']} papers: "
+            f"{summary['successful']} successful, "
+            f"{summary['degraded']} degraded, "
+            f"{summary['failed']} failed"
+        )
+
+        events.write_stage_complete_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+            payload={
+                "papers_read": summary["total"],
+                "cards_created": len(cards),
+                "successful": summary["successful"],
+                "degraded": summary["degraded"],
+                "failed": summary["failed"],
+                "stage_status": stage_status,
+            },
+        )
+
+        return {
+            "papers_read": summary["total"],
+            "cards_created": len(cards),
+            "successful": summary["successful"],
+            "degraded": summary["degraded"],
+            "failed": summary["failed"],
+            "stage_status": stage_status,
+            "message": final_message,
+        }
+
+
 class PipelineRunner:
     """
     Pipeline runner that executes stages in sequence.
@@ -254,14 +441,17 @@ class PipelineRunner:
             agent = self.agent_factory(stage_name, self.db_path, run_id)
             result = agent.execute()
 
-            # Mark stage as completed
+            # Check if agent wants to set specific stage status (e.g., "degraded")
+            stage_status = result.get("stage_status", "completed")
+
+            # Mark stage as completed or degraded
             store.update_stage(
                 db_path=self.db_path,
                 run_id=run_id,
                 stage=stage_name,
-                status="completed",
+                status=stage_status,
                 progress=1.0,
-                message=f"{stage_name.capitalize()} completed successfully",
+                message=result.get("message", f"{stage_name.capitalize()} completed successfully"),
             )
 
             return result
@@ -302,7 +492,9 @@ def create_default_agent(stage: str, db_path: str, run_id: str) -> Any:
     Returns:
         Agent instance for the given stage.
     """
-    if stage == "retriever":
+    if stage == "planner":
+        return PlannerAgent(db_path=db_path)
+    elif stage == "retriever":
         # Create retriever agent with real source adapters
         # Note: In production, these would be initialized with proper config
         # For now, we use None and they'll be initialized with defaults
@@ -313,6 +505,8 @@ def create_default_agent(stage: str, db_path: str, run_id: str) -> Any:
             arxiv_adapter=ArxivSourceAdapter(client=None),
             zotero_adapter=ZoteroSourceAdapter(client=None),
         )
+    elif stage == "reader":
+        return ReaderAgentWrapper(stage, db_path, run_id)
     else:
         # For other stages, use stub agents
         return StubAgent(stage, db_path, run_id)
