@@ -100,3 +100,28 @@ All 4 tasks completed successfully. Report generation and verification harness a
 
 Slice 4 完成。能生成可预览/下载的 Markdown 报告，并且 100% report claims 都有 verification status。
 
+
+## Slice 4 验收修复: ✅ COMPLETE
+
+修复了两个关键验收缺口：
+
+1. **Harness citation parser 支持 arXiv paper_id**
+   - 扩展正则表达式支持点号、连字符、冒号
+   - 现在可以解析 `[CITE:1706.03762]`、`[CITE:arxiv:2103.12345]` 等格式
+
+2. **Synthesis skeleton 使用 [CITE:paper_id] 格式**
+   - 更新所有 skeleton helper 方法
+   - `_list_papers_for_skeleton()`, `_list_datasets_and_metrics()`, `_list_key_results()`, `_list_limitations()`, `_list_future_work()` 都使用 `[CITE:paper_id]`
+
+**验证测试:**
+- 新增 `test_slice4_fixes.py` 包含 3 个集成测试
+- 所有 39 个 Slice 4 测试通过 (4.86s)
+- 端到端验证：skeleton → harness 能正确提取和验证 citations
+
+**Commit:** `bc992e0` - fix(slice4): support arXiv paper_id in citations and use [CITE:] in skeleton
+
+Slice 4 现在**完全达到验收标准**：能生成可预览/下载的 Markdown 报告，并且 100% report claims 都有 verification status。
+Task 22: complete (commits bc992e0..637e494, review clean)
+Task 23: complete (commits 637e494..84d35f1, review clean after fix)
+Task 24: complete (commits 84d35f1..fbd1700, review clean)
+Task 25: complete (commits fbd1700..e91ad10, review clean)

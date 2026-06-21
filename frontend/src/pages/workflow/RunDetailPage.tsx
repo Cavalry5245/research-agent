@@ -3,17 +3,19 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   getResearchRunDetail,
+  getReport,
   type ResearchRunDetailResponse,
   type RunStatus,
-  type StageStatus,
-  type StageName,
 } from "../../api/researchPipeline";
+import { AgentTimeline } from "../../components/workflow/AgentTimeline";
+import { CandidatePaperTable } from "../../components/workflow/CandidatePaperTable";
+import { PaperCardPanel } from "../../components/workflow/PaperCardPanel";
+import { HarnessSummary } from "../../components/workflow/HarnessSummary";
+import { MarkdownReportPreview } from "../../components/workflow/MarkdownReportPreview";
 
 const POLL_INTERVAL = 2000; // 2 seconds
 
 const ACTIVE_STATUSES: RunStatus[] = ["queued", "running", "degraded"];
-
-const STAGE_NAMES: StageName[] = ["planner", "retriever", "reader", "synthesis", "harness"];
 
 function shouldPoll(status: RunStatus): boolean {
   return ACTIVE_STATUSES.includes(status);
@@ -24,7 +26,7 @@ function formatTimestamp(timestamp: string | null): string {
   return new Date(timestamp).toLocaleString();
 }
 
-function getStatusColor(status: RunStatus | StageStatus): string {
+function getStatusColor(status: RunStatus): string {
   switch (status) {
     case "completed":
       return "text-green-600";
@@ -41,33 +43,6 @@ function getStatusColor(status: RunStatus | StageStatus): string {
     default:
       return "text-gray-600";
   }
-}
-
-function StageProgressBar({ stage }: { stage: { stage: StageName; status: StageStatus; progress: number } }) {
-  const statusColor = getStatusColor(stage.status);
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="w-24 text-sm font-medium text-ink capitalize">{stage.stage}</div>
-      <div className="flex-1 bg-gray-200 rounded-full h-2">
-        <div
-          className={`h-2 rounded-full ${
-            stage.status === "completed"
-              ? "bg-green-600"
-              : stage.status === "running"
-              ? "bg-blue-600"
-              : stage.status === "failed"
-              ? "bg-red-600"
-              : stage.status === "degraded"
-              ? "bg-amber-600"
-              : "bg-gray-300"
-          }`}
-          style={{ width: `${stage.progress}%` }}
-        />
-      </div>
-      <div className={`w-20 text-sm ${statusColor} capitalize`}>{stage.status}</div>
-    </div>
-  );
 }
 
 function RunHeader({ run }: { run: ResearchRunDetailResponse }) {
@@ -114,40 +89,6 @@ function RunHeader({ run }: { run: ResearchRunDetailResponse }) {
   );
 }
 
-function StageProgression({ run }: { run: ResearchRunDetailResponse }) {
-  const stageMap = new Map(run.stages.map((s) => [s.stage, s]));
-
-  return (
-    <div className="border border-line rounded-lg p-4 bg-panel">
-      <h2 className="text-lg font-semibold text-ink mb-4">Stage Progression</h2>
-      <div className="space-y-3">
-        {STAGE_NAMES.map((stageName) => {
-          const stage = stageMap.get(stageName);
-          if (stage) {
-            return (
-              <div key={stageName}>
-                <StageProgressBar stage={stage} />
-                {stage.error && (
-                  <div className="ml-28 mt-1 text-sm text-red-600">{stage.error}</div>
-                )}
-                {stage.message && !stage.error && (
-                  <div className="ml-28 mt-1 text-sm text-muted">{stage.message}</div>
-                )}
-              </div>
-            );
-          }
-          return (
-            <StageProgressBar
-              key={stageName}
-              stage={{ stage: stageName, status: "queued", progress: 0 }}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function EventsLog({ run }: { run: ResearchRunDetailResponse }) {
   if (run.events.length === 0) {
     return null;
@@ -181,120 +122,6 @@ function EventsLog({ run }: { run: ResearchRunDetailResponse }) {
   );
 }
 
-function CandidatesTable({ run }: { run: ResearchRunDetailResponse }) {
-  if (run.candidates.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="border border-line rounded-lg p-4 bg-panel">
-      <h2 className="text-lg font-semibold text-ink mb-4">
-        Paper Candidates ({run.candidates.length})
-      </h2>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-line">
-            <tr>
-              <th className="text-left py-2 px-3 text-muted font-medium">Title</th>
-              <th className="text-left py-2 px-3 text-muted font-medium">Authors</th>
-              <th className="text-left py-2 px-3 text-muted font-medium">Year</th>
-              <th className="text-left py-2 px-3 text-muted font-medium">Venue</th>
-              <th className="text-left py-2 px-3 text-muted font-medium">Source</th>
-              <th className="text-right py-2 px-3 text-muted font-medium">Relevance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {run.candidates.map((candidate) => (
-              <tr key={candidate.paper_id} className="border-b border-line last:border-b-0">
-                <td className="py-2 px-3 text-ink">{candidate.title}</td>
-                <td className="py-2 px-3 text-muted">
-                  {candidate.authors.join(", ") || "—"}
-                </td>
-                <td className="py-2 px-3 text-muted">{candidate.year || "—"}</td>
-                <td className="py-2 px-3 text-muted">{candidate.venue || "—"}</td>
-                <td className="py-2 px-3 text-muted capitalize">{candidate.source}</td>
-                <td className="py-2 px-3 text-muted text-right">
-                  {candidate.relevance_score != null
-                    ? candidate.relevance_score.toFixed(2)
-                    : "—"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function PaperCardsList({ run }: { run: ResearchRunDetailResponse }) {
-  if (run.cards.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="border border-line rounded-lg p-4 bg-panel">
-      <h2 className="text-lg font-semibold text-ink mb-4">
-        Paper Cards ({run.cards.length})
-      </h2>
-      <div className="space-y-4">
-        {run.cards.map((card) => (
-          <div key={card.paper_id} className="border border-line rounded-lg p-4 bg-white">
-            <div className="flex items-start justify-between mb-2">
-              <h3 className="text-base font-semibold text-ink">{card.title}</h3>
-              <span className={`text-sm ${getStatusColor(card.status)} capitalize`}>
-                {card.status}
-              </span>
-            </div>
-
-            {card.research_problem && (
-              <div className="mb-2">
-                <span className="text-sm font-medium text-muted">Problem: </span>
-                <span className="text-sm text-ink">{card.research_problem}</span>
-              </div>
-            )}
-
-            {card.method && (
-              <div className="mb-2">
-                <span className="text-sm font-medium text-muted">Method: </span>
-                <span className="text-sm text-ink">{card.method}</span>
-              </div>
-            )}
-
-            {card.key_results.length > 0 && (
-              <div className="mb-2">
-                <span className="text-sm font-medium text-muted">Key Results: </span>
-                <span className="text-sm text-ink">{card.key_results.join("; ")}</span>
-              </div>
-            )}
-
-            {card.error && (
-              <div className="mt-2 text-sm text-red-600">Error: {card.error}</div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ReportPreview({ run }: { run: ResearchRunDetailResponse }) {
-  if (!run.report) {
-    return null;
-  }
-
-  return (
-    <div className="border border-line rounded-lg p-4 bg-panel">
-      <h2 className="text-lg font-semibold text-ink mb-4">Report Preview</h2>
-      <div className="prose prose-sm max-w-none">
-        <pre className="whitespace-pre-wrap text-sm text-ink bg-white border border-line rounded p-4 overflow-x-auto">
-          {run.report.markdown}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
@@ -304,12 +131,18 @@ export function RunDetailPage() {
     data: run,
     isLoading,
     error,
-    refetch,
   } = useQuery({
     queryKey: ["researchRun", runId],
     queryFn: () => getResearchRunDetail(runId!),
     enabled: !!runId,
     refetchInterval: pollingEnabled ? POLL_INTERVAL : false,
+  });
+
+  // Fetch report with claims and summary
+  const { data: reportData } = useQuery({
+    queryKey: ["researchReport", runId],
+    queryFn: () => getReport(runId!),
+    enabled: !!runId && run?.status === "completed" && !!run?.report,
   });
 
   // Update polling based on run status
@@ -369,11 +202,12 @@ export function RunDetailPage() {
 
       <div className="space-y-6">
         <RunHeader run={run} />
-        <StageProgression run={run} />
+        <AgentTimeline stages={run.stages} />
         <EventsLog run={run} />
-        <CandidatesTable run={run} />
-        <PaperCardsList run={run} />
-        <ReportPreview run={run} />
+        <CandidatePaperTable candidates={run.candidates} />
+        <PaperCardPanel cards={run.cards} />
+        {reportData && <HarnessSummary summary={reportData.summary} />}
+        <MarkdownReportPreview markdown={run.report?.markdown || null} runId={run.run_id} />
       </div>
     </div>
   );
