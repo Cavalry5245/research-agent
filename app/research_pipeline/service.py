@@ -17,6 +17,8 @@ from app.research_pipeline.schemas import (
     ResearchEvent,
     PaperCandidate,
     PaperCard,
+    ReportClaim,
+    ReportWithClaimsResponse,
 )
 
 
@@ -309,3 +311,51 @@ class ResearchPipelineService:
             run_id=run_id,
             status="cancelled",
         )
+
+    def get_report_with_claims(self, run_id: str) -> ReportWithClaimsResponse:
+        """
+        Get report with claims and verification summary.
+
+        Assembles the complete report response including markdown content,
+        all claims with their verification status, and aggregated summary counts.
+
+        Args:
+            run_id: Run ID to retrieve report for.
+
+        Returns:
+            ReportWithClaimsResponse with markdown, claims list, and summary dict.
+
+        Raises:
+            ValueError: If report not found (404).
+        """
+        # Get report
+        report = store.get_report(self.db_path, run_id)
+
+        if report is None:
+            raise ValueError(f"Report not found for run {run_id}")
+
+        # Get claims
+        claims_data = store.get_claims(self.db_path, run_id)
+
+        # Parse claims into schema
+        claims = [
+            ReportClaim(
+                claim_text=c["claim_text"],
+                claim_type=c["claim_type"],
+                citation_ids=c["citation_ids"],
+                evidence_ids=c["evidence_ids"],
+                verification_status=c["verification_status"],
+                verification_reason=c["verification_reason"],
+            )
+            for c in claims_data
+        ]
+
+        # Get summary
+        summary = store.get_claim_summary(self.db_path, run_id)
+
+        return ReportWithClaimsResponse(
+            markdown=report["markdown"],
+            claims=claims,
+            summary=summary,
+        )
+

@@ -198,3 +198,11 @@ class ResearchReport(BaseModel):
     template_version: str
     created_at: datetime
     updated_at: datetime
+
+
+class ReportWithClaimsResponse(BaseModel):
+    """Report with claims and summary response"""
+
+    markdown: str
+    claims: list[ReportClaim]
+    summary: dict[str, int]

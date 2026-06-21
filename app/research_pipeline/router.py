@@ -6,6 +6,7 @@ Exposes endpoints for creating, listing, getting, and cancelling research runs.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 
 from app.config import settings
 from app.research_pipeline.schemas import (
@@ -13,6 +14,7 @@ from app.research_pipeline.schemas import (
     ResearchRunCreateResponse,
     ResearchRunDetailResponse,
     ResearchRunListResponse,
+    ReportWithClaimsResponse,
 )
 from app.research_pipeline.service import ResearchPipelineService
 from app.research_pipeline.sources.zotero import ZoteroSourceAdapter
@@ -173,4 +175,70 @@ def list_zotero_collections(limit: int = 100) -> dict:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Zotero API unavailable: {str(e)}",
+        ) from e
+
+
+@router.get("/runs/{run_id}/report", response_model=ReportWithClaimsResponse)
+def get_report(
+    run_id: str,
+    service: ResearchPipelineService = Depends(get_service),
+) -> ReportWithClaimsResponse:
+    """
+    Get report with claims and verification summary.
+
+    Returns JSON response with markdown content, all claims with verification
+    status, and aggregated summary counts.
+
+    Args:
+        run_id: Run ID to retrieve report for.
+        service: ResearchPipelineService dependency.
+
+    Returns:
+        ReportWithClaimsResponse with markdown, claims, and summary.
+
+    Raises:
+        HTTPException: 404 if report not found.
+    """
+    try:
+        return service.get_report_with_claims(run_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
+@router.get("/runs/{run_id}/report.md")
+def get_report_markdown(
+    run_id: str,
+    service: ResearchPipelineService = Depends(get_service),
+) -> Response:
+    """
+    Download report as markdown file.
+
+    Returns markdown file with content-disposition header for download.
+
+    Args:
+        run_id: Run ID to retrieve report for.
+        service: ResearchPipelineService dependency.
+
+    Returns:
+        Response with text/markdown content and download headers.
+
+    Raises:
+        HTTPException: 404 if report not found.
+    """
+    try:
+        report = service.get_report_with_claims(run_id)
+        return Response(
+            content=report.markdown,
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{run_id}_report.md"'
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
         ) from e
