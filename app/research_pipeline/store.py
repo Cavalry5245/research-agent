@@ -767,3 +767,103 @@ def get_candidates(db_path: str, run_id: str) -> list[dict[str, Any]]:
 
     finally:
         conn.close()
+
+
+# ==================== Plan CRUD Operations ====================
+
+
+def create_plan(
+    db_path: str,
+    run_id: str,
+    phase: str,
+    plan_data: dict[str, Any],
+) -> str:
+    """
+    Create a research plan record.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+        phase: Plan phase ("initial" or "candidate_selection").
+        plan_data: Plan data dictionary.
+
+    Returns:
+        plan_id: The generated plan ID.
+    """
+    now = datetime.utcnow().isoformat()
+    plan_id = f"plan_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+
+    conn = _get_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Get next version number for this run
+        cursor.execute(
+            "SELECT COALESCE(MAX(version), 0) + 1 FROM research_plans WHERE run_id = ?",
+            (run_id,),
+        )
+        version = cursor.fetchone()[0]
+
+        cursor.execute(
+            """
+            INSERT INTO research_plans (
+                id, run_id, version, phase, plan_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                plan_id,
+                run_id,
+                version,
+                phase,
+                json.dumps(plan_data),
+                now,
+            ),
+        )
+
+        conn.commit()
+        return plan_id
+
+    finally:
+        conn.close()
+
+
+def get_plans_by_run(db_path: str, run_id: str) -> list[dict[str, Any]]:
+    """
+    Get all plans for a run, ordered by version.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        List of plan dictionaries.
+    """
+    conn = _get_connection(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT * FROM research_plans
+            WHERE run_id = ?
+            ORDER BY version
+            """,
+            (run_id,),
+        )
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "run_id": row["run_id"],
+                "version": row["version"],
+                "phase": row["phase"],
+                "plan_data": json.loads(row["plan_json"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    finally:
+        conn.close()
