@@ -15,6 +15,7 @@ from app.research_pipeline.schemas import (
     ResearchRunListResponse,
     ResearchStage,
     ResearchEvent,
+    PaperCandidate,
 )
 
 
@@ -181,6 +182,30 @@ class ResearchPipelineService:
             for event in detail["events"]
         ]
 
+        # Parse candidates
+        candidates = [
+            PaperCandidate(
+                paper_id=c["paper_id"],
+                source=c["source"],
+                title=c["title"],
+                authors=c["authors"],
+                year=c["year"],
+                venue=c["venue"],
+                abstract=c["abstract"],
+                doi=c["doi"],
+                arxiv_id=c["arxiv_id"],
+                semantic_scholar_id=c["semantic_scholar_id"],
+                zotero_item_id=c["zotero_item_id"],
+                url=c["url"],
+                pdf_url=c["pdf_url"],
+                local_pdf_path=c["local_pdf_path"],
+                citation_count=c["citation_count"],
+                relevance_score=c["relevance_score"],
+                metadata=c["metadata"],
+            )
+            for c in detail["candidates"]
+        ]
+
         return ResearchRunDetailResponse(
             run_id=detail["run_id"],
             question=detail["question"],
@@ -218,7 +243,7 @@ class ResearchPipelineService:
             error=detail["error"],
             stages=stages,
             events=events,
-            candidates=[],  # Empty for MVP
+            candidates=candidates,
             cards=[],  # Empty for MVP
             plan=None,  # No plan yet for MVP
             report=None,  # No report yet for MVP

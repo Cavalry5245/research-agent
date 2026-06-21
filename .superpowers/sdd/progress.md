@@ -36,5 +36,18 @@ Task 8: complete (commits 312ee41..5685d13, review clean, minor notes on title d
 Task 9: complete (commits 5685d13..e665431, review clean, minor note on import placement)
 Task 10: complete (commits e665431..4571a82, review clean)
 Task 11: complete (commits 4571a82..6ca8143, review clean)
+Task 12: complete (commits 6ca8143..5c518f8, review clean)
 
-**Current Status:** Ready to begin Task 12: Implement Retriever Agent (final task of Slice 2)
+## Slice 2 Status: ✅ COMPLETE
+
+All 5 tasks completed successfully. Real retriever sources are implemented and tested.
+
+**What was built:**
+- Source normalizer with DOI/arXiv/SS ID/title deduplication
+- Zotero source adapter (local PDF collection)
+- Semantic Scholar source adapter (academic search API)
+- arXiv source adapter (preprint API)
+- Retriever agent with source mode routing (web_search, zotero_only, hybrid)
+- Graceful degradation (partial source failures don't crash runs)
+- Candidate persistence with full CRUD operations
+- 41+ comprehensive tests across Tasks 8-12 (all passing)
