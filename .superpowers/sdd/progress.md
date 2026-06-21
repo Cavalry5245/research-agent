@@ -60,3 +60,9 @@ Task 17: complete (commits 23c422b..1fa0e19, review clean with minor findings no
 ## Slice 3 Status: ✅ COMPLETE
 
 All 5 tasks completed successfully. Planner, Reader, and PaperCard infrastructure complete.
+
+**Slice 3 integration fixes:**
+- Created PlannerAgentWrapper with execute() interface
+- Wired PaperCards to service/API responses
+- Added 3 integration tests (all passing)
+- Commit: 1fa0e19..23f0b1b

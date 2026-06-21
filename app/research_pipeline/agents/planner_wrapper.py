@@ -35,7 +35,7 @@ class PlannerAgentWrapper:
         self.run_id = run_id
         self.agent = PlannerAgent(db_path=db_path)
 
-    async def execute(self) -> dict[str, Any]:
+    def execute(self) -> dict[str, Any]:
         """
         Execute planner stage: initial planning + candidate selection.
 
@@ -60,7 +60,7 @@ class PlannerAgentWrapper:
         )
 
         try:
-            initial_plan = self.agent.plan_initial(question, source_mode)
+            initial_plan = self.agent.plan_initial(self.run_id, question, source_mode)
 
             events.write_stage_progress_event(
                 db_path=self.db_path,
