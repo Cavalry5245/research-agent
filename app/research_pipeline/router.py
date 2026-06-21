@@ -15,6 +15,7 @@ from app.research_pipeline.schemas import (
     ResearchRunListResponse,
 )
 from app.research_pipeline.service import ResearchPipelineService
+from app.research_pipeline.sources.zotero import ZoteroSourceAdapter
 
 router = APIRouter(prefix="/research-pipeline", tags=["research-pipeline"])
 
@@ -148,3 +149,28 @@ def cancel_run(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=error_msg,
             ) from e
+
+
+@router.get("/sources/zotero/collections")
+def list_zotero_collections(limit: int = 100) -> dict:
+    """
+    List Zotero collections from local Zotero instance.
+
+    Args:
+        limit: Maximum number of collections to return (default 100).
+
+    Returns:
+        Dictionary with collections list.
+
+    Raises:
+        HTTPException: 503 if Zotero API is unavailable.
+    """
+    try:
+        adapter = ZoteroSourceAdapter()
+        collections = adapter.list_collections(limit=limit)
+        return {"collections": collections, "count": len(collections)}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Zotero API unavailable: {str(e)}",
+        ) from e

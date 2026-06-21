@@ -13,7 +13,25 @@ Target: Slice 1 (Tasks 1-7)
 Task 1: complete (commits d1a277b..9267859, review clean)
 Task 2: complete (commits 9267859..b027ec5, review clean)
 Task 3: complete (commits b027ec5..5f68fff, review clean, minor note: FK pragma for future tasks)
+Task 4: complete (commits 5f68fff..1770f98, review clean)
+Task 5: complete (commits 1770f98..503f805, review clean)
+Task 6: complete (commits 503f805..369dfa2, review clean, minor note: string-based error routing)
+Task 7: complete (commits 369dfa2..312ee41, review clean)
 
-## Current Status
+## Slice 1 Status: ✅ COMPLETE
 
-Ready to begin Task 4: Implement Run And Stage Store CRUD
+All 7 tasks completed successfully. The research pipeline infrastructure is ready for demonstration and Slice 2 development (real retriever sources).
+
+**What was built:**
+- SQLite database with 9 tables for pipeline state persistence
+- Complete CRUD operations for runs, stages, and events
+- Service layer with validation and business logic
+- FastAPI router with 4 endpoints: create, list, detail, cancel
+- Stub pipeline runner proving end-to-end workflow state machine
+- Comprehensive test coverage (84 tests total across all tasks)
+
+## Slice 2: Real Retriever Sources (Tasks 8-12)
+
+Task 8: complete (commits 312ee41..5685d13, review clean, minor notes on title dedupe edge cases)
+
+**Current Status:** Ready to begin Task 9: Add Zotero Source Adapter
