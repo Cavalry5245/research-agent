@@ -11,6 +11,7 @@ import { PapersPage } from "../pages/papers/PapersPage";
 import { QaPage } from "../pages/qa/QaPage";
 import { SettingsPage } from "../pages/settings/SettingsPage";
 import { WorkflowPage } from "../pages/workflow/WorkflowPage";
+import { NewRunPage } from "../pages/workflow/NewRunPage";
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: "dashboard", element: <DashboardPage /> },
       { path: "workflow", element: <WorkflowPage /> },
+      { path: "workflow/new", element: <NewRunPage /> },
       { path: "papers", element: <PapersPage /> },
       { path: "papers/:paperId", element: <PaperDetailPage /> },
       { path: "notes", element: <NotesPage /> },
