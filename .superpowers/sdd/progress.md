@@ -125,3 +125,23 @@ Task 22: complete (commits bc992e0..637e494, review clean)
 Task 23: complete (commits 637e494..84d35f1, review clean after fix)
 Task 24: complete (commits 84d35f1..fbd1700, review clean)
 Task 25: complete (commits fbd1700..e91ad10, review clean)
+Task 26: complete (commits e91ad10..56ea198, review clean)
+
+## Slice 5 Status: ✅ COMPLETE
+
+All 5 tasks completed successfully. React Workflow UI with real-time polling and specialized components.
+
+**What was built:**
+- Queued runs list page with filtering and polling
+- Run detail page with live status updates
+- 5 specialized workflow components (AgentTimeline, CandidatePaperTable, PaperCardPanel, HarnessSummary, MarkdownReportPreview)
+- Real-time polling for active runs (queued/running/degraded)
+- Copy and download functionality for reports
+- Comprehensive component tests (22 tests across 3 test files)
+
+**Slice 5 commits:**
+- Task 22: bc992e0..637e494
+- Task 23: 637e494..84d35f1
+- Task 24: 84d35f1..fbd1700
+- Task 25: fbd1700..e91ad10
+- Task 26: e91ad10..56ea198
