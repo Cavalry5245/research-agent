@@ -207,7 +207,10 @@ export function RunDetailPage() {
         <CandidatePaperTable candidates={run.candidates} />
         <PaperCardPanel cards={run.cards} />
         {reportData && <HarnessSummary summary={reportData.summary} />}
-        <MarkdownReportPreview markdown={run.report?.markdown || null} runId={run.run_id} />
+        <MarkdownReportPreview
+          markdown={reportData?.markdown || run.report?.markdown || null}
+          runId={run.run_id}
+        />
       </div>
     </div>
   );

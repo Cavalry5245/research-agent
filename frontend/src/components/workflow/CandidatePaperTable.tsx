@@ -20,8 +20,9 @@ export function CandidatePaperTable({ candidates }: CandidatePaperTableProps) {
             <tr>
               <th className="text-left py-2 px-3 text-muted font-medium">Source</th>
               <th className="text-left py-2 px-3 text-muted font-medium">Title</th>
+              <th className="text-left py-2 px-3 text-muted font-medium">Authors</th>
+              <th className="text-left py-2 px-3 text-muted font-medium">Venue</th>
               <th className="text-left py-2 px-3 text-muted font-medium">Year</th>
-              <th className="text-left py-2 px-3 text-muted font-medium">Selected</th>
             </tr>
           </thead>
           <tbody>
@@ -29,12 +30,11 @@ export function CandidatePaperTable({ candidates }: CandidatePaperTableProps) {
               <tr key={candidate.paper_id} className="border-b border-line last:border-b-0">
                 <td className="py-2 px-3 text-muted capitalize">{candidate.source}</td>
                 <td className="py-2 px-3 text-ink">{candidate.title}</td>
-                <td className="py-2 px-3 text-muted">{candidate.year || "—"}</td>
                 <td className="py-2 px-3 text-muted">
-                  {candidate.relevance_score != null
-                    ? candidate.relevance_score.toFixed(2)
-                    : "—"}
+                  {candidate.authors.length > 0 ? candidate.authors.join(", ") : "—"}
                 </td>
+                <td className="py-2 px-3 text-muted">{candidate.venue || "—"}</td>
+                <td className="py-2 px-3 text-muted">{candidate.year || "—"}</td>
               </tr>
             ))}
           </tbody>

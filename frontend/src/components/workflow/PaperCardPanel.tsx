@@ -47,6 +47,13 @@ export function PaperCardPanel({ cards }: PaperCardPanelProps) {
                 <span className="text-ink">{card.extraction_mode}</span>
               </div>
 
+              {card.research_problem && (
+                <div>
+                  <span className="font-medium text-muted">Research Problem: </span>
+                  <span className="text-ink">{card.research_problem}</span>
+                </div>
+              )}
+
               {card.method && (
                 <div>
                   <span className="font-medium text-muted">Method: </span>
@@ -68,10 +75,31 @@ export function PaperCardPanel({ cards }: PaperCardPanelProps) {
                 </div>
               )}
 
+              {card.key_results.length > 0 && (
+                <div>
+                  <span className="font-medium text-muted">Key Results: </span>
+                  <span className="text-ink">{card.key_results.join("; ")}</span>
+                </div>
+              )}
+
               {card.limitations.length > 0 && (
                 <div>
                   <span className="font-medium text-muted">Limitations: </span>
                   <span className="text-ink">{card.limitations.join("; ")}</span>
+                </div>
+              )}
+
+              {card.assumptions.length > 0 && (
+                <div>
+                  <span className="font-medium text-muted">Assumptions: </span>
+                  <span className="text-ink">{card.assumptions.join("; ")}</span>
+                </div>
+              )}
+
+              {card.future_work.length > 0 && (
+                <div>
+                  <span className="font-medium text-muted">Future Work: </span>
+                  <span className="text-ink">{card.future_work.join("; ")}</span>
                 </div>
               )}
             </div>
