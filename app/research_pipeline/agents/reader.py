@@ -9,6 +9,7 @@ from typing import Any
 
 from app.research_pipeline.schemas import PaperCandidate, PaperCard
 from app.services.llm_client import LLMClient
+from app.services.pdf_parser import parse_pdf
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +61,8 @@ class ReaderAgent:
             extraction_mode = "abstract_only"
             return self._read_abstract_only(candidate, reading_focus)
         else:
-            # PDF mode not yet implemented
-            raise NotImplementedError("PDF extraction mode not yet implemented")
+            # PDF mode
+            return self._read_pdf(candidate, reading_focus)
 
     def _read_abstract_only(
         self,
@@ -370,3 +371,302 @@ class ReaderAgent:
                 items = [joined_content]
 
             result[field_name] = items
+
+    def _read_pdf(
+        self,
+        candidate: PaperCandidate,
+        reading_focus: str | None = None,
+    ) -> PaperCard:
+        """
+        Extract information from local PDF file.
+
+        Args:
+            candidate: Paper candidate with local_pdf_path.
+            reading_focus: Optional reading focus.
+
+        Returns:
+            PaperCard with extracted information.
+        """
+        # Build bibliographic metadata
+        bibliographic_metadata = {
+            "authors": candidate.authors,
+            "year": candidate.year,
+            "venue": candidate.venue,
+            "doi": candidate.doi,
+            "source": candidate.source,
+            "url": candidate.url,
+            "citation_count": candidate.citation_count,
+        }
+
+        # Try to parse PDF
+        try:
+            logger.info("Parsing PDF for paper_id=%s from %s", candidate.paper_id, candidate.local_pdf_path)
+            parse_result = parse_pdf(candidate.local_pdf_path, candidate.paper_id)
+        except Exception as e:
+            # PDF parsing failed - return failed/degraded card
+            logger.error("PDF parsing failed for %s: %s", candidate.paper_id, e)
+            return self._generate_pdf_failed_card(candidate, bibliographic_metadata, str(e))
+
+        # PDF parsed successfully - extract with LLM if available
+        if self.llm_client is not None:
+            try:
+                card = self._extract_from_pdf_with_llm(
+                    candidate, parse_result, reading_focus, bibliographic_metadata
+                )
+                return card
+            except Exception as e:
+                logger.error("LLM extraction from PDF failed for %s: %s", candidate.paper_id, e)
+                # Fall through to fallback
+
+        # Fallback: generate degraded card without LLM but with PDF content
+        return self._generate_pdf_fallback_card(candidate, parse_result, bibliographic_metadata)
+
+    def _extract_from_pdf_with_llm(
+        self,
+        candidate: PaperCandidate,
+        parse_result: Any,
+        reading_focus: str | None,
+        bibliographic_metadata: dict[str, Any],
+    ) -> PaperCard:
+        """
+        Extract structured information from PDF using LLM.
+
+        Args:
+            candidate: Paper candidate.
+            parse_result: PDF parse result from parse_pdf().
+            reading_focus: Optional reading focus.
+            bibliographic_metadata: Pre-built bibliographic metadata.
+
+        Returns:
+            PaperCard with LLM-extracted information.
+        """
+        # Build prompt from PDF content
+        prompt = self._build_pdf_extraction_prompt(candidate, parse_result, reading_focus)
+
+        # Call LLM
+        logger.info("Extracting from PDF for paper_id=%s", candidate.paper_id)
+        response = self.llm_client.generate_text(prompt)
+
+        # Parse LLM response
+        extracted = self._parse_llm_response(response)
+
+        # Build evidence from PDF sections
+        evidence = self._extract_evidence_from_sections(parse_result.sections, candidate.paper_id)
+
+        # Build PaperCard
+        card = PaperCard(
+            paper_id=candidate.paper_id,
+            status="completed",
+            extraction_mode="pdf",
+            title=parse_result.title or candidate.title,
+            bibliographic_metadata=bibliographic_metadata,
+            research_problem=extracted.get("research_problem", ""),
+            method=extracted.get("method", ""),
+            datasets=extracted.get("datasets", []),
+            metrics=extracted.get("metrics", []),
+            key_results=extracted.get("key_results", []),
+            limitations=extracted.get("limitations", []),
+            assumptions=extracted.get("assumptions", []),
+            future_work=extracted.get("future_work", []),
+            claims=[],
+            evidence=evidence,
+            error=None,
+        )
+
+        return card
+
+    def _generate_pdf_failed_card(
+        self,
+        candidate: PaperCandidate,
+        bibliographic_metadata: dict[str, Any],
+        error_message: str,
+    ) -> PaperCard:
+        """
+        Generate a failed card when PDF parsing fails.
+
+        Args:
+            candidate: Paper candidate.
+            bibliographic_metadata: Pre-built bibliographic metadata.
+            error_message: Error message from parsing failure.
+
+        Returns:
+            PaperCard with failed status.
+        """
+        card = PaperCard(
+            paper_id=candidate.paper_id,
+            status="failed",
+            extraction_mode="pdf",
+            title=candidate.title,
+            bibliographic_metadata=bibliographic_metadata,
+            research_problem="",
+            method="",
+            datasets=[],
+            metrics=[],
+            key_results=[],
+            limitations=[],
+            assumptions=[],
+            future_work=[],
+            claims=[],
+            evidence=[],
+            error=f"PDF解析失败: {error_message}",
+        )
+
+        logger.info(
+            "Generated failed card for paper_id=%s (status=failed)",
+            candidate.paper_id,
+        )
+
+        return card
+
+    def _generate_pdf_fallback_card(
+        self,
+        candidate: PaperCandidate,
+        parse_result: Any,
+        bibliographic_metadata: dict[str, Any],
+    ) -> PaperCard:
+        """
+        Generate a degraded card without LLM but with PDF content.
+
+        Args:
+            candidate: Paper candidate.
+            parse_result: PDF parse result.
+            bibliographic_metadata: Pre-built bibliographic metadata.
+
+        Returns:
+            PaperCard with fallback information.
+        """
+        # Use abstract as research problem if available
+        research_problem = ""
+        if parse_result.abstract:
+            research_problem = parse_result.abstract[:500]
+            if len(parse_result.abstract) > 500:
+                research_problem += "..."
+
+        # Store abstract in metadata
+        if parse_result.abstract:
+            bibliographic_metadata["abstract"] = parse_result.abstract
+
+        # Build evidence from PDF sections
+        evidence = self._extract_evidence_from_sections(parse_result.sections, candidate.paper_id)
+
+        card = PaperCard(
+            paper_id=candidate.paper_id,
+            status="degraded",
+            extraction_mode="pdf",
+            title=parse_result.title or candidate.title,
+            bibliographic_metadata=bibliographic_metadata,
+            research_problem=research_problem,
+            method="",
+            datasets=[],
+            metrics=[],
+            key_results=[],
+            limitations=[],
+            assumptions=[],
+            future_work=[],
+            claims=[],
+            evidence=evidence,
+            error="LLM不可用，仅提取PDF基础内容",
+        )
+
+        logger.info(
+            "Generated PDF fallback card for paper_id=%s (status=degraded)",
+            candidate.paper_id,
+        )
+
+        return card
+
+    def _build_pdf_extraction_prompt(
+        self,
+        candidate: PaperCandidate,
+        parse_result: Any,
+        reading_focus: str | None,
+    ) -> str:
+        """
+        Build LLM prompt for PDF extraction.
+
+        Args:
+            candidate: Paper candidate.
+            parse_result: PDF parse result.
+            reading_focus: Optional reading focus.
+
+        Returns:
+            Prompt string.
+        """
+        focus_section = ""
+        if reading_focus:
+            focus_section = f"\n\n**阅读重点:** {reading_focus}\n"
+
+        # Build sections text
+        sections_text = ""
+        for section in parse_result.sections[:10]:  # Limit to first 10 sections
+            page_info = f" (p.{section.page_number})" if section.page_number else ""
+            sections_text += f"\n### {section.heading}{page_info}\n{section.content[:1000]}\n"
+
+        abstract_text = parse_result.abstract or "无摘要"
+
+        prompt = f"""你是一个学术论文分析专家。请从以下论文的全文中提取结构化信息。
+
+**论文标题:** {parse_result.title or candidate.title}
+
+**作者:** {', '.join(candidate.authors) if candidate.authors else '未知'}
+
+**年份:** {candidate.year or '未知'}
+
+**摘要:**
+{abstract_text}
+
+**论文章节内容:**
+{sections_text}
+{focus_section}
+请提取以下信息（如果论文中未明确说明，请标注"原文未明确说明"）：
+
+1. **研究问题:** 论文要解决什么问题或研究什么主题？
+2. **方法:** 使用了什么方法或技术？
+3. **数据集:** 使用了哪些数据集？（如果提到，列出数据集名称）
+4. **指标:** 使用了哪些评估指标？（如果提到，列出指标名称）
+5. **关键结果:** 主要发现或结果是什么？
+6. **局限性:** 论文提到的局限性或限制条件？
+7. **假设:** 研究基于的假设或前提条件？
+8. **未来工作:** 论文提到的未来研究方向？
+
+请用简洁的中文回答，每个字段独立一行。如果某个字段在论文中没有信息，写"原文未明确说明"。
+"""
+
+        return prompt
+
+    def _extract_evidence_from_sections(
+        self,
+        sections: list[Any],
+        paper_id: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Extract evidence snippets from PDF sections.
+
+        Args:
+            sections: List of Section objects from parse_pdf().
+            paper_id: Paper ID.
+
+        Returns:
+            List of evidence dictionaries with snippet, section, and page.
+        """
+        evidence = []
+
+        for section in sections:
+            # Create evidence snippet from each section
+            # Truncate content to reasonable length
+            snippet = section.content[:300]
+            if len(section.content) > 300:
+                snippet += "..."
+
+            evidence_item = {
+                "snippet": snippet,
+                "section": section.heading,
+            }
+
+            # Add page number if available
+            if section.page_number is not None:
+                evidence_item["page"] = section.page_number
+
+            evidence.append(evidence_item)
+
+        return evidence
