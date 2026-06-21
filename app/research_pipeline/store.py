@@ -1147,3 +1147,276 @@ def get_evidence(
 
     finally:
         conn.close()
+
+
+# ==================== Report CRUD Operations ====================
+
+
+def save_report(
+    db_path: str,
+    run_id: str,
+    markdown: str,
+    template_version: str,
+) -> str:
+    """
+    Save or update a research report for a run.
+
+    Each run can have one current report. If a report already exists for the run_id,
+    it will be updated. Otherwise, a new report is created.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+        markdown: Report markdown content (UTF-8, Chinese preserved).
+        template_version: Template version identifier.
+
+    Returns:
+        report_id: The report ID (existing or newly created).
+    """
+    now = datetime.utcnow().isoformat()
+    conn = _get_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Check if report exists for this run_id
+        cursor.execute(
+            "SELECT id FROM research_reports WHERE run_id = ?",
+            (run_id,),
+        )
+        existing = cursor.fetchone()
+
+        if existing:
+            # Update existing report
+            report_id = existing[0]
+            cursor.execute(
+                """
+                UPDATE research_reports
+                SET markdown = ?, template_version = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (markdown, template_version, now, report_id),
+            )
+        else:
+            # Create new report
+            report_id = f"report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+            cursor.execute(
+                """
+                INSERT INTO research_reports (
+                    id, run_id, status, markdown, template_version,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (report_id, run_id, "draft", markdown, template_version, now, now),
+            )
+
+        conn.commit()
+        return report_id
+
+    finally:
+        conn.close()
+
+
+def get_report(db_path: str, run_id: str) -> dict[str, Any] | None:
+    """
+    Get the research report for a run.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        Report dictionary with id, run_id, status, markdown, template_version,
+        created_at, updated_at, or None if no report exists.
+    """
+    conn = _get_connection(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT * FROM research_reports
+            WHERE run_id = ?
+            """,
+            (run_id,),
+        )
+        row = cursor.fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "id": row["id"],
+            "run_id": row["run_id"],
+            "status": row["status"],
+            "markdown": row["markdown"],
+            "template_version": row["template_version"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    finally:
+        conn.close()
+
+
+def save_claims(
+    db_path: str,
+    run_id: str,
+    report_id: str,
+    claims: list[dict[str, Any]],
+) -> None:
+    """
+    Save report claims in batch.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+        report_id: Report ID.
+        claims: List of claim dictionaries with fields:
+            - claim_text: str
+            - claim_type: str
+            - citation_ids: list[str]
+            - evidence_ids: list[str]
+            - verification_status: str
+            - verification_reason: str
+    """
+    now = datetime.utcnow().isoformat()
+    conn = _get_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        for idx, claim in enumerate(claims):
+            # Add index to ensure unique IDs when batch inserting
+            claim_id = f"claim_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}_{idx}"
+            cursor.execute(
+                """
+                INSERT INTO report_claims (
+                    id, run_id, report_id, claim_text, claim_type,
+                    citation_ids_json, evidence_ids_json, verification_status,
+                    verification_reason, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    claim_id,
+                    run_id,
+                    report_id,
+                    claim["claim_text"],
+                    claim["claim_type"],
+                    json.dumps(claim["citation_ids"], ensure_ascii=False),
+                    json.dumps(claim["evidence_ids"], ensure_ascii=False),
+                    claim["verification_status"],
+                    claim["verification_reason"],
+                    now,
+                ),
+            )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+
+def get_claims(db_path: str, run_id: str) -> list[dict[str, Any]]:
+    """
+    Get all report claims for a run.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        List of claim dictionaries with all fields.
+    """
+    conn = _get_connection(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT * FROM report_claims
+            WHERE run_id = ?
+            ORDER BY created_at
+            """,
+            (run_id,),
+        )
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "run_id": row["run_id"],
+                "report_id": row["report_id"],
+                "claim_text": row["claim_text"],
+                "claim_type": row["claim_type"],
+                "citation_ids": json.loads(row["citation_ids_json"]),
+                "evidence_ids": json.loads(row["evidence_ids_json"]),
+                "verification_status": row["verification_status"],
+                "verification_reason": row["verification_reason"],
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    finally:
+        conn.close()
+
+
+def get_claim_summary(db_path: str, run_id: str) -> dict[str, int]:
+    """
+    Get claim verification status summary for a run.
+
+    Aggregates claim counts by verification_status.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        Dictionary with counts for each verification status:
+        {
+            "supported": int,
+            "weak": int,
+            "unverified": int,
+            "numeric_trace_missing": int,
+            "conflict_detected": int,
+            "total": int,
+        }
+    """
+    conn = _get_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT verification_status, COUNT(*) as count
+            FROM report_claims
+            WHERE run_id = ?
+            GROUP BY verification_status
+            """,
+            (run_id,),
+        )
+        rows = cursor.fetchall()
+
+        # Initialize all statuses to 0
+        summary = {
+            "supported": 0,
+            "weak": 0,
+            "unverified": 0,
+            "numeric_trace_missing": 0,
+            "conflict_detected": 0,
+            "total": 0,
+        }
+
+        # Populate with actual counts
+        for row in rows:
+            status = row[0]
+            count = row[1]
+            if status in summary:
+                summary[status] = count
+                summary["total"] += count
+
+        return summary
+
+    finally:
+        conn.close()
