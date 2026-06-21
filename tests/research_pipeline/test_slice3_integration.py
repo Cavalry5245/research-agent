@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.research_pipeline import store
-from app.research_pipeline.runner import create_default_agent
+from app.research_pipeline.runner import create_default_agent, PipelineRunner
 from app.research_pipeline.schemas import PaperCandidate, PaperCard
 
 
@@ -34,6 +34,73 @@ def test_planner_wrapper_has_execute_method(tmp_path):
     # Should have execute() method
     assert hasattr(planner_agent, "execute"), "PlannerAgentWrapper must have execute() method"
     assert callable(planner_agent.execute), "execute() must be callable"
+
+
+def test_default_planner_stage_executes_and_persists_initial_plan(tmp_path):
+    """
+    Gate test: Default runner's planner stage executes and persists initial plan.
+
+    Verifies that PipelineRunner with default agent factory can actually execute
+    planner stage (not just having the method), and that initial plan is saved to store.
+    """
+    db_path = str(tmp_path / "test.db")
+    store.init_db(db_path)
+
+    # Create run
+    run_id = store.create_run(
+        db_path=db_path,
+        question="What are the latest advances in neural architecture search?",
+        source_mode="web_search",
+        max_reader_papers=5,
+        reader_concurrency=3,
+    )
+
+    # Create runner with default agent factory
+    runner = PipelineRunner(
+        db_path=db_path,
+        agent_factory=create_default_agent,
+    )
+
+    # Execute planner stage
+    result = runner._execute_stage(run_id, "planner")
+
+    # Should complete or degrade (not fail)
+    assert result is not None
+    assert "stage_status" in result
+    assert result["stage_status"] in ["completed", "degraded"], \
+        f"Planner stage should complete or degrade, got: {result['stage_status']}"
+
+    # Verify stage status in store
+    run_detail = store.get_run_detail(db_path, run_id)
+    planner_stage = next((s for s in run_detail["stages"] if s["stage"] == "planner"), None)
+    assert planner_stage is not None, "Planner stage should exist in store"
+    assert planner_stage["status"] in ["completed", "degraded"], \
+        f"Planner stage status should be completed/degraded, got: {planner_stage['status']}"
+
+    # Verify initial plan was persisted
+    plans = store.get_plans_by_run(db_path, run_id)
+    assert len(plans) >= 1, "Should have at least one plan"
+
+    initial_plan = next((p for p in plans if p["phase"] == "initial"), None)
+    assert initial_plan is not None, "Should have initial plan"
+
+    # Verify plan_data structure (LLM or fallback)
+    plan_data = initial_plan["plan_data"]
+    assert "queries" in plan_data, "Plan should have queries"
+    assert isinstance(plan_data["queries"], list), "Queries should be a list"
+    assert len(plan_data["queries"]) > 0, "Should have at least one query"
+
+    assert "normalized_question" in plan_data, "Plan should have normalized_question"
+    assert "fallback_used" in plan_data, "Plan should indicate if fallback was used"
+
+    # Fallback is acceptable (no real LLM required)
+    if plan_data["fallback_used"]:
+        # Fallback should use original question as query
+        assert plan_data["queries"][0] != "", "Fallback query should not be empty"
+    else:
+        # LLM success should have structured output
+        assert "subquestions" in plan_data, "LLM plan should have subquestions"
+        assert "relevance_criteria" in plan_data, "LLM plan should have relevance_criteria"
 
 
 def test_service_returns_paper_cards_in_detail(tmp_path):

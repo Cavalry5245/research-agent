@@ -66,3 +66,37 @@ All 5 tasks completed successfully. Planner, Reader, and PaperCard infrastructur
 - Wired PaperCards to service/API responses
 - Added 3 integration tests (all passing)
 - Commit: 1fa0e19..23f0b1b
+
+**Final Slice 3 fixes:**
+- Fixed PlannerAgentWrapper.execute() async/sync mismatch
+- Added 2 planner runner integration tests
+- All 50 Slice 3 tests passing (45 task + 5 integration)
+- Commit: 23f0b1b..62e4a53
+Task 18: complete (commits 62e4a53..491ee2a, review clean)
+Task 19: complete (commits 491ee2a..57f33f9, review clean)
+Task 20: complete (commit 4c8bb77, TDD: 14 tests pass)
+Task 20: complete (commits 57f33f9..4c8bb77, review clean, minor notes on sentence splitting and evidence matching for future enhancement)
+Task 21: complete (commits 4c8bb77..15e523d, review clean)
+
+
+## Slice 4 Status: ✅ COMPLETE
+
+All 4 tasks completed successfully. Report generation and verification harness are fully implemented and tested.
+
+**What was built:**
+- Report Store Methods (Task 18): save_report, get_report, save_claims, get_claims, get_claim_summary
+- Synthesis Agent (Task 19): Generates 8-section Markdown reports with LLM or deterministic skeleton fallback
+- Rule-First Harness (Task 20): Validates claims against PaperCards with 5 verification rules
+- Report API (Task 21): GET /research-pipeline/runs/{run_id}/report (JSON) and /report.md (file download)
+
+**Slice 4 verification:**
+36 tests passing across all 4 tasks (3.14s runtime)
+
+**Slice 4 commits:**
+- Task 18: 62e4a53..491ee2a
+- Task 19: 491ee2a..57f33f9
+- Task 20: 57f33f9..4c8bb77
+- Task 21: 4c8bb77..15e523d
+
+Slice 4 完成。能生成可预览/下载的 Markdown 报告，并且 100% report claims 都有 verification status。
+

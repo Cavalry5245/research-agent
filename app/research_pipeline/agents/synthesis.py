@@ -234,7 +234,7 @@ class SynthesisAgent:
 
         lines = []
         for card in paper_cards:
-            line = f"- [{card.paper_id}] {card.title}"
+            line = f"- [CITE:{card.paper_id}] {card.title}"
             if include_methods and card.method:
                 line += f"\n  - 方法: {card.method}"
             lines.append(line)
@@ -249,7 +249,7 @@ class SynthesisAgent:
         lines = []
         for card in paper_cards:
             if card.datasets or card.metrics:
-                lines.append(f"- [{card.paper_id}]")
+                lines.append(f"- [CITE:{card.paper_id}]")
                 if card.datasets:
                     lines.append(f"  - 数据集: {', '.join(card.datasets)}")
                 if card.metrics:
@@ -265,7 +265,7 @@ class SynthesisAgent:
         lines = []
         for card in paper_cards:
             if card.key_results:
-                lines.append(f"- [{card.paper_id}]")
+                lines.append(f"- [CITE:{card.paper_id}]")
                 for result in card.key_results:
                     lines.append(f"  - {result}")
 
@@ -279,7 +279,7 @@ class SynthesisAgent:
         lines = []
         for card in paper_cards:
             if card.limitations:
-                lines.append(f"- [{card.paper_id}]")
+                lines.append(f"- [CITE:{card.paper_id}]")
                 for limitation in card.limitations:
                     lines.append(f"  - {limitation}")
 
@@ -293,7 +293,7 @@ class SynthesisAgent:
         lines = []
         for card in paper_cards:
             if card.future_work:
-                lines.append(f"- [{card.paper_id}]")
+                lines.append(f"- [CITE:{card.paper_id}]")
                 for work in card.future_work:
                     lines.append(f"  - {work}")
 

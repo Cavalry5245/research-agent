@@ -163,7 +163,9 @@ class HarnessAgent:
         Returns:
             paper_id 列表
         """
-        pattern = r"\[CITE:([a-zA-Z0-9_]+)\]"
+        # Support paper IDs with letters, digits, underscores, dots, hyphens, and colons
+        # Examples: paper_1, 2103.12345, arxiv:2103.12345, paper-001
+        pattern = r"\[CITE:([a-zA-Z0-9_.\-:]+)\]"
         matches = re.findall(pattern, text)
         return matches
 
