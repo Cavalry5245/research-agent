@@ -329,14 +329,14 @@ def create_run(
 
 def get_run_detail(db_path: str, run_id: str) -> dict[str, Any] | None:
     """
-    Get detailed information about a run including stages, events, and candidates.
+    Get detailed information about a run including stages, events, candidates, and cards.
 
     Args:
         db_path: Path to SQLite database file.
         run_id: Run ID.
 
     Returns:
-        Dictionary with run details, stages, events, and candidates, or None if not found.
+        Dictionary with run details, stages, events, candidates, and cards, or None if not found.
     """
     conn = _get_connection(db_path)
     conn.row_factory = sqlite3.Row
@@ -366,6 +366,9 @@ def get_run_detail(db_path: str, run_id: str) -> dict[str, Any] | None:
 
         # Get candidates
         candidates = get_candidates(db_path, run_id)
+
+        # Get paper cards
+        cards = get_paper_cards(db_path, run_id)
 
         # Build response
         return {
@@ -414,6 +417,7 @@ def get_run_detail(db_path: str, run_id: str) -> dict[str, Any] | None:
                 for event in event_rows
             ],
             "candidates": candidates,
+            "cards": cards,
         }
 
     finally:
@@ -861,6 +865,282 @@ def get_plans_by_run(db_path: str, run_id: str) -> list[dict[str, Any]]:
                 "phase": row["phase"],
                 "plan_data": json.loads(row["plan_json"]),
                 "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
+    finally:
+        conn.close()
+
+
+# ==================== PaperCard and Evidence CRUD Operations ====================
+
+
+def create_paper_card(
+    db_path: str,
+    run_id: str,
+    paper_card: Any,  # PaperCard
+) -> str:
+    """
+    Create a paper card record.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+        paper_card: PaperCard instance.
+
+    Returns:
+        card_id: The generated card ID.
+    """
+    now = datetime.utcnow().isoformat()
+    card_id = f"card_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+
+    conn = _get_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Find the candidate_id for this paper_id
+        cursor.execute(
+            "SELECT id FROM paper_candidates WHERE run_id = ? AND paper_id = ?",
+            (run_id, paper_card.paper_id),
+        )
+        candidate_row = cursor.fetchone()
+
+        if candidate_row is None:
+            raise ValueError(f"No candidate found for paper_id={paper_card.paper_id} in run_id={run_id}")
+
+        candidate_id = candidate_row[0]
+
+        cursor.execute(
+            """
+            INSERT INTO paper_cards (
+                id, run_id, paper_id, candidate_id, status, extraction_mode,
+                title, bibliographic_json, research_problem, method,
+                datasets_json, metrics_json, key_results_json, limitations_json,
+                assumptions_json, future_work_json, claims_json, evidence_json,
+                error, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                card_id,
+                run_id,
+                paper_card.paper_id,
+                candidate_id,
+                paper_card.status,
+                paper_card.extraction_mode,
+                paper_card.title,
+                json.dumps(paper_card.bibliographic_metadata, ensure_ascii=False),
+                paper_card.research_problem,
+                paper_card.method,
+                json.dumps(paper_card.datasets, ensure_ascii=False),
+                json.dumps(paper_card.metrics, ensure_ascii=False),
+                json.dumps(paper_card.key_results, ensure_ascii=False),
+                json.dumps(paper_card.limitations, ensure_ascii=False),
+                json.dumps(paper_card.assumptions, ensure_ascii=False),
+                json.dumps(paper_card.future_work, ensure_ascii=False),
+                json.dumps(paper_card.claims, ensure_ascii=False),
+                json.dumps(paper_card.evidence, ensure_ascii=False),
+                paper_card.error,
+                now,
+                now,
+            ),
+        )
+
+        conn.commit()
+        return card_id
+
+    finally:
+        conn.close()
+
+
+def create_evidence(
+    db_path: str,
+    run_id: str,
+    paper_id: str,
+    evidence: dict[str, Any],
+) -> str:
+    """
+    Create an evidence record.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+        paper_id: Paper ID.
+        evidence: Evidence dictionary with fields:
+            - snippet (required): Evidence text snippet.
+            - section (optional): Section name.
+            - page (optional): Page number.
+            - source_url (optional): Source URL.
+            - evidence_type (required): Type of evidence.
+            - confidence (optional): Confidence score.
+            - metadata (optional): Additional metadata.
+
+    Returns:
+        evidence_id: The generated evidence ID.
+    """
+    now = datetime.utcnow().isoformat()
+    evidence_id = f"evid_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+
+    conn = _get_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        # Find the paper_card_id for this paper_id
+        cursor.execute(
+            "SELECT id FROM paper_cards WHERE run_id = ? AND paper_id = ? ORDER BY created_at DESC LIMIT 1",
+            (run_id, paper_id),
+        )
+        card_row = cursor.fetchone()
+
+        if card_row is None:
+            raise ValueError(f"No paper card found for paper_id={paper_id} in run_id={run_id}")
+
+        paper_card_id = card_row[0]
+
+        cursor.execute(
+            """
+            INSERT INTO paper_evidence (
+                id, run_id, paper_id, paper_card_id, claim_id,
+                snippet, section, page, source_url, evidence_type,
+                confidence, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                evidence_id,
+                run_id,
+                paper_id,
+                paper_card_id,
+                evidence.get("claim_id"),
+                evidence["snippet"],
+                evidence.get("section"),
+                evidence.get("page"),
+                evidence.get("source_url"),
+                evidence["evidence_type"],
+                evidence.get("confidence"),
+                json.dumps(evidence.get("metadata", {}), ensure_ascii=False),
+            ),
+        )
+
+        conn.commit()
+        return evidence_id
+
+    finally:
+        conn.close()
+
+
+def get_paper_cards(db_path: str, run_id: str) -> list[dict[str, Any]]:
+    """
+    Get all paper cards for a run.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        List of paper card dictionaries.
+    """
+    conn = _get_connection(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT * FROM paper_cards
+            WHERE run_id = ?
+            ORDER BY created_at
+            """,
+            (run_id,),
+        )
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "run_id": row["run_id"],
+                "paper_id": row["paper_id"],
+                "candidate_id": row["candidate_id"],
+                "status": row["status"],
+                "extraction_mode": row["extraction_mode"],
+                "title": row["title"],
+                "bibliographic_metadata": json.loads(row["bibliographic_json"]),
+                "research_problem": row["research_problem"],
+                "method": row["method"],
+                "datasets": json.loads(row["datasets_json"]),
+                "metrics": json.loads(row["metrics_json"]),
+                "key_results": json.loads(row["key_results_json"]),
+                "limitations": json.loads(row["limitations_json"]),
+                "assumptions": json.loads(row["assumptions_json"]),
+                "future_work": json.loads(row["future_work_json"]),
+                "claims": json.loads(row["claims_json"]),
+                "evidence": json.loads(row["evidence_json"]),
+                "error": row["error"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+
+    finally:
+        conn.close()
+
+
+def get_evidence(
+    db_path: str,
+    run_id: str,
+    paper_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Get evidence records for a run, optionally filtered by paper_id.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+        paper_id: Optional paper ID to filter by.
+
+    Returns:
+        List of evidence dictionaries.
+    """
+    conn = _get_connection(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        if paper_id is not None:
+            cursor.execute(
+                """
+                SELECT * FROM paper_evidence
+                WHERE run_id = ? AND paper_id = ?
+                ORDER BY id
+                """,
+                (run_id, paper_id),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT * FROM paper_evidence
+                WHERE run_id = ?
+                ORDER BY id
+                """,
+                (run_id,),
+            )
+
+        rows = cursor.fetchall()
+
+        return [
+            {
+                "id": row["id"],
+                "run_id": row["run_id"],
+                "paper_id": row["paper_id"],
+                "paper_card_id": row["paper_card_id"],
+                "claim_id": row["claim_id"],
+                "snippet": row["snippet"],
+                "section": row["section"],
+                "page": row["page"],
+                "source_url": row["source_url"],
+                "evidence_type": row["evidence_type"],
+                "confidence": row["confidence"],
+                "metadata": json.loads(row["metadata_json"]),
             }
             for row in rows
         ]
