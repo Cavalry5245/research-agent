@@ -46,9 +46,18 @@ export interface ResearchRunCreateResponse {
   created_at: string;
 }
 
+export interface ResearchRunSummary {
+  run_id: string;
+  question: string;
+  source_mode: SourceMode;
+  status: RunStatus;
+  error: string | null;
+  created_at: string;
+}
+
 export interface ResearchRunListResponse {
   count: number;
-  runs: ResearchRunCreateResponse[];
+  runs: ResearchRunSummary[];
 }
 
 export interface PaperCandidate {

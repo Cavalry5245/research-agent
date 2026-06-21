@@ -57,11 +57,22 @@ class ResearchRunCreateResponse(BaseModel):
     created_at: datetime
 
 
+class ResearchRunSummary(BaseModel):
+    """研究运行摘要（用于列表视图）"""
+
+    run_id: str
+    question: str
+    source_mode: SourceMode
+    status: RunStatus
+    error: str | None = None
+    created_at: datetime
+
+
 class ResearchRunListResponse(BaseModel):
     """研究运行列表响应"""
 
     count: int
-    runs: list[ResearchRunCreateResponse]
+    runs: list[ResearchRunSummary]
 
 
 class ResearchRunDetailResponse(BaseModel):

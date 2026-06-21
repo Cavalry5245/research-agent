@@ -433,7 +433,7 @@ def list_runs(db_path: str, limit: int = 50) -> list[dict[str, Any]]:
         limit: Maximum number of runs to return.
 
     Returns:
-        List of run summaries with run_id, status, created_at.
+        List of run summaries with run_id, question, source_mode, status, error, created_at.
     """
     conn = _get_connection(db_path)
     conn.row_factory = sqlite3.Row
@@ -442,7 +442,7 @@ def list_runs(db_path: str, limit: int = 50) -> list[dict[str, Any]]:
     try:
         cursor.execute(
             """
-            SELECT id, status, created_at
+            SELECT id, question, source_mode, status, error, created_at
             FROM research_runs
             ORDER BY created_at DESC
             LIMIT ?
@@ -454,7 +454,10 @@ def list_runs(db_path: str, limit: int = 50) -> list[dict[str, Any]]:
         return [
             {
                 "run_id": row["id"],
+                "question": row["question"],
+                "source_mode": row["source_mode"],
                 "status": row["status"],
+                "error": row["error"],
                 "created_at": row["created_at"],
             }
             for row in rows

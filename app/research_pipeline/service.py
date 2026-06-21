@@ -13,6 +13,7 @@ from app.research_pipeline.schemas import (
     ResearchRunCreateResponse,
     ResearchRunDetailResponse,
     ResearchRunListResponse,
+    ResearchRunSummary,
     ResearchStage,
     ResearchEvent,
     PaperCandidate,
@@ -116,9 +117,12 @@ class ResearchPipelineService:
         return ResearchRunListResponse(
             count=len(runs),
             runs=[
-                ResearchRunCreateResponse(
+                ResearchRunSummary(
                     run_id=run["run_id"],
+                    question=run["question"],
+                    source_mode=run["source_mode"],
                     status=run["status"],
+                    error=run["error"],
                     created_at=datetime.fromisoformat(run["created_at"]),
                 )
                 for run in runs

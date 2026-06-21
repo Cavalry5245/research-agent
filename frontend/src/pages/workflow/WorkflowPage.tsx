@@ -73,6 +73,12 @@ export function WorkflowPage() {
                 Run ID
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted">
+                Question
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted">
+                Source Mode
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted">
                 Status
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted">
@@ -90,6 +96,21 @@ export function WorkflowPage() {
                   >
                     {run.run_id}
                   </Link>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="max-w-md">
+                    <p className="truncate text-sm text-ink" title={run.question}>
+                      {run.question}
+                    </p>
+                    {run.error && (
+                      <p className="mt-1 truncate text-xs text-red-600" title={run.error}>
+                        Error: {run.error}
+                      </p>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-sm text-muted">{run.source_mode}</span>
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={run.status} />

@@ -130,12 +130,18 @@ describe("researchPipeline API", () => {
         runs: [
           {
             run_id: "run_20260621_002",
+            question: "What are the latest advances in LLM reasoning?",
+            source_mode: "hybrid",
             status: "running",
+            error: null,
             created_at: "2026-06-21T10:30:00Z",
           },
           {
             run_id: "run_20260621_001",
+            question: "Survey of RAG techniques",
+            source_mode: "web_search",
             status: "completed",
+            error: null,
             created_at: "2026-06-21T10:00:00Z",
           },
         ],
@@ -161,7 +167,10 @@ describe("researchPipeline API", () => {
         runs: [
           {
             run_id: "run_20260621_002",
+            question: "What are the latest advances in LLM reasoning?",
+            source_mode: "hybrid",
             status: "running",
+            error: null,
             created_at: "2026-06-21T10:30:00Z",
           },
         ],
@@ -179,6 +188,31 @@ describe("researchPipeline API", () => {
       });
 
       expect(result).toEqual(mockResponse);
+    });
+
+    it("should include error message for failed runs", async () => {
+      const mockResponse = {
+        count: 1,
+        runs: [
+          {
+            run_id: "run_20260621_003",
+            question: "Test question",
+            source_mode: "web_search",
+            status: "failed",
+            error: "Network timeout during retrieval",
+            created_at: "2026-06-21T11:00:00Z",
+          },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await listResearchRuns();
+
+      expect(result.runs[0].error).toBe("Network timeout during retrieval");
     });
   });
 
