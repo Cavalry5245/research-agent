@@ -498,15 +498,21 @@ class TestResearchRunListResponse:
         response = ResearchRunListResponse(
             count=2,
             runs=[
-                ResearchRunCreateResponse(
+                ResearchRunSummary(
                     run_id="run_001",
+                    question="Test question 1",
+                    source_mode="web_search",
                     status="completed",
-                    created_at=now,
+                    error=None,
+                    created_at=now.isoformat(),
                 ),
-                ResearchRunCreateResponse(
+                ResearchRunSummary(
                     run_id="run_002",
+                    question="Test question 2",
+                    source_mode="zotero_only",
                     status="running",
-                    created_at=now,
+                    error=None,
+                    created_at=now.isoformat(),
                 ),
             ],
         )

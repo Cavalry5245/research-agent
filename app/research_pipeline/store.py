@@ -6,6 +6,7 @@ Research Pipeline Store
 
 import json
 import sqlite3
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -629,7 +630,7 @@ def append_event(
         event_id: The generated event ID.
     """
     now = datetime.utcnow().isoformat()
-    event_id = f"event_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+    event_id = f"event_{uuid.uuid4().hex[:16]}"
     payload = payload or {}
 
     conn = _get_connection(db_path)
@@ -672,7 +673,7 @@ def create_candidate(
         candidate_id: The generated candidate ID.
     """
     now = datetime.utcnow().isoformat()
-    candidate_id = f"cand_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+    candidate_id = f"cand_{uuid.uuid4().hex[:16]}"
 
     conn = _get_connection(db_path)
     cursor = conn.cursor()
@@ -798,7 +799,7 @@ def create_plan(
         plan_id: The generated plan ID.
     """
     now = datetime.utcnow().isoformat()
-    plan_id = f"plan_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+    plan_id = f"plan_{uuid.uuid4().hex[:16]}"
 
     conn = _get_connection(db_path)
     cursor = conn.cursor()
@@ -896,7 +897,7 @@ def create_paper_card(
         card_id: The generated card ID.
     """
     now = datetime.utcnow().isoformat()
-    card_id = f"card_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+    card_id = f"card_{uuid.uuid4().hex[:16]}"
 
     conn = _get_connection(db_path)
     cursor = conn.cursor()

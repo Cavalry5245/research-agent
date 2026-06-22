@@ -113,18 +113,25 @@ def test_list_runs_endpoint(tmp_path):
             self.db_path = db_path
 
         def list_runs(self, limit=50):
+            from app.research_pipeline.schemas import ResearchRunSummary
             return ResearchRunListResponse(
                 count=2,
                 runs=[
-                    ResearchRunCreateResponse(
+                    ResearchRunSummary(
                         run_id="run_1",
+                        question="Test question 1",
+                        source_mode="web_search",
                         status="completed",
-                        created_at=datetime.utcnow(),
+                        error=None,
+                        created_at=datetime.utcnow().isoformat(),
                     ),
-                    ResearchRunCreateResponse(
+                    ResearchRunSummary(
                         run_id="run_2",
+                        question="Test question 2",
+                        source_mode="hybrid",
                         status="running",
-                        created_at=datetime.utcnow(),
+                        error=None,
+                        created_at=datetime.utcnow().isoformat(),
                     ),
                 ],
             )
