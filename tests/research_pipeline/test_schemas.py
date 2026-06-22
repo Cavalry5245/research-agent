@@ -22,6 +22,7 @@ from app.research_pipeline.schemas import (
     # Response schemas
     ResearchRunCreateResponse,
     ResearchRunListResponse,
+    ResearchRunSummary,
     ResearchRunDetailResponse,
     # Core data models
     PaperCandidate,
