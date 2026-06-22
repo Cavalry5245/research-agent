@@ -369,7 +369,8 @@ describe("RunDetailPage", () => {
     vi.mocked(api.getResearchRunDetail).mockResolvedValue(mockRun);
     vi.mocked(api.getReport).mockResolvedValue({
       markdown: "# Research Report\n\nThis is a summary...",
-      summary: null,
+      claims: [],
+      summary: {},
     });
 
     renderWithRouter("run_20260621_001");
