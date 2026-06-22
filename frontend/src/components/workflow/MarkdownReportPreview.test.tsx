@@ -19,6 +19,7 @@ const originalCreateElement = document.createElement.bind(document);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  document.execCommand = vi.fn(() => true);
   // Reset createElement to work normally but track anchor element creation
   document.createElement = ((tagName: string) => {
     const element = originalCreateElement(tagName);
@@ -93,6 +94,52 @@ We used approach X.`;
     await waitFor(() => {
       expect(screen.getByText(/copied/i)).toBeInTheDocument();
     });
+  });
+
+  it("falls back when clipboard write permission is denied", async () => {
+    const writeTextMock = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockRejectedValueOnce(new DOMException("Write permission denied", "NotAllowedError"));
+    const execCommandMock = vi.spyOn(document, "execCommand").mockReturnValueOnce(true);
+
+    render(<MarkdownReportPreview markdown={sampleMarkdown} runId="test-run" />);
+
+    const copyButton = screen.getByRole("button", { name: /copy/i });
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith(sampleMarkdown);
+      expect(execCommandMock).toHaveBeenCalledWith("copy");
+      expect(screen.getByText(/copied/i)).toBeInTheDocument();
+    });
+  });
+
+  it("shows copy failure feedback when all copy methods fail", async () => {
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(
+      new DOMException("Write permission denied", "NotAllowedError"),
+    );
+    vi.spyOn(document, "execCommand").mockReturnValueOnce(false);
+
+    render(<MarkdownReportPreview markdown={sampleMarkdown} runId="test-run" />);
+
+    const copyButton = screen.getByRole("button", { name: /copy/i });
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(screen.getByText(/browser denied clipboard access/i)).toBeInTheDocument();
+    });
+  });
+
+  it("explains fallback reports generated without LLM synthesis", () => {
+    const fallbackMarkdown = `# Research Report
+
+> **注意**: 本报告由自动骨架生成，LLM 不可用。需要人工综合完成各章节内容。
+
+[自动综合不可用] 需要人工总结。`;
+
+    render(<MarkdownReportPreview markdown={fallbackMarkdown} runId="test-run" />);
+
+    expect(screen.getByText(/后端没有可用的 LLM synthesis 结果/i)).toBeInTheDocument();
   });
 
   it("creates download link with correct filename", () => {

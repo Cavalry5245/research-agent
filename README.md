@@ -1,154 +1,118 @@
 # ResearchAgent
 
-面向研究生的论文阅读与实验分析 AI 助手。支持 PDF 解析、结构化 Markdown 笔记生成、本地知识库构建、RAG 问答、多论文对比和 Markdown 导出。
+ResearchAgent 是一个面向科研阅读、选题调研和 related work 写作的本地优先研究助手。它现在有两条入口：
 
-相关文档：
-- 运行与使用说明：`docs/RUN_GUIDE.md`
-- 使用说明：`docs/USAGE.md`
-- 系统架构：`docs/ARCHITECTURE.md`
-- MVP 需求文档：`docs/MVP_REQUIREMENTS.md`
+- **Research Pipeline**：用户输入研究问题，系统执行 Planner -> Retriever -> Reader -> Synthesis -> Harness，生成带引用和校验状态的 Markdown 研究报告。
+- **Legacy Paper Tools**：保留原有 PDF 解析、论文笔记、RAG 问答、多论文对比、知识库和 Streamlit 调试入口。
 
-## 功能
+项目的当前主线是 Research Pipeline MVP。旧 `/research-runs` 和 Streamlit 没有删除，它们仍可作为 legacy/debug 路径使用。
 
-| 功能 | 说明 |
+## 当前状态
+
+Research Pipeline 的 6 个开发 slice 已完成：
+
+| Slice | 内容 | 状态 |
+|------|------|------|
+| 1 | 后端骨架、SQLite store、stub runner、`/research-pipeline` 最小 API | 已完成 |
+| 2 | Zotero / Semantic Scholar / arXiv 来源适配、PaperCandidate 归一化、Retriever | 已完成 |
+| 3 | Planner、Reader、PaperCard、PDF 与 abstract-only fallback | 已完成 |
+| 4 | Markdown report、ReportClaim、rule-first Harness、报告 API | 已完成 |
+| 5 | React Workflow UI、New Run、Run Detail、轮询、Timeline、PaperCards、Harness Summary | 已完成 |
+| 6 | Seed evaluation dataset、metrics、MVP gate report 脚本、回归验证 | 已完成 |
+
+注意：`app/evaluation/reports/research_pipeline_mvp_gate.md` 当前是 **PENDING**。评估基础设施和测试已完成，但真实 MVP gate 需要先运行 3 个 seed research runs，再用生成的 run ids 计算。
+
+## 核心能力
+
+| 能力 | 说明 |
 |------|------|
-| 📤 PDF 上传与解析 | PyMuPDF 提取 title / abstract / sections / full_text |
-| 📝 笔记生成 | LLM 生成 13 段结构化中文 Markdown 论文笔记 |
-| 🔍 RAG 问答 | 向量检索 + LLM，支持单篇/全库，附带依据片段 |
-| 📊 多论文对比 | 2–5 篇论文自动生成结构化 Markdown 对比表（含固定核心维度与关键差异） |
-| 🗄️ 知识库 | 文本切块 + sentence-transformers 嵌入 + 向量检索；支持多 KB 隔离与增量索引 |
-| 🎯 高级 RAG | Cross-encoder Rerank（bge-reranker-v2-m3）+ BM25/Hybrid 检索 + 查询改写 / HyDE |
-| 📥 Markdown 导出 | 笔记/对比结果保存为 .md 并支持下载 |
-| 🤖 **Agent 助手** | 自然语言驱动：自动拆解任务、调用工具链、工作流编排 |
-| 📊 **数据分析 & A/B 测试** | analytics 收集器、3 个实验场景、失败 case 分析、Jupyter Notebook 可视化 |
-| ⚙️ **工程化任务与日志** | 后台任务状态追踪、统一错误响应、request_id、JSONL 日志分析 |
-| 🧠 **多 Agent 协作** | Supervisor 路由 + 4 个 Specialist Agent + 三层记忆系统 + 执行追踪 |
+| Research Pipeline | 从研究问题到 Markdown 报告的端到端 workflow |
+| Source Modes | 支持 `web_search`、`zotero_only`、`hybrid` 三种来源模式 |
+| Planner | 生成 normalized question、queries、relevance criteria，并在候选集返回后选择 Reader 论文 |
+| Retriever | 统一 Zotero、Semantic Scholar、arXiv 候选论文为 `PaperCandidate` |
+| Reader | 对 PDF 或 abstract metadata 生成结构化 `PaperCard` |
+| Synthesis | 生成固定结构的 Markdown research report |
+| Harness | 给 report claims 标记 `supported`、`weak`、`unverified`、`numeric_trace_missing`、`conflict_detected` |
+| React Workflow UI | 创建 run、查看进度、中间产物、PaperCards、Harness Summary 和报告预览 |
+| Legacy Tools | PDF 上传解析、笔记生成、RAG QA、多论文对比、任务状态、知识库管理 |
+| Evaluation Harness | 3 个 seed questions、gold annotations、自动指标和 MVP gate report 脚本 |
 
-## 技术栈
+## 架构概览
 
-| 层 | 技术 |
-|----|------|
-| 后端 | Python 3.11, FastAPI, Pydantic |
-| 前端 | Streamlit |
-| PDF 解析 | PyMuPDF |
-| LLM | OpenAI-compatible API (DeepSeek / Qwen / Ollama) |
-| Embedding | sentence-transformers (bge-small-zh-v1.5) + 多模型切换 (bge-large / m3e / bge-m3) |
-| 向量检索 | 余弦相似度（接口兼容 Chroma） |
-| **MCP Integration** | **Model Context Protocol (MCP) Agent - 自动管理 Zotero/Semantic Scholar/arXiv 工具调用** |
-| **Agent** | **LangChain + LangGraph（工具调用 + 工作流编排 + Supervisor 多 Agent）** |
-| **Multi-Agent** | **LangGraph Supervisor + 4 Specialist Agents + SQLite Memory** |
-| **Analytics (Phase 2)** | **pandas + matplotlib + seaborn + scipy（指标 / 可视化 / 显著性检验）** |
-| **Production readiness (Phase 3)** | **FastAPI BackgroundTasks + FileJobStore + JSONL logging + request tracing** |
-| 评测 | `app/evaluation` schemas + seed dataset builder + retrieval / QA benchmark scripts |
-| 配置 | .env (pydantic-settings) |
+```text
+React Workflow UI
+  -> FastAPI /research-pipeline
+    -> SQLite research pipeline store
+    -> Planner
+    -> Retriever
+       -> Zotero local API
+       -> Semantic Scholar adapter
+       -> arXiv adapter
+    -> Reader
+       -> PDF parser
+       -> abstract-only fallback
+    -> Synthesis
+    -> Harness
+    -> Markdown report + claim verification
 
-## MCP Agent Integration
-
-ResearchAgent 实现了 **Model Context Protocol (MCP)** 用于外部工具集成：
-
-- **Zotero MCP**: 自动管理 Zotero collection 访问，无需手动 HTTP API 配置
-- **架构**: Agent-as-Client 模式，自动启动和管理 MCP 服务器进程
-- **特性**: 
-  - 自动安装 MCP 服务器（`pip install zotero-mcp-server`）
-  - 线程安全的服务器生命周期管理
-  - 优雅降级（MCP 失败不影响核心功能）
-  - 健康检查和自动重启
-
-详见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#mcp-agent-architecture)。
-
-## Phase 1 Benchmark & Evaluation
-
-Phase 1 已补齐一套可离线运行的 benchmark 骨架，用于把项目从“能跑”升级为“可评估、可讲述”。当前重点是验证评测数据流、脚本通路和报告产物，而不是宣称真实线上 RAG 效果。
-
-### 评测数据结构
-
-`app/evaluation/schemas.py` 当前定义了三类核心结构：
-- `QAEvalSample`：单论文问答样本，字段包含 `sample_id`、`question`、`expected_answer`、`paper_id`、`paper_title`、`supporting_sections`、`difficulty`、`metadata`
-- `ComparisonEvalSample`：多论文对比样本，字段包含 `paper_ids`、`paper_titles`、`expected_summary`、`comparison_aspects`、`supporting_sections`
-- `RetrievalEvalResult` / `RetrievalMatch`：检索评测结果，记录 `hit_at_k`、`recall_at_k`、`mrr` 及每个候选 chunk 的 `rank`、`section`、`score`
-
-### Benchmark 脚本与产物
-
-- Seed dataset 构建：`app/evaluation/scripts/build_seed_dataset.py`
-- Retrieval benchmark：`app/evaluation/scripts/evaluate_retrieval.py`
-- QA answer/citation benchmark 骨架：`app/evaluation/scripts/evaluate_qa.py`
-- QA seed dataset：`app/evaluation/datasets/qa_eval_seed.jsonl`
-- Comparison seed dataset：`app/evaluation/datasets/comparison_eval_seed.jsonl`
-- Baseline Markdown 报告：`app/evaluation/reports/baseline_report.md`
-- Retrieval JSON 报告：`app/evaluation/reports/retrieval_eval_seed_report.json`
-- QA JSON 报告：`app/evaluation/reports/qa_eval_seed_report.json`
-
-### 当前基线结果
-
-基于当前仓库内 parsed metadata 自动生成的 seed dataset：
-- QA samples: 11
-- Papers covered: 4
-- Supporting-section labels: 6
-
-当前 `baseline_report.md` 记录的 retrieval baseline 为：
-- Hit@3 = 1.000
-- Recall@3 = 1.000
-- MRR = 1.000
-
-当前 `qa_eval_seed_report.json` 记录的 rule-based QA scaffold 结果为：
-- answer_pass_rate = 1.000
-- citation_pass_rate = 1.000
-- mean_answer_score = 1.000
-- mean_citation_score = 1.000
-
-注意：这些数值来自离线 deterministic seed baseline。`evaluate_retrieval.py` 会把 gold supporting section 注入 rank 1，`evaluate_qa.py` 也直接使用 seed expected answer 作为预测值，因此这些结果只能证明评测框架、报告生成和数据结构已经打通，不能代表真实向量检索或真实 LLM 问答质量。
-
-### 运行环境与验证边界
-
-- 默认验证环境：WSL + 已激活 conda 环境
-- 当前 benchmark 结论：离线可复现、无需真实外部模型
-- 尚未覆盖：真实 embedding 检索链路、真实 LLM 回答链路、线上 API 波动、跨环境性能差异
-- 因此当前公开叙事应表述为：“项目已具备 benchmark 与 baseline report 骨架，可继续接入真实检索链路验证优化收益”，而不是“检索效果已达 100%”。
-
-### Benchmark 命令
-
-```bash
-python app/evaluation/scripts/build_seed_dataset.py
-python app/evaluation/scripts/evaluate_retrieval.py --top-k 3
-python app/evaluation/scripts/evaluate_qa.py --mode rule_based
+Legacy Streamlit UI
+  -> existing services in app/services, app/agents, app/research_workflow
 ```
 
+关键边界：
+
+- 新 pipeline 位于 `app/research_pipeline/`。
+- 新 API 位于 `/research-pipeline`。
+- 旧 Zotero knowledge-pack workflow 仍位于 `app/research_workflow/` 和 `/research-runs`。
+- Streamlit 位于 `ui/streamlit_app.py`，继续保留。
 
 ## 快速启动
 
+### 1. 准备 Python 环境
+
 ```powershell
-# 1. 创建并激活 conda 环境
 conda create -n research_agent python=3.11 -y
 conda activate research_agent
-
-# 2. 安装依赖
 pip install -r requirements.txt
-
-# 3. 配置环境
-cp .env.example .env
-# 编辑 .env: 填入 LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
-
-# 4. 启动 Streamlit（推荐，单命令运行）
-streamlit run ui/streamlit_app.py
-# → 浏览器打开 http://localhost:8501
-
-# 或启动 FastAPI 后端
-uvicorn app.main:app --reload
-# → http://localhost:8888
-# → API 文档: http://localhost:8888/docs
 ```
 
-### React Frontend Preview
+### 2. 配置 `.env`
 
-The React frontend is being introduced as a staged replacement for the Streamlit UI. During migration, Streamlit remains available and React runs as a separate development server.
+```powershell
+Copy-Item .env.example .env
+```
 
-Start the FastAPI backend:
+至少配置 LLM：
+
+```env
+LLM_PROVIDER=openai_compatible
+LLM_BASE_URL=https://api.example.com/v1
+LLM_API_KEY=your_api_key
+LLM_MODEL=deepseek-chat
+```
+
+Zotero local API 默认使用：
+
+```env
+ZOTERO_LOCAL=true
+ZOTERO_LIBRARY_ID=0
+```
+
+Semantic Scholar 和 arXiv 当前通过现有 adapter/MCP 路径接入。真实外部检索需要对应服务可用；测试默认使用 fake client，不依赖网络。
+
+### 3. 启动 FastAPI
 
 ```powershell
 uvicorn app.main:app --reload --port 8888
 ```
 
-Start the React frontend:
+打开：
+
+```text
+http://127.0.0.1:8888/docs
+```
+
+### 4. 启动 React 前端
 
 ```powershell
 cd frontend
@@ -156,242 +120,222 @@ npm install
 npm run dev
 ```
 
-Open:
+打开：
 
 ```text
 http://127.0.0.1:5173
 ```
 
-The first React slice includes the workspace shell and dashboard. Streamlit remains the primary documented end-user path until the React Papers, Workflow, QA, Compare, Agent, and Monitor pages reach parity.
+主要页面：
 
-## 使用流程
+- `/dashboard`：系统状态、模型、存储、MCP Hub
+- `/workflow`：Research Pipeline run list
+- `/workflow/new`：创建 research run
+- `/workflow/:runId`：查看 timeline、events、candidates、PaperCards、Harness Summary 和 Markdown report
 
-### 1. 上传论文
-- 打开 Streamlit，在「📤 论文上传」Tab 选择 PDF
-- 系统自动解析并分配 paper_id
-- 在列表中可查看已上传论文
+### 5. 启动 Legacy Streamlit
 
-### 2. 生成笔记
-- 切换到「📝 笔记生成」Tab
-- 选择论文，点击「🤖 生成笔记」
-- 系统调用 LLM 生成 13 段结构化中文 Markdown
-- 支持预览和下载 .md 文件
-
-### 3. 构建知识库
-- 切换到「🗄️ 知识库」Tab
-- 选择论文，点击「📥 索引到向量库」
-- 论文被切块（chunk_size=800）、向量化、写入向量库
-
-### 4. 论文问答
-- 切换到「💬 论文问答」Tab
-- 选择全库或单篇，输入问题
-- 系统检索相关片段，LLM 基于上下文生成回答
-- 底部展示检索依据片段
-
-### 5. 多论文对比
-- 切换到「📊 论文对比」Tab
-- 选择 2–5 篇论文，点击「📊 生成对比表」
-- LLM 生成结构化 Markdown 对比表，并汇总关键差异与证据摘录
-
-## 系统架构
-
-```
-Streamlit UI (5 Tabs)
-  ↓ 直接调用
-Service Layer
-  ├── pdf_parser (PyMuPDF)
-  ├── note_generator → LLM
-  ├── paper_qa → VectorStore + Embedding + LLM
-  ├── paper_compare → LLM
-  └── chunker / markdown_exporter
-  ↓
-Background Tasks + JobStore + JSONL Logs
-  ↓
-Storage: papers/ | notes/ | metadata/ | vector_db/ | logs/
+```powershell
+streamlit run ui/streamlit_app.py
 ```
 
-详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+打开：
 
-## API 接口
+```text
+http://localhost:8501
+```
+
+## Research Pipeline 使用流程
+
+1. 打开 React 前端：`http://127.0.0.1:5173`
+2. 进入 `/workflow/new`
+3. 输入 research question
+4. 选择 source mode：
+   - `web_search`：Semantic Scholar + arXiv
+   - `zotero_only`：本地 Zotero collection
+   - `hybrid`：Zotero collection 作为 seed，再扩展 Web Search
+5. 配置 `max_reader_papers`，默认 8，范围 3-15
+6. 配置 `reader_concurrency`，默认 3
+7. 创建 run
+8. 在 run detail 页面查看：
+   - Agent Timeline
+   - Events
+   - Candidate Papers
+   - PaperCards
+   - Harness Summary
+   - Markdown Report Preview
+
+失败和降级会显示在 stage 和 event 中。单篇论文 Reader 失败不会直接让整个 run 失败；全部 Reader 失败时才会让 run 失败。
+
+## API
+
+### Research Pipeline
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/research-pipeline/runs` | 创建 research run |
+| `GET` | `/research-pipeline/runs` | 列出 research runs |
+| `GET` | `/research-pipeline/runs/{run_id}` | 查看 run detail |
+| `POST` | `/research-pipeline/runs/{run_id}/cancel` | 取消 queued/running/degraded run |
+| `GET` | `/research-pipeline/sources/zotero/collections` | 列出本地 Zotero collections |
+| `GET` | `/research-pipeline/runs/{run_id}/report` | 获取报告、claims 和 verification summary |
+| `GET` | `/research-pipeline/runs/{run_id}/report.md` | 下载 Markdown 报告 |
+
+创建 run 示例：
+
+```powershell
+curl -X POST http://127.0.0.1:8888/research-pipeline/runs `
+  -H "Content-Type: application/json" `
+  -d '{
+    "question": "What are reliable evaluation methods for retrieval augmented generation?",
+    "source_mode": "hybrid",
+    "zotero_collection_key": "YOUR_COLLECTION_KEY",
+    "max_reader_papers": 8,
+    "reader_concurrency": 3,
+    "year_start": 2020,
+    "year_end": 2026,
+    "keywords": ["RAG", "evaluation", "faithfulness"]
+  }'
+```
+
+### Legacy Paper APIs
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `GET` | `/health` | 健康检查 |
-| `GET` | `/papers` | 列出所有论文 |
-| `POST` | `/papers/upload` | 上传 PDF（自动解析） |
-| `POST` | `/papers/{id}/parse` | 重新解析 |
-| `POST` | `/papers/{id}/note` | 生成笔记 |
-| `GET` | `/papers/{id}/note` | 读取笔记 |
-| `GET` | `/papers/{id}/download` | 下载笔记 |
-| `POST` | `/papers/{id}/index` | 切块入库 |
-| `GET` | `/papers/{id}/index-status` | 查看单篇论文索引状态 |
-| `GET` | `/library/index-status` | 查看知识库索引汇总 |
-| `DELETE` | `/papers/{id}` | 删除论文及相关索引/笔记 |
+| `GET` | `/system/status` | React dashboard runtime status |
+| `GET` | `/papers` | 列出论文 |
+| `POST` | `/papers/upload` | 上传并解析 PDF |
+| `POST` | `/papers/{paper_id}/parse` | 重新解析 PDF |
+| `POST` | `/papers/{paper_id}/note` | 生成论文笔记 |
+| `GET` | `/papers/{paper_id}/note` | 读取论文笔记 |
+| `GET` | `/papers/{paper_id}/download` | 下载论文笔记 |
+| `POST` | `/papers/{paper_id}/index` | 建立向量索引 |
+| `GET` | `/papers/{paper_id}/index-status` | 查看单篇索引状态 |
+| `GET` | `/library/index-status` | 查看全库索引状态 |
 | `POST` | `/qa` | RAG 问答 |
 | `POST` | `/papers/compare` | 多论文对比 |
-| `GET` | `/tasks` | 列出后台任务 |
-| `POST` | `/tasks/note/{id}` | 提交笔记生成后台任务 |
-| `POST` | `/tasks/compare` | 提交多论文对比后台任务 |
-| `GET` | `/tasks/{job_id}` | 查询任务状态 |
-| `GET` | `/tasks/{job_id}/result` | 获取任务结果 |
-| `DELETE` | `/tasks/{job_id}` | 取消任务 |
-| `POST` | `/tasks/{job_id}/retry` | 重试失败任务 |
-| `POST` | `/agent/execute` | Agent 执行（mode: react/supervisor） |
-| `GET` | `/api/conversations` | 对话历史列表 |
-| `GET` | `/api/conversations/{id}` | 对话详情 |
-| `GET` | `/api/traces` | Agent 执行追踪 |
-| `GET` | `/api/traces/stats` | 追踪统计 |
+| `GET` | `/tasks` | 后台任务列表 |
+| `POST` | `/tasks/note/{paper_id}` | 提交笔记生成任务 |
+| `POST` | `/tasks/compare` | 提交多论文对比任务 |
+| `GET` | `/research-runs` | Legacy Zotero knowledge-pack runs |
 
-### cURL 示例
+## Evaluation Harness
+
+Seed dataset：
+
+```text
+app/evaluation/datasets/research_pipeline_seed.jsonl
+```
+
+MVP gate report：
+
+```text
+app/evaluation/reports/research_pipeline_mvp_gate.md
+```
+
+生成真实 MVP gate report：
 
 ```powershell
-# 上传 PDF
-curl -X POST http://localhost:8888/papers/upload -F "file=@paper.pdf"
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe" -m app.research_pipeline.evaluation.run_mvp_gate `
+  --db-path app/storage/metadata/research_pipeline.db `
+  --seed-dataset app/evaluation/datasets/research_pipeline_seed.jsonl `
+  --run-ids <run_id_1> <run_id_2> <run_id_3> `
+  --output-md app/evaluation/reports/research_pipeline_mvp_gate.md
+```
 
-# 生成笔记
-curl -X POST http://localhost:8888/papers/paper_20260505_001/note
+当前 `research_pipeline_mvp_gate.md` 说明评估基础设施已完成，但真实 gate 仍需实际 runs。
 
-# 论文问答
-curl -X POST http://localhost:8888/qa \
-  -H "Content-Type: application/json" \
-  -d '{"question":"核心创新点是什么？","top_k":5}'
+## 开发验证
 
-# 查看单篇索引状态
-curl http://localhost:8888/papers/paper_20260505_001/index-status
+推荐 Python 解释器：
 
-# 查看知识库索引汇总
-curl http://localhost:8888/library/index-status
+```text
+D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe
+```
 
-# 多论文对比
-curl -X POST http://localhost:8888/papers/compare \
-  -H "Content-Type: application/json" \
-  -d '{"paper_ids":["paper_20260505_001","paper_20260505_002"]}'
+后端 Research Pipeline 测试：
+
+```powershell
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe" -m pytest tests/research_pipeline -q
+```
+
+关键回归：
+
+```powershell
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe" -m pytest tests/research_pipeline tests/test_system_status_endpoint.py tests/test_research_run_router.py tests/test_research_workflow_ui_import.py -q
+```
+
+前端验证：
+
+```powershell
+cd frontend
+npm test
+npm run lint
+npm run build
+```
+
+LLM 连通性检查：
+
+```powershell
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe" scripts/check_llm.py
+& "D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe" scripts/check_llm.py --deep
 ```
 
 ## 项目结构
 
-```
-research-agent/
-├── README.md
-├── requirements.txt
-├── .env.example
-├── docs/
-│   ├── MVP_REQUIREMENTS.md    # 完整需求文档
-│   └── ARCHITECTURE.md        # 系统架构
-├── app/
-│   ├── main.py                # FastAPI (13 endpoints)
-│   ├── config.py              # 配置管理
-│   ├── schemas.py             # Pydantic 模型
-│   ├── services/              # 核心模块
-│   │   ├── pdf_parser.py
-│   │   ├── llm_client.py
-│   │   ├── embedding_client.py
-│   │   ├── vector_store.py
-│   │   ├── chunker.py
-│   │   ├── note_generator.py
-│   │   ├── paper_qa.py
-│   │   ├── paper_compare.py
-│   │   ├── paper_status.py
-│   │   ├── paper_manager.py
-│   │   └── markdown_exporter.py
-│   ├── prompts/               # Prompt 模板
-│   │   ├── paper_note_prompt.py
-│   │   ├── qa_prompt.py
-│   │   └── compare_prompt.py
-│   ├── agents/                # Multi-Agent 系统（Phase 1 + 5）
-│   │   ├── tools/             # 工具封装层
-│   │   ├── workflows/         # LangGraph 工作流
-│   │   ├── specialists/       # 4 个 Specialist Agent
-│   │   ├── memory/            # 三层记忆系统
-│   │   ├── prompts/           # Agent prompt 模板
-│   │   ├── supervisor.py      # Supervisor 路由 + StateGraph
-│   │   ├── tracing.py         # 执行追踪
-│   │   ├── decision_logger.py # 路由决策日志
-│   │   ├── langchain_adapter.py  # BaseTool → LangChain 适配
-│   │   └── paper_research_agent.py  # Agent 主体
-│   ├── storage/               # 本地数据
-├── ui/
-│   └── streamlit_app.py       # 5 Tab 前端
-├── examples/
-│   ├── sample_papers/
-│   └── sample_outputs/
-│       └── sample_note.md
-└── tests/                     # 493 passed（当前最新本地全量测试基线）
-    ├── test_paper_status.py
-    ├── test_paper_manager.py
-    ├── test_pdf_parser.py
-    ├── test_note_generator.py
-    ├── test_chunker.py
-    ├── test_retrieval.py
-    └── test_paper_qa.py
+```text
+ResearchAgent/
+  app/
+    main.py
+    config.py
+    schemas.py
+    research_pipeline/
+      router.py
+      service.py
+      store.py
+      runner.py
+      events.py
+      schemas.py
+      agents/
+      sources/
+      evaluation/
+    research_workflow/
+    services/
+    agents/
+    evaluation/
+      datasets/
+      reports/
+  frontend/
+    src/
+      api/
+      app/
+      components/
+      pages/
+        workflow/
+  ui/
+    streamlit_app.py
+  docs/
+    superpowers/
+      specs/
+      plans/
+  tests/
+    research_pipeline/
 ```
 
-## 开发进度
+## 关键文档
 
-| 阶段 | 内容 | 状态 |
-|------|------|------|
-| 项目初始化 | FastAPI + Streamlit 骨架 | ✅ |
-| PDF 解析 | PyMuPDF → title/abstract/sections | ✅ |
-| 笔记生成 | LLM 13段 Markdown 模板 | ✅ |
-| 文本切块 | chunk_size=800, overlap=100 | ✅ |
-| Embedding + 向量库 | sentence-transformers + 本地持久化检索 | ✅ |
-| RAG 问答 | 检索 + LLM 生成 + sources | ✅ |
-| 多论文对比 | 2-5 篇结构化对比表 | ✅ |
-| Streamlit 前端 | 6 Tab 完整串联（含 Agent 助手） | ✅ |
-| **Agent 系统** | LangChain + LangGraph 工作流编排（6 工具 + 2 工作流） | ✅ |
-| **数据分析与效果评估** | Phase 2 analytics + experiments + 4 个 Jupyter Notebook + 失败分析 | ✅ |
-| **工程化与生产就绪** | 异步任务、结构化日志、错误处理、健康检查、日志分析 | ✅ |
-| **高级 RAG（Phase 4）** | Cross-encoder Rerank + BM25/Hybrid + QueryRewrite/HyDE + 多 KB | ✅ |
-| **多 Agent 协作（Phase 5）** | LangGraph Supervisor 路由 + 4 Specialist Agents + SQLite 三层记忆 + 执行追踪 | ✅ |
-| 测试基线 | 493 passed | ✅ |
+- PRD：`docs/superpowers/specs/2026-06-21-research-pipeline-mvp-prd.md`
+- 技术方案：`docs/superpowers/specs/2026-06-21-research-pipeline-mvp-technical-design.md`
+- 任务拆解：`docs/superpowers/plans/2026-06-21-research-pipeline-mvp-task-breakdown.md`
+- React 设计：`docs/superpowers/specs/2026-06-18-react-frontend-replacement-design.md`
+- 架构文档：`docs/ARCHITECTURE.md`
+- API 参考：`docs/API_REFERENCE.md`
+- 运行指南：`docs/RUN_GUIDE.md`
 
-## 运行测试
+## 维护边界
 
-```bash
-conda activate research_agent
-python -m pytest tests -q
-# 493 passed
-```
-
-### 检查 LLM 可用性
-
-切换 LLM 供应商或模型后，可用独立脚本快速验证连通性：
-
-```bash
-python scripts/check_llm.py            # 快速连通性检查
-python scripts/check_llm.py --deep     # 深度检查（中文/学术/长文本）
-python scripts/check_llm.py --verbose  # 详细诊断
-python scripts/check_llm.py --json     # JSON 输出（便于脚本解析）
-```
-
-退出码：0 表示可用，1 表示异常。配置读取自 `.env`。
-
-## 性能测试
-
-快速验证系统性能（30秒）：
-
-```bash
-python tests/performance/quick_check.py
-```
-
-完整性能基准测试（包含延迟分解、吞吐量、并发、压力测试）：
-
-```bash
-# 运行所有性能测试（10-20分钟）
-python tests/performance/run_benchmarks.py
-
-# 生成可视化报告
-python tests/performance/generate_report.py
-```
-
-**关键性能指标**：
-- QA P95延迟: <2000ms (95%的查询在2秒内完成)
-- QA QPS: >1 (单机每秒处理查询数)
-- Embedding P95: <100ms
-- 向量查询P95: <500ms
-
-详细文档：[docs/PERFORMANCE_TESTING_GUIDE.md](docs/PERFORMANCE_TESTING_GUIDE.md)
-
-## 后续方向
-
-项目后续将收敛到研究问题驱动的 Research Intelligence Pipeline：用户输入研究问题后，系统规划子问题、检索候选论文、抽取结构化 PaperCard、跨论文综合，并通过 Harness 校验报告中的引用与数字来源。
+- 不删除 Streamlit。它仍是 legacy/debug 入口。
+- 不删除 `/research-runs`。它仍是旧 Zotero knowledge-pack workflow。
+- 新开发优先落在 `app/research_pipeline/` 和 React `/workflow` 页面。
+- README 中的效果指标只写已验证事实。真实 MVP gate 结果以 `research_pipeline_mvp_gate.md` 和实际 run ids 为准。

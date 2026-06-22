@@ -329,6 +329,206 @@ class ReaderAgentWrapper:
         }
 
 
+class SynthesisAgentWrapper:
+    """
+    Wrapper for SynthesisAgent that implements the execute() interface.
+
+    Integrates with pipeline runner by:
+    - Reading plans and paper cards from store
+    - Generating Markdown report
+    - Saving report to store
+    - Writing events for progress tracking
+    """
+
+    def __init__(self, stage: str, db_path: str, run_id: str):
+        """
+        Initialize synthesis agent wrapper.
+
+        Args:
+            stage: Stage name (should be "synthesis").
+            db_path: Path to SQLite database file.
+            run_id: Run ID.
+        """
+        self.stage = stage
+        self.db_path = db_path
+        self.run_id = run_id
+
+        # Try to initialize with LLM
+        try:
+            from app.services.llm_client import LLMClient
+            from app.research_pipeline.agents.synthesis import SynthesisAgent
+            llm_client = LLMClient()
+            self.agent = SynthesisAgent(db_path=db_path, llm_client=llm_client)
+        except Exception:
+            # Fallback to skeleton-only mode
+            from app.research_pipeline.agents.synthesis import SynthesisAgent
+            self.agent = SynthesisAgent(db_path=db_path, llm_client=None)
+
+    def execute(self) -> dict[str, Any]:
+        """
+        Execute synthesis stage.
+
+        Returns:
+            Dictionary with stage results including report_generated.
+        """
+        # Write start event
+        events.write_stage_start_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+        )
+
+        # Get plans
+        plans = store.get_plans_by_run(self.db_path, self.run_id)
+        initial_plans = [p for p in plans if p["phase"] == "initial"]
+        candidate_plans = [p for p in plans if p["phase"] == "candidate_selection"]
+
+        if not initial_plans or not candidate_plans:
+            raise RuntimeError("Missing required plans for synthesis")
+
+        initial_plan = max(initial_plans, key=lambda p: p["version"])["plan_data"]
+        candidate_plan = max(candidate_plans, key=lambda p: p["version"])["plan_data"]
+
+        # Get paper cards
+        cards_raw = store.get_paper_cards(self.db_path, self.run_id)
+        from app.research_pipeline.schemas import PaperCard
+        paper_cards = [PaperCard(**c) for c in cards_raw]
+
+        # Get evidence (empty for now)
+        evidence = []
+
+        events.write_stage_progress_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+            message=f"Generating report from {len(paper_cards)} paper cards",
+        )
+
+        # Generate report
+        report_markdown = self.agent.execute(
+            initial_plan=initial_plan,
+            candidate_selection_plan=candidate_plan,
+            paper_cards=paper_cards,
+            evidence=evidence,
+        )
+
+        # Save report to store
+        store.save_report(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            markdown=report_markdown,
+            template_version="research_pipeline_v1",
+        )
+
+        events.write_stage_complete_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+            payload={"report_generated": True, "markdown_length": len(report_markdown)},
+        )
+
+        return {"report_generated": True, "markdown_length": len(report_markdown)}
+
+
+class HarnessAgentWrapper:
+    """
+    Wrapper for HarnessAgent that implements the execute() interface.
+
+    Integrates with pipeline runner by:
+    - Reading report, paper cards, and evidence from store
+    - Validating claims in the report
+    - Saving claims with verification status to store
+    - Writing events for progress tracking
+    """
+
+    def __init__(self, stage: str, db_path: str, run_id: str):
+        """
+        Initialize harness agent wrapper.
+
+        Args:
+            stage: Stage name (should be "harness").
+            db_path: Path to SQLite database file.
+            run_id: Run ID.
+        """
+        self.stage = stage
+        self.db_path = db_path
+        self.run_id = run_id
+
+        from app.research_pipeline.agents.harness import HarnessAgent
+        self.agent = HarnessAgent()
+
+    def execute(self) -> dict[str, Any]:
+        """
+        Execute harness stage.
+
+        Returns:
+            Dictionary with stage results including claims_validated.
+        """
+        # Write start event
+        events.write_stage_start_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+        )
+
+        # Get report
+        report = store.get_report(self.db_path, self.run_id)
+        if not report:
+            raise RuntimeError("No report found for harness validation")
+
+        report_markdown = report["markdown"]
+
+        # Get paper cards
+        cards_raw = store.get_paper_cards(self.db_path, self.run_id)
+        from app.research_pipeline.schemas import PaperCard
+        paper_cards = [PaperCard(**c) for c in cards_raw]
+
+        # Get evidence (empty for now)
+        evidence = []
+
+        events.write_stage_progress_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+            message="Validating report claims",
+        )
+
+        # Validate claims
+        claims = self.agent.execute(
+            report_markdown=report_markdown,
+            paper_cards=paper_cards,
+            evidence=evidence,
+        )
+
+        # Save claims to store
+        claims_payload = [
+            {
+                "claim_text": claim.claim_text,
+                "claim_type": claim.claim_type,
+                "citation_ids": claim.citation_ids,
+                "evidence_ids": claim.evidence_ids,
+                "verification_status": claim.verification_status,
+                "verification_reason": claim.verification_reason,
+            }
+            for claim in claims
+        ]
+        store.save_claims(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            report_id=report["id"],
+            claims=claims_payload,
+        )
+
+        events.write_stage_complete_event(
+            db_path=self.db_path,
+            run_id=self.run_id,
+            stage=self.stage,
+            payload={"claims_validated": len(claims)},
+        )
+
+        return {"claims_validated": len(claims)}
+
+
 class PipelineRunner:
     """
     Pipeline runner that executes stages in sequence.
@@ -375,9 +575,12 @@ class PipelineRunner:
                 status="running",
             )
 
-            # Execute stages in sequence
+            # Execute stages in sequence. Planner runs once before retrieval to
+            # create the initial plan, then once after retrieval to select papers.
             for stage_name in self.stages:
                 self._execute_stage(run_id, stage_name)
+                if stage_name == "retriever":
+                    self._execute_stage(run_id, "planner")
 
             # Mark run as completed
             store.update_run_status(
@@ -496,18 +699,50 @@ def create_default_agent(stage: str, db_path: str, run_id: str) -> Any:
         return PlannerAgentWrapper(stage, db_path, run_id)
     elif stage == "retriever":
         # Create retriever agent with real source adapters
-        # Note: In production, these would be initialized with proper config
-        # For now, we use None and they'll be initialized with defaults
+        # Note: Semantic Scholar is temporarily disabled due to strict rate limiting
+        # Only arXiv is used for now
+        from app.config import settings
+        from app.mcp.client_manager import MCPClientManager
+        from app.mcp.tool_proxy import MCPToolProxy
+        from app.mcp.schemas import MCPServerConfig
+        from app.research_workflow.arxiv_mcp_adapter import ArxivMCPAdapter
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Initialize MCP manager if enabled
+        arxiv_adapter = None
+
+        if settings.mcp_enabled:
+            mcp_manager = MCPClientManager()
+
+            # Start arXiv MCP server
+            try:
+                mcp_manager.start_server(
+                    MCPServerConfig(
+                        name="arxiv",
+                        command=["python", "-m", "app.mcp.minimal_arxiv_server"],
+                    )
+                )
+                tool_proxy = MCPToolProxy(mcp_manager)
+                arxiv_adapter = ArxivMCPAdapter(tool_proxy)
+                logger.info("arXiv MCP adapter initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize arXiv MCP adapter: {e}")
+
         return RetrieverAgent(
             db_path=db_path,
             run_id=run_id,
-            semantic_scholar_adapter=SemanticScholarSourceAdapter(client=None),
-            arxiv_adapter=ArxivSourceAdapter(client=None),
+            semantic_scholar_adapter=SemanticScholarSourceAdapter(client=None),  # Disabled due to rate limiting
+            arxiv_adapter=ArxivSourceAdapter(client=arxiv_adapter),
             zotero_adapter=ZoteroSourceAdapter(client=None),
         )
     elif stage == "reader":
         return ReaderAgentWrapper(stage, db_path, run_id)
+    elif stage == "synthesis":
+        return SynthesisAgentWrapper(stage, db_path, run_id)
+    elif stage == "harness":
+        return HarnessAgentWrapper(stage, db_path, run_id)
     else:
-        # For other stages, use stub agents
+        # Fallback to stub for unknown stages
         return StubAgent(stage, db_path, run_id)
-

@@ -156,6 +156,24 @@ class TestArxivNormalization:
         candidate = normalize_arxiv_paper(raw)
         assert candidate.year == 2024
 
+    def test_minimal_mcp_server_shape_extracts_stable_arxiv_id(self):
+        """测试 minimal arXiv MCP server 返回结构可以生成非空唯一 paper_id"""
+        raw = {
+            "id": "http://arxiv.org/abs/2401.00001v2",
+            "title": "A Paper About Agents",
+            "authors": ["Ada Lovelace", "Grace Hopper"],
+            "abstract": "This paper studies agent systems.",
+            "pdf_url": "http://arxiv.org/pdf/2401.00001v2",
+            "published": "2024-01-01T00:00:00Z",
+        }
+
+        candidate = normalize_arxiv_paper(raw)
+
+        assert candidate.paper_id == "2401.00001"
+        assert candidate.arxiv_id == "2401.00001"
+        assert candidate.authors == ["Ada Lovelace", "Grace Hopper"]
+        assert candidate.abstract == "This paper studies agent systems."
+
 
 class TestZoteroNormalization:
     """测试 Zotero 归一化"""

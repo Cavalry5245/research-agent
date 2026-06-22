@@ -468,6 +468,46 @@ def list_runs(db_path: str, limit: int = 50) -> list[dict[str, Any]]:
         conn.close()
 
 
+def delete_run(db_path: str, run_id: str) -> bool:
+    """
+    Delete a research run and all database records owned by it.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        True if the run existed and was deleted, False otherwise.
+    """
+    conn = _get_connection(db_path)
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("SELECT 1 FROM research_runs WHERE id = ?", (run_id,))
+        if cursor.fetchone() is None:
+            return False
+
+        cursor.execute("DELETE FROM report_claims WHERE run_id = ?", (run_id,))
+        cursor.execute("DELETE FROM paper_evidence WHERE run_id = ?", (run_id,))
+        cursor.execute("DELETE FROM paper_cards WHERE run_id = ?", (run_id,))
+        cursor.execute("DELETE FROM paper_candidates WHERE run_id = ?", (run_id,))
+        cursor.execute("DELETE FROM research_reports WHERE run_id = ?", (run_id,))
+        cursor.execute("DELETE FROM research_plans WHERE run_id = ?", (run_id,))
+        cursor.execute("DELETE FROM research_run_events WHERE run_id = ?", (run_id,))
+        cursor.execute("DELETE FROM research_run_stages WHERE run_id = ?", (run_id,))
+        cursor.execute("DELETE FROM research_runs WHERE id = ?", (run_id,))
+
+        conn.commit()
+        return True
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
+
+
 def update_run_status(
     db_path: str,
     run_id: str,

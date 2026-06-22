@@ -12,6 +12,7 @@ export default defineConfig({
       "/library": "http://127.0.0.1:8888",
       "/papers": "http://127.0.0.1:8888",
       "/qa": "http://127.0.0.1:8888",
+      "/research-pipeline": "http://127.0.0.1:8888",
       "/research-runs": "http://127.0.0.1:8888",
       "/system": "http://127.0.0.1:8888",
       "/tasks": "http://127.0.0.1:8888"

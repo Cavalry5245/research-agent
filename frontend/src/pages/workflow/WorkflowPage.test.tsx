@@ -9,6 +9,7 @@ import * as api from "../../api/researchPipeline";
 // Mock the API module
 vi.mock("../../api/researchPipeline", () => ({
   listResearchRuns: vi.fn(),
+  deleteResearchRun: vi.fn(),
 }));
 
 function renderWithProviders(ui: React.ReactElement) {
@@ -30,6 +31,7 @@ function renderWithProviders(ui: React.ReactElement) {
 describe("WorkflowPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.deleteResearchRun).mockResolvedValue(undefined);
   });
 
   it("shows loading state initially", () => {
@@ -268,7 +270,7 @@ describe("WorkflowPage", () => {
     });
 
     // Should show formatted date (locale-agnostic check)
-    const dateCell = screen.getByText("run_001").closest("tr")?.querySelector("td:last-child");
+    const dateCell = screen.getByText("run_001").closest("tr")?.querySelectorAll("td")[4];
     expect(dateCell).toBeTruthy();
     expect(dateCell?.textContent).toContain("2026");
   });
@@ -365,5 +367,99 @@ describe("WorkflowPage", () => {
     const questionElement = screen.getByTitle(longQuestion);
     expect(questionElement).toBeInTheDocument();
     expect(questionElement).toHaveClass("truncate");
+  });
+
+  it("shows delete confirmation before deleting a run", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.listResearchRuns).mockResolvedValue({
+      count: 1,
+      runs: [
+        {
+          run_id: "run_001",
+          question: "Test question",
+          source_mode: "hybrid",
+          status: "completed",
+          error: null,
+          created_at: "2026-06-21T10:30:00Z",
+        },
+      ],
+    });
+
+    renderWithProviders(<WorkflowPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("run_001")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /delete run_001/i }));
+
+    expect(screen.getByRole("button", { name: /confirm/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+    expect(api.deleteResearchRun).not.toHaveBeenCalled();
+  });
+
+  it("deletes a run after confirmation", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.listResearchRuns).mockResolvedValue({
+      count: 1,
+      runs: [
+        {
+          run_id: "run_001",
+          question: "Test question",
+          source_mode: "hybrid",
+          status: "completed",
+          error: null,
+          created_at: "2026-06-21T10:30:00Z",
+        },
+      ],
+    });
+
+    renderWithProviders(<WorkflowPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("run_001")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /delete run_001/i }));
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+
+    await waitFor(() => {
+      expect(api.deleteResearchRun).toHaveBeenCalled();
+    });
+    expect(vi.mocked(api.deleteResearchRun).mock.calls[0][0]).toBe("run_001");
+  });
+
+  it("shows an error when delete fails", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.listResearchRuns).mockResolvedValue({
+      count: 1,
+      runs: [
+        {
+          run_id: "run_001",
+          question: "Test question",
+          source_mode: "hybrid",
+          status: "completed",
+          error: null,
+          created_at: "2026-06-21T10:30:00Z",
+        },
+      ],
+    });
+    vi.mocked(api.deleteResearchRun).mockRejectedValueOnce(new Error("Run run_001 not found"));
+
+    renderWithProviders(<WorkflowPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("run_001")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /delete run_001/i }));
+    await user.click(screen.getByRole("button", { name: /confirm/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Run run_001 not found")).toBeInTheDocument();
+    });
   });
 });

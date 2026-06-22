@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # Embedding
     embedding_provider: str = "local"
-    embedding_model: str = "bge-small-zh-v1.5"
+    embedding_model: str = "m3e-base"
     embedding_device: str = "auto"
     embedding_batch_size: int = 32
 

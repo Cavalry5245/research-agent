@@ -330,6 +330,66 @@ def test_cancel_run_conflict_returns_409(tmp_path):
         app.dependency_overrides.clear()
 
 
+def test_delete_run_endpoint(tmp_path):
+    """Test DELETE /research-pipeline/runs/{run_id} deletes a run."""
+    from app.research_pipeline.router import router
+    from app.research_pipeline import router as router_module
+
+    app = FastAPI()
+    app.include_router(router)
+
+    class FakeService:
+        def __init__(self, db_path: str):
+            self.db_path = db_path
+            self.deleted = []
+
+        def delete_run(self, run_id: str):
+            if run_id == "nonexistent":
+                raise ValueError(f"Run {run_id} not found")
+            self.deleted.append(run_id)
+
+    fake_service = FakeService(str(tmp_path / "test.db"))
+    app.dependency_overrides[router_module.get_service] = lambda: fake_service
+
+    try:
+        client = TestClient(app)
+        response = client.delete("/research-pipeline/runs/run_1")
+
+        assert response.status_code == 204
+        assert response.content == b""
+        assert "run_1" in fake_service.deleted
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_delete_run_not_found_returns_404(tmp_path):
+    """Test DELETE /research-pipeline/runs/{run_id} with invalid ID returns 404."""
+    from app.research_pipeline.router import router
+    from app.research_pipeline import router as router_module
+
+    app = FastAPI()
+    app.include_router(router)
+
+    class FakeService:
+        def __init__(self, db_path: str):
+            self.db_path = db_path
+
+        def delete_run(self, run_id: str):
+            raise ValueError(f"Run {run_id} not found")
+
+    fake_service = FakeService(str(tmp_path / "test.db"))
+    app.dependency_overrides[router_module.get_service] = lambda: fake_service
+
+    try:
+        client = TestClient(app)
+        response = client.delete("/research-pipeline/runs/nonexistent")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_router_mounted_with_correct_prefix():
     """Test router uses /research-pipeline prefix."""
     from app.research_pipeline.router import router

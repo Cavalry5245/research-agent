@@ -16,8 +16,10 @@ from app.research_pipeline.schemas import (
     ResearchRunSummary,
     ResearchStage,
     ResearchEvent,
+    ResearchPlan,
     PaperCandidate,
     PaperCard,
+    ResearchReport,
     ReportClaim,
     ReportWithClaimsResponse,
 )
@@ -236,6 +238,36 @@ class ResearchPipelineService:
             for card in detail.get("cards", [])
         ]
 
+        plans = store.get_plans_by_run(self.db_path, run_id)
+        latest_plan = max(plans, key=lambda p: p["version"]) if plans else None
+        plan = (
+            ResearchPlan(
+                id=latest_plan["id"],
+                run_id=latest_plan["run_id"],
+                version=latest_plan["version"],
+                phase=latest_plan["phase"],
+                plan_data=latest_plan["plan_data"],
+                created_at=datetime.fromisoformat(latest_plan["created_at"]),
+            )
+            if latest_plan
+            else None
+        )
+
+        report_row = store.get_report(self.db_path, run_id)
+        report = (
+            ResearchReport(
+                id=report_row["id"],
+                run_id=report_row["run_id"],
+                status=report_row["status"],
+                markdown=report_row["markdown"],
+                template_version=report_row["template_version"],
+                created_at=datetime.fromisoformat(report_row["created_at"]),
+                updated_at=datetime.fromisoformat(report_row["updated_at"]),
+            )
+            if report_row
+            else None
+        )
+
         return ResearchRunDetailResponse(
             run_id=detail["run_id"],
             question=detail["question"],
@@ -275,8 +307,8 @@ class ResearchPipelineService:
             events=events,
             candidates=candidates,
             cards=cards,
-            plan=None,  # No plan yet for MVP
-            report=None,  # No report yet for MVP
+            plan=plan,
+            report=report,
         )
 
     def cancel_run(self, run_id: str) -> None:
@@ -315,6 +347,20 @@ class ResearchPipelineService:
             run_id=run_id,
             status="cancelled",
         )
+
+    def delete_run(self, run_id: str) -> None:
+        """
+        Delete a research run and all associated database records.
+
+        Args:
+            run_id: Run ID to delete.
+
+        Raises:
+            ValueError: If run not found.
+        """
+        deleted = store.delete_run(self.db_path, run_id)
+        if not deleted:
+            raise ValueError(f"Run {run_id} not found")
 
     def get_report_with_claims(self, run_id: str) -> ReportWithClaimsResponse:
         """
@@ -362,4 +408,3 @@ class ResearchPipelineService:
             claims=claims,
             summary=summary,
         )
-

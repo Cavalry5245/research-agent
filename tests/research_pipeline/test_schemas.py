@@ -413,6 +413,18 @@ class TestResearchEvent:
         assert event.payload["source"] == "semantic_scholar"
         assert event.payload["retry"] == 1
 
+    def test_runner_event_stage(self):
+        """Runner-level events should be valid for run detail responses."""
+        event = ResearchEvent(
+            id="event_runner_001",
+            run_id="run_001",
+            stage="runner",
+            level="error",
+            message="Pipeline execution failed",
+            created_at=datetime.now(),
+        )
+        assert event.stage == "runner"
+
 
 class TestResearchPlan:
     """测试 ResearchPlan schema"""

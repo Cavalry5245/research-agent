@@ -13,6 +13,7 @@ from typing import Callable
 import pytest
 from pydantic import ValidationError
 
+from app.research_pipeline import store
 from app.research_pipeline.schemas import ResearchRunCreateRequest
 from app.research_pipeline.service import ResearchPipelineService
 from app.research_pipeline.store import get_run_detail, init_db, update_run_status
@@ -275,6 +276,37 @@ def test_get_run_detail_returns_full_response_structure(service):
     assert detail.report is None  # No report yet
 
 
+def test_get_run_detail_includes_latest_plan_and_report(service):
+    """Test get_run_detail returns persisted plan and report for frontend preview."""
+    request = ResearchRunCreateRequest(
+        question="Test question",
+        source_mode="web_search",
+        max_reader_papers=8,
+        reader_concurrency=3,
+    )
+    create_resp = service.create_run(request)
+
+    store.create_plan(
+        service.db_path,
+        create_resp.run_id,
+        phase="initial",
+        plan_data={"normalized_question": "Test question", "queries": ["Test question"]},
+    )
+    store.save_report(
+        service.db_path,
+        create_resp.run_id,
+        markdown="# Test Report",
+        template_version="research_pipeline_v1",
+    )
+
+    detail = service.get_run_detail(create_resp.run_id)
+
+    assert detail.plan is not None
+    assert detail.plan.phase == "initial"
+    assert detail.report is not None
+    assert detail.report.markdown == "# Test Report"
+
+
 def test_get_run_detail_nonexistent_run_raises_404(service):
     """Test get_run_detail raises ValueError for non-existent run."""
     with pytest.raises(ValueError, match="Run run_nonexistent not found"):
@@ -431,3 +463,25 @@ def test_cancel_run_nonexistent_run_raises_404(service):
     """Test cancel_run raises ValueError for non-existent run."""
     with pytest.raises(ValueError, match="Run run_nonexistent not found"):
         service.cancel_run("run_nonexistent")
+
+
+def test_delete_run_removes_existing_run(service):
+    """Test delete_run removes a run from the service store."""
+    request = ResearchRunCreateRequest(
+        question="Delete this run",
+        source_mode="web_search",
+        max_reader_papers=8,
+        reader_concurrency=3,
+    )
+    create_resp = service.create_run(request)
+
+    service.delete_run(create_resp.run_id)
+
+    with pytest.raises(ValueError, match=f"Run {create_resp.run_id} not found"):
+        service.get_run_detail(create_resp.run_id)
+
+
+def test_delete_run_nonexistent_run_raises_404(service):
+    """Test delete_run raises ValueError for non-existent run."""
+    with pytest.raises(ValueError, match="Run run_nonexistent not found"):
+        service.delete_run("run_nonexistent")

@@ -12,13 +12,18 @@ import pytest
 
 from app.research_pipeline.store import (
     append_event,
+    create_candidate,
     create_run,
+    delete_run,
     get_run_detail,
     init_db,
     list_runs,
+    save_claims,
+    save_report,
     update_run_status,
     update_stage,
 )
+from app.research_pipeline.schemas import PaperCandidate
 
 
 @pytest.fixture
@@ -193,6 +198,72 @@ def test_list_runs_respects_limit(temp_db):
 
     runs = list_runs(db_path=temp_db, limit=3)
     assert len(runs) == 3
+
+
+def test_delete_run_removes_run_and_owned_records(temp_db):
+    """Delete should remove the run and all child records owned by it."""
+    run_id = create_run(
+        db_path=temp_db,
+        question="Delete me",
+        source_mode="web_search",
+        max_reader_papers=8,
+        reader_concurrency=3,
+    )
+    append_event(temp_db, run_id, "planner", "info", "Planning")
+    create_candidate(
+        temp_db,
+        run_id,
+        PaperCandidate(
+            paper_id="paper_1",
+            source="arxiv",
+            title="Paper 1",
+        ),
+    )
+    report_id = save_report(
+        temp_db,
+        run_id,
+        markdown="# Report",
+        template_version="research_pipeline_v1",
+    )
+    save_claims(
+        temp_db,
+        run_id,
+        report_id,
+        [
+            {
+                "claim_text": "Claim",
+                "claim_type": "method",
+                "citation_ids": [],
+                "evidence_ids": [],
+                "verification_status": "unverified",
+                "verification_reason": "Test",
+            }
+        ],
+    )
+
+    assert delete_run(temp_db, run_id) is True
+    assert get_run_detail(temp_db, run_id) is None
+
+    conn = sqlite3.connect(temp_db)
+    cursor = conn.cursor()
+    try:
+        for table in [
+            "research_run_stages",
+            "research_run_events",
+            "research_plans",
+            "paper_candidates",
+            "research_reports",
+            "report_claims",
+        ]:
+            cursor.execute(f"SELECT COUNT(*) FROM {table} WHERE run_id = ?", (run_id,))
+            assert cursor.fetchone()[0] == 0
+    finally:
+        conn.close()
+
+
+def test_delete_run_returns_false_for_missing_run(temp_db):
+    """Delete should report false when the run does not exist."""
+    assert delete_run(temp_db, "run_missing") is False
 
 
 def test_update_run_status(temp_db):

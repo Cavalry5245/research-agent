@@ -5,20 +5,57 @@ export interface MarkdownReportPreviewProps {
   runId: string;
 }
 
+type CopyStatus = "idle" | "copied" | "failed";
+
+function isFallbackReport(markdown: string): boolean {
+  return markdown.includes("[自动综合不可用]") || markdown.includes("LLM 不可用");
+}
+
+async function copyMarkdownToClipboard(markdown: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(markdown);
+    return;
+  } catch {
+    // Some embedded browsers deny navigator.clipboard writes even after a user click.
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = markdown;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-9999px";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+
+  try {
+    textarea.focus();
+    textarea.select();
+    const copied = document.execCommand("copy");
+    if (!copied) {
+      throw new Error("copy command returned false");
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
 export function MarkdownReportPreview({ markdown, runId }: MarkdownReportPreviewProps) {
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>("idle");
 
   if (!markdown || markdown.trim() === "") {
     return null;
   }
 
+  const fallbackReport = isFallbackReport(markdown);
+
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(markdown);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await copyMarkdownToClipboard(markdown);
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 2000);
     } catch (err) {
       console.error("Failed to copy:", err);
+      setCopyStatus("failed");
     }
   };
 
@@ -43,7 +80,7 @@ export function MarkdownReportPreview({ markdown, runId }: MarkdownReportPreview
             onClick={handleCopy}
             className="px-3 py-1 text-sm border border-line rounded hover:bg-gray-50 transition-colors"
           >
-            {copied ? "Copied!" : "Copy"}
+            {copyStatus === "copied" ? "Copied!" : "Copy"}
           </button>
           <button
             onClick={handleDownload}
@@ -53,6 +90,17 @@ export function MarkdownReportPreview({ markdown, runId }: MarkdownReportPreview
           </button>
         </div>
       </div>
+      {fallbackReport && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          自动综合未生成完整自然语言综述：后端没有可用的 LLM synthesis 结果，已回退为基于
+          PaperCards 的确定性骨架报告。
+        </div>
+      )}
+      {copyStatus === "failed" && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Copy failed because the browser denied clipboard access. Use Download as a fallback.
+        </div>
+      )}
       <div className="prose prose-sm max-w-none">
         <pre className="whitespace-pre-wrap text-sm text-ink bg-white border border-line rounded p-4 overflow-x-auto">
           {markdown}

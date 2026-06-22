@@ -85,7 +85,7 @@ def normalize_arxiv_paper(raw: dict[str, Any]) -> PaperCandidate:
     Returns:
         归一化后的 PaperCandidate
     """
-    arxiv_id = raw.get("arxiv_id", "")
+    arxiv_id = raw.get("arxiv_id") or _extract_arxiv_id(raw.get("id", ""))
     title = raw.get("title", "")
 
     # 提取作者
@@ -93,6 +93,8 @@ def normalize_arxiv_paper(raw: dict[str, Any]) -> PaperCandidate:
     for author in raw.get("authors", []):
         if isinstance(author, dict) and "name" in author:
             authors.append(author["name"])
+        elif isinstance(author, str):
+            authors.append(author)
 
     # 提取年份（从 published 字段）
     year = None
@@ -104,7 +106,7 @@ def normalize_arxiv_paper(raw: dict[str, Any]) -> PaperCandidate:
             year = int(match.group(1))
 
     # 提取摘要
-    abstract = raw.get("summary")
+    abstract = raw.get("summary") or raw.get("abstract")
 
     # 提取 DOI
     doi = raw.get("doi")
@@ -132,6 +134,21 @@ def normalize_arxiv_paper(raw: dict[str, Any]) -> PaperCandidate:
         local_pdf_path=None,
         citation_count=None,
     )
+
+
+def _extract_arxiv_id(value: str) -> str:
+    """
+    Extract a stable arXiv identifier from an arXiv URL or raw id.
+
+    Examples:
+    - http://arxiv.org/abs/2401.12345v2 -> 2401.12345
+    - 2401.12345v2 -> 2401.12345
+    """
+    if not value:
+        return ""
+
+    raw_id = value.rstrip("/").split("/")[-1]
+    return re.sub(r"v\d+$", "", raw_id)
 
 
 def normalize_zotero_paper(raw: dict[str, Any]) -> PaperCandidate:

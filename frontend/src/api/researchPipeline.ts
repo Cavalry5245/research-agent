@@ -13,6 +13,7 @@ export type SourceMode = "web_search" | "zotero_only" | "hybrid";
 export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "degraded";
 export type StageStatus = "queued" | "running" | "completed" | "failed" | "degraded";
 export type StageName = "planner" | "retriever" | "reader" | "synthesis" | "harness";
+export type EventStageName = StageName | "runner";
 export type VerificationStatus =
   | "supported"
   | "weak"
@@ -124,7 +125,7 @@ export interface ResearchStage {
 export interface ResearchEvent {
   id: string;
   run_id: string;
-  stage: StageName;
+  stage: EventStageName;
   level: EventLevel;
   message: string;
   payload: Record<string, unknown>;
@@ -299,6 +300,29 @@ export async function cancelResearchRun(runId: string): Promise<CancelRunRespons
   });
 
   return handleResponse<CancelRunResponse>(response);
+}
+
+/**
+ * Delete a research run and its persisted pipeline records.
+ *
+ * @param runId - Run ID to delete
+ */
+export async function deleteResearchRun(runId: string): Promise<void> {
+  const response = await fetch(`/research-pipeline/runs/${runId}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+
+  if (!response.ok) {
+    let message = response.statusText || `Request failed with ${response.status}`;
+    try {
+      const payload = (await response.json()) as { detail?: string; message?: string };
+      message = payload.detail || payload.message || message;
+    } catch {
+      message = response.statusText || message;
+    }
+    throw new ApiError(message, response.status);
+  }
 }
 
 /**

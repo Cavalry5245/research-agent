@@ -51,49 +51,62 @@ class PlannerAgentWrapper:
         source_mode = run_detail["source_mode"]
         max_reader_papers = run_detail["max_reader_papers"]
 
-        # Phase 1: Initial planning
-        events.write_stage_progress_event(
-            db_path=self.db_path,
-            run_id=self.run_id,
-            stage=self.stage,
-            message="Generating initial research plan",
-        )
+        candidates = store.get_candidates(self.db_path, self.run_id)
+        existing_initial_plans = [
+            p for p in store.get_plans_by_run(self.db_path, self.run_id)
+            if p["phase"] == "initial"
+        ]
 
-        try:
-            initial_plan = self.agent.plan_initial(self.run_id, question, source_mode)
-
+        if candidates and existing_initial_plans:
+            initial_plan = max(existing_initial_plans, key=lambda p: p["version"])
+        else:
+            # Phase 1: Initial planning
             events.write_stage_progress_event(
                 db_path=self.db_path,
                 run_id=self.run_id,
                 stage=self.stage,
-                message="Initial plan generated",
-                payload={
-                    "phase": "initial",
-                    "fallback_used": initial_plan.plan_data.get("fallback_used", False),
-                    "queries": initial_plan.plan_data.get("queries", []),
-                },
+                message="Generating initial research plan",
             )
-        except Exception as e:
-            error_msg = f"Initial planning failed: {type(e).__name__}: {str(e)}"
-            logger.error(error_msg)
-            events.write_stage_error_event(
-                db_path=self.db_path,
-                run_id=self.run_id,
-                stage=self.stage,
-                message=error_msg,
-            )
-            raise RuntimeError(error_msg) from e
+
+            try:
+                initial_plan = self.agent.plan_initial(self.run_id, question, source_mode)
+
+                events.write_stage_progress_event(
+                    db_path=self.db_path,
+                    run_id=self.run_id,
+                    stage=self.stage,
+                    message="Initial plan generated",
+                    payload={
+                        "phase": "initial",
+                        "fallback_used": initial_plan.plan_data.get("fallback_used", False),
+                        "queries": initial_plan.plan_data.get("queries", []),
+                    },
+                )
+            except Exception as e:
+                error_msg = f"Initial planning failed: {type(e).__name__}: {str(e)}"
+                logger.error(error_msg)
+                events.write_stage_error_event(
+                    db_path=self.db_path,
+                    run_id=self.run_id,
+                    stage=self.stage,
+                    message=error_msg,
+                )
+                raise RuntimeError(error_msg) from e
+
+        initial_plan_version = (
+            initial_plan["version"]
+            if isinstance(initial_plan, dict)
+            else initial_plan.version
+        )
 
         # Phase 2: Candidate selection (only after retriever completes)
         # Check if we have candidates
-        candidates = store.get_candidates(self.db_path, self.run_id)
-
         if not candidates:
             # No candidates yet - planner can only complete initial phase
             return {
                 "stage_status": "completed",
                 "message": "Initial plan completed, awaiting retriever results",
-                "initial_plan_version": initial_plan.version,
+                "initial_plan_version": initial_plan_version,
                 "candidates_available": False,
             }
 
@@ -129,7 +142,7 @@ class PlannerAgentWrapper:
             return {
                 "stage_status": "completed",
                 "message": f"Planning complete: selected {selected_count}/{len(candidates)} papers",
-                "initial_plan_version": initial_plan.version,
+                "initial_plan_version": initial_plan_version,
                 "selection_plan_version": selection_plan.version,
                 "selected_count": selected_count,
                 "candidates_available": True,
@@ -149,6 +162,6 @@ class PlannerAgentWrapper:
             return {
                 "stage_status": "degraded",
                 "message": "Initial plan succeeded, candidate selection failed",
-                "initial_plan_version": initial_plan.version,
+                "initial_plan_version": initial_plan_version,
                 "error": error_msg,
             }

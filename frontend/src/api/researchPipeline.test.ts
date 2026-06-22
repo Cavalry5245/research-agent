@@ -4,6 +4,7 @@ import {
   listResearchRuns,
   getResearchRunDetail,
   cancelResearchRun,
+  deleteResearchRun,
   getReport,
   getReportMarkdown,
   listZoteroCollections,
@@ -296,6 +297,35 @@ describe("researchPipeline API", () => {
       await expect(
         getResearchRunDetail("invalid_run_id")
       ).rejects.toThrow("Run not found");
+    });
+  });
+
+  describe("deleteResearchRun", () => {
+    it("should delete a research run", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+      });
+
+      await expect(deleteResearchRun("run_001")).resolves.toBeUndefined();
+
+      expect(mockFetch).toHaveBeenCalledWith("/research-pipeline/runs/run_001", {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+    });
+
+    it("should throw ApiError when delete fails", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: "Not Found",
+        json: async () => ({ detail: "Run run_missing not found" }),
+      });
+
+      await expect(deleteResearchRun("run_missing")).rejects.toThrow(
+        "Run run_missing not found",
+      );
     });
   });
 

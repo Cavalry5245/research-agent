@@ -16,6 +16,7 @@ SourceMode = Literal["web_search", "zotero_only", "hybrid"]
 RunStatus = Literal["queued", "running", "completed", "failed", "cancelled", "degraded"]
 StageStatus = Literal["queued", "running", "completed", "failed", "degraded"]
 StageName = Literal["planner", "retriever", "reader", "synthesis", "harness"]
+EventStageName = Literal["planner", "retriever", "reader", "synthesis", "harness", "runner"]
 VerificationStatus = Literal[
     "supported",
     "weak",
@@ -192,7 +193,7 @@ class ResearchEvent(BaseModel):
 
     id: str
     run_id: str
-    stage: StageName
+    stage: EventStageName
     level: EventLevel
     message: str
     payload: dict[str, Any] = Field(default_factory=dict)

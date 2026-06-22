@@ -5,6 +5,9 @@ FastAPI router for research pipeline operations.
 Exposes endpoints for creating, listing, getting, and cancelling research runs.
 """
 
+import logging
+import threading
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 
@@ -18,10 +21,14 @@ from app.research_pipeline.schemas import (
 )
 from app.research_pipeline.service import ResearchPipelineService
 from app.research_pipeline.sources.zotero import ZoteroSourceAdapter
+from app.research_pipeline.runner import PipelineRunner, create_default_agent
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/research-pipeline", tags=["research-pipeline"])
 
 _service_instance: ResearchPipelineService | None = None
+_runner_instance: PipelineRunner | None = None
 
 
 def get_service() -> ResearchPipelineService:
@@ -34,11 +41,62 @@ def get_service() -> ResearchPipelineService:
     global _service_instance
     if _service_instance is None:
         from pathlib import Path
+        from app.research_pipeline import store
 
         storage_root = Path(settings.metadata_dir).parent
         db_path = str(storage_root / "research_pipeline.db")
+
+        # Initialize database tables if not exists
+        store.init_db(db_path)
+
         _service_instance = ResearchPipelineService(db_path=db_path)
     return _service_instance
+
+
+def get_runner(db_path: str) -> PipelineRunner:
+    """
+    Get or create the PipelineRunner instance.
+
+    Args:
+        db_path: Path to SQLite database file.
+
+    Returns:
+        PipelineRunner instance.
+    """
+    global _runner_instance
+    if _runner_instance is None:
+        _runner_instance = PipelineRunner(
+            db_path=db_path,
+            agent_factory=create_default_agent,
+        )
+    return _runner_instance
+
+
+def schedule_pipeline_run(run_id: str) -> None:
+    """
+    Schedule a pipeline run to execute in the background.
+
+    Args:
+        run_id: Run ID to execute.
+    """
+    from pathlib import Path
+
+    storage_root = Path(settings.metadata_dir).parent
+    db_path = str(storage_root / "research_pipeline.db")
+
+    runner = get_runner(db_path)
+
+    def run_in_background():
+        try:
+            logger.info(f"Starting background pipeline execution for run_id={run_id}")
+            runner.run(run_id)
+            logger.info(f"Pipeline execution completed for run_id={run_id}")
+        except Exception as e:
+            logger.error(f"Pipeline execution failed for run_id={run_id}: {e}", exc_info=True)
+
+    # Start execution in background thread
+    thread = threading.Thread(target=run_in_background, daemon=True)
+    thread.start()
 
 
 @router.post("/runs", response_model=ResearchRunCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -60,7 +118,7 @@ def create_run(
         HTTPException: 400 if validation fails.
     """
     try:
-        return service.create_run(request)
+        return service.create_run(request, runner_scheduler=schedule_pipeline_run)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -151,6 +209,34 @@ def cancel_run(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=error_msg,
             ) from e
+
+
+@router.delete("/runs/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_run(
+    run_id: str,
+    service: ResearchPipelineService = Depends(get_service),
+) -> Response:
+    """
+    Delete a research run and all associated persisted pipeline records.
+
+    Args:
+        run_id: Run ID to delete.
+        service: ResearchPipelineService dependency.
+
+    Returns:
+        Empty 204 response.
+
+    Raises:
+        HTTPException: 404 if run not found.
+    """
+    try:
+        service.delete_run(run_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
 
 
 @router.get("/sources/zotero/collections")
