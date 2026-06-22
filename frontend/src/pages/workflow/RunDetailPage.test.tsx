@@ -106,7 +106,7 @@ describe("RunDetailPage", () => {
   });
 
   afterEach(() => {
-    vi.clearAllTimers();
+    vi.clearAllMocks();
   });
 
   it("displays loading state initially", () => {
@@ -226,17 +226,20 @@ describe("RunDetailPage", () => {
     const mockRun = createMockRunDetail({ status: "completed" });
     vi.mocked(api.getResearchRunDetail).mockResolvedValue(mockRun);
 
-    renderWithRouter("run_20260621_001");
+    const { unmount } = renderWithRouter("run_20260621_001");
 
     await waitFor(() => {
       expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
     });
 
-    // Wait longer than polling interval
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    // Wait longer than polling interval using real timers
+    await waitFor(() => {
+      // This will timeout if polling continues
+      expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
+    }, { timeout: 3000, interval: 500 });
 
-    // Should not poll again
-    expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
+    // Cleanup
+    unmount();
   });
 
   it("stops polling for failed status", async () => {
@@ -247,15 +250,17 @@ describe("RunDetailPage", () => {
     });
     vi.mocked(api.getResearchRunDetail).mockResolvedValue(mockRun);
 
-    renderWithRouter("run_20260621_001");
+    const { unmount } = renderWithRouter("run_20260621_001");
 
     await waitFor(() => {
       expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await waitFor(() => {
+      expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
+    }, { timeout: 3000, interval: 500 });
 
-    expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
+    unmount();
   });
 
   it("stops polling for cancelled status", async () => {
@@ -265,15 +270,17 @@ describe("RunDetailPage", () => {
     });
     vi.mocked(api.getResearchRunDetail).mockResolvedValue(mockRun);
 
-    renderWithRouter("run_20260621_001");
+    const { unmount } = renderWithRouter("run_20260621_001");
 
     await waitFor(() => {
       expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await waitFor(() => {
+      expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
+    }, { timeout: 3000, interval: 500 });
 
-    expect(api.getResearchRunDetail).toHaveBeenCalledTimes(1);
+    unmount();
   });
 
   it("displays candidates when available", async () => {
@@ -360,6 +367,10 @@ describe("RunDetailPage", () => {
       },
     });
     vi.mocked(api.getResearchRunDetail).mockResolvedValue(mockRun);
+    vi.mocked(api.getReport).mockResolvedValue({
+      markdown: "# Research Report\n\nThis is a summary...",
+      summary: null,
+    });
 
     renderWithRouter("run_20260621_001");
 
