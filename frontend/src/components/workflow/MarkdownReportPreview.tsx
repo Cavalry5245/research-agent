@@ -8,7 +8,7 @@ export interface MarkdownReportPreviewProps {
 export function MarkdownReportPreview({ markdown, runId }: MarkdownReportPreviewProps) {
   const [copied, setCopied] = useState(false);
 
-  if (!markdown) {
+  if (!markdown || markdown.trim() === "") {
     return null;
   }
 
