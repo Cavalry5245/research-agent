@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AgentTimeline } from "./AgentTimeline";
 import type { ResearchStage, StageName } from "../../api/researchPipeline";
@@ -11,7 +11,7 @@ function createStage(
   error?: string
 ): ResearchStage {
   return {
-    id: `stage-${stage}`,
+    id: stage-,
     run_id: "test-run",
     stage,
     status,
@@ -27,11 +27,11 @@ function createStage(
 describe("AgentTimeline", () => {
   it("renders all five stages in order", () => {
     const stages: ResearchStage[] = [
-      createStage("planner", "completed", 100),
-      createStage("retriever", "running", 50),
-      createStage("reader", "queued", 0),
-      createStage("synthesis", "queued", 0),
-      createStage("harness", "queued", 0),
+      createStage("planner", "completed", 1.0),
+      createStage("retriever", "running", 0.5),
+      createStage("reader", "queued", 0.0),
+      createStage("synthesis", "queued", 0.0),
+      createStage("harness", "queued", 0.0),
     ];
 
     render(<AgentTimeline stages={stages} />);
@@ -45,9 +45,9 @@ describe("AgentTimeline", () => {
 
   it("displays stage status correctly", () => {
     const stages: ResearchStage[] = [
-      createStage("planner", "completed", 100),
-      createStage("retriever", "running", 50),
-      createStage("reader", "failed", 25),
+      createStage("planner", "completed", 1.0),
+      createStage("retriever", "running", 0.5),
+      createStage("reader", "failed", 0.25),
     ];
 
     render(<AgentTimeline stages={stages} />);
@@ -58,8 +58,8 @@ describe("AgentTimeline", () => {
 
   it("shows error messages when present", () => {
     const stages: ResearchStage[] = [
-      createStage("planner", "completed", 100),
-      createStage("retriever", "failed", 50, "", "Network timeout"),
+      createStage("planner", "completed", 1.0),
+      createStage("retriever", "failed", 0.5, "", "Network timeout"),
     ];
 
     render(<AgentTimeline stages={stages} />);
@@ -69,7 +69,7 @@ describe("AgentTimeline", () => {
 
   it("shows info messages when no error", () => {
     const stages: ResearchStage[] = [
-      createStage("planner", "running", 50, "Processing query..."),
+      createStage("planner", "running", 0.5, "Processing query..."),
     ];
 
     render(<AgentTimeline stages={stages} />);
@@ -79,7 +79,7 @@ describe("AgentTimeline", () => {
 
   it("renders missing stages as queued with 0 progress", () => {
     const stages: ResearchStage[] = [
-      createStage("planner", "completed", 100),
+      createStage("planner", "completed", 1.0),
       // Missing: retriever, reader, synthesis, harness
     ];
 
@@ -95,7 +95,7 @@ describe("AgentTimeline", () => {
 
   it("shows degraded status with amber color", () => {
     const stages: ResearchStage[] = [
-      createStage("retriever", "degraded", 100, "Partial results"),
+      createStage("retriever", "degraded", 1.0, "Partial results"),
     ];
 
     const { container } = render(<AgentTimeline stages={stages} />);
@@ -110,9 +110,9 @@ describe("AgentTimeline", () => {
 
   it("renders progress bars with correct widths", () => {
     const stages: ResearchStage[] = [
-      createStage("planner", "completed", 100),
-      createStage("retriever", "running", 50),
-      createStage("reader", "queued", 0),
+      createStage("planner", "completed", 1.0),
+      createStage("retriever", "running", 0.5),
+      createStage("reader", "queued", 0.0),
     ];
 
     const { container } = render(<AgentTimeline stages={stages} />);

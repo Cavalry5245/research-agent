@@ -4,9 +4,13 @@ import type {
   LibraryIndexStatusResponse,
   PaperIndexDetailResponse,
   PaperListResponse,
+  PaperTitleUpdateResponse,
   PaperUploadResponse,
   ParseStatusResponse,
-  TaskStatus
+  TaskStatus,
+  ZoteroImportCollectionsResponse,
+  ZoteroImportItemsResponse,
+  ZoteroImportResponse
 } from "./types";
 export type { PaperListItem, PaperListResponse } from "./types";
 
@@ -27,6 +31,13 @@ export function indexPaper(paperId: string, force = false) {
   return apiJson<TaskStatus>(`/papers/${encodeURIComponent(paperId)}/index${query}`);
 }
 
+export function updatePaperTitle(paperId: string, title: string) {
+  return apiJson<PaperTitleUpdateResponse>(`/papers/${encodeURIComponent(paperId)}/title`, {
+    method: "PATCH",
+    body: { title }
+  });
+}
+
 export function getPaperIndexStatus(paperId: string) {
   return apiGet<PaperIndexDetailResponse>(`/papers/${encodeURIComponent(paperId)}/index-status`);
 }
@@ -37,4 +48,23 @@ export function getLibraryIndexStatus() {
 
 export function deletePaper(paperId: string) {
   return apiDelete<DeletePaperResponse>(`/papers/${encodeURIComponent(paperId)}`);
+}
+
+export function listPaperZoteroCollections() {
+  return apiGet<ZoteroImportCollectionsResponse>("/papers/zotero/collections");
+}
+
+export function listPaperZoteroCollectionItems(collectionKey: string) {
+  return apiGet<ZoteroImportItemsResponse>(
+    `/papers/zotero/collections/${encodeURIComponent(collectionKey)}/items`
+  );
+}
+
+export function importPapersFromZotero(collectionKey: string, itemKeys: string[]) {
+  return apiJson<ZoteroImportResponse>("/papers/zotero/import", {
+    body: {
+      collection_key: collectionKey,
+      item_keys: itemKeys
+    }
+  });
 }

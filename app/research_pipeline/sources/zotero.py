@@ -4,18 +4,17 @@ Zotero Source Adapter
 将 Zotero local API 集成到 research pipeline，提供 collection 列表和 candidate 导入能力。
 """
 
-from pathlib import Path
 from typing import Any
 
 from app.research_pipeline.schemas import PaperCandidate
-from app.research_workflow.zotero_intake import ZoteroLocalHttpClient
+from app.research_workflow.zotero_intake import ZoteroLocalHttpClient, _normalize_pdf_path
 
 
 def _resolve_pdf_path_from_attachments(attachments: list[Any]) -> str | None:
     """
     从 attachments 中提取第一个 PDF 路径。
 
-    不检查文件是否存在，只要路径是 .pdf 就返回。
+    对 Zotero API 返回的 URL 编码路径（含 %20 等）进行解码和归一化。
 
     Args:
         attachments: ZoteroAttachment 列表
@@ -26,9 +25,9 @@ def _resolve_pdf_path_from_attachments(attachments: list[Any]) -> str | None:
     for attachment in attachments:
         if not attachment.path:
             continue
-        path = Path(attachment.path)
-        if path.suffix.lower() == ".pdf":
-            return str(path)
+        normalized = _normalize_pdf_path(attachment.path)
+        if normalized and normalized.suffix.lower() == ".pdf":
+            return str(normalized)
     return None
 
 

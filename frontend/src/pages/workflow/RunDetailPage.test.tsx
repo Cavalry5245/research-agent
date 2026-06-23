@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+﻿import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -43,7 +43,7 @@ const createMockRunDetail = (overrides?: Partial<ResearchRunDetailResponse>): Re
       run_id: "run_20260621_001",
       stage: "planner" as StageName,
       status: "completed" as StageStatus,
-      progress: 100,
+      progress: 1.0,
       message: "Plan created",
       started_at: "2026-06-21T10:00:01Z",
       completed_at: "2026-06-21T10:00:05Z",
@@ -55,7 +55,7 @@ const createMockRunDetail = (overrides?: Partial<ResearchRunDetailResponse>): Re
       run_id: "run_20260621_001",
       stage: "retriever" as StageName,
       status: "running" as StageStatus,
-      progress: 50,
+      progress: 0.5,
       message: "Searching papers...",
       started_at: "2026-06-21T10:00:05Z",
       completed_at: null,
@@ -391,7 +391,7 @@ describe("RunDetailPage", () => {
           run_id: "run_20260621_001",
           stage: "reader" as StageName,
           status: "failed" as StageStatus,
-          progress: 30,
+          progress: 0.3,
           message: "Failed",
           started_at: "2026-06-21T10:00:10Z",
           completed_at: null,
@@ -423,7 +423,7 @@ describe("RunDetailPage", () => {
           run_id: "run_20260621_001",
           stage: "reader" as StageName,
           status: "degraded" as StageStatus,
-          progress: 80,
+          progress: 0.8,
           message: "Partial success",
           started_at: "2026-06-21T10:00:10Z",
           completed_at: null,

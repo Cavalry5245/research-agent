@@ -4,6 +4,15 @@ export interface PaperListItem {
   paper_id: string;
   title: string;
   abstract: string;
+  created_at?: string | null;
+  source?: "upload" | "zotero";
+  source_id?: string | null;
+}
+
+export interface PaperTitleUpdateResponse {
+  paper_id: string;
+  title: string;
+  status: string;
 }
 
 export interface PaperListResponse {
@@ -18,6 +27,50 @@ export interface PaperUploadResponse {
   storage_path: string;
 }
 
+export interface ZoteroImportCollection {
+  key: string;
+  name: string;
+  parent_key: string | null;
+  num_items: number | null;
+}
+
+export interface ZoteroImportCollectionsResponse {
+  collections: ZoteroImportCollection[];
+  count: number;
+}
+
+export interface ZoteroImportItem {
+  key: string;
+  title: string;
+  creators: string[];
+  year: number | null;
+  doi: string | null;
+  has_pdf: boolean;
+  pdf_path: string | null;
+  already_imported: boolean;
+  existing_paper_id: string | null;
+}
+
+export interface ZoteroImportResultItem {
+  item_key: string;
+  title: string;
+  paper_id: string | null;
+  status: "imported" | "skipped" | "failed";
+  reason: string | null;
+}
+
+export interface ZoteroImportItemsResponse {
+  collection_key: string;
+  items: ZoteroImportItem[];
+  count: number;
+}
+
+export interface ZoteroImportResponse {
+  imported: ZoteroImportResultItem[];
+  skipped: ZoteroImportResultItem[];
+  failed: ZoteroImportResultItem[];
+}
+
 export interface ParseStatusResponse {
   paper_id: string;
   status: string;
@@ -29,6 +82,18 @@ export interface NoteResponse {
   note_path: string;
   content: string;
   status?: string;
+}
+
+export interface NoteStatusItem {
+  paper_id: string;
+  exists: boolean;
+  note_path?: string | null;
+  generated_at?: string | null;
+}
+
+export interface NoteStatusListResponse {
+  count: number;
+  notes: NoteStatusItem[];
 }
 
 export interface DeletePaperResponse {

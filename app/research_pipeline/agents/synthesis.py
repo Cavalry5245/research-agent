@@ -5,8 +5,10 @@ Synthesis Agent
 """
 
 import logging
+import time
 from typing import Any
 
+from app.research_pipeline import events
 from app.research_pipeline.schemas import PaperCard
 from app.services.llm_client import LLMClient
 
@@ -30,16 +32,18 @@ class SynthesisAgent:
     LLM 不可用或失败时自动 fallback 到 deterministic skeleton。
     """
 
-    def __init__(self, db_path: str, llm_client: LLMClient | None = None):
+    def __init__(self, db_path: str, llm_client: LLMClient | None = None, run_id: str | None = None):
         """
         Initialize SynthesisAgent.
 
         Args:
             db_path: Path to SQLite database.
             llm_client: Optional LLM client. If None, uses fallback skeleton.
+            run_id: Optional run ID for writing error events.
         """
         self.db_path = db_path
         self.llm_client = llm_client
+        self.run_id = run_id
 
     def execute(
         self,
@@ -64,14 +68,48 @@ class SynthesisAgent:
             logger.info("LLM unavailable, generating skeleton report")
             return self._generate_skeleton(initial_plan, paper_cards)
 
-        try:
-            logger.info("Generating report with LLM for %d papers", len(paper_cards))
-            return self._generate_with_llm(
-                initial_plan, candidate_selection_plan, paper_cards, evidence
+        # Retry LLM call with backoff
+        MAX_SYNTHESIS_RETRIES = 2
+        last_error = None
+        for attempt in range(1, MAX_SYNTHESIS_RETRIES + 1):
+            try:
+                logger.info(
+                    "Generating report with LLM for %d papers (attempt %d/%d)",
+                    len(paper_cards),
+                    attempt,
+                    MAX_SYNTHESIS_RETRIES,
+                )
+                return self._generate_with_llm(
+                    initial_plan, candidate_selection_plan, paper_cards, evidence
+                )
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    "LLM synthesis attempt %d/%d failed: %s",
+                    attempt,
+                    MAX_SYNTHESIS_RETRIES,
+                    e,
+                )
+                if attempt < MAX_SYNTHESIS_RETRIES:
+                    time.sleep(5 * attempt)
+
+        # All retries exhausted — fall back to skeleton
+        logger.warning(
+            "LLM synthesis failed after %d attempts: %s, falling back to skeleton",
+            MAX_SYNTHESIS_RETRIES,
+            last_error,
+        )
+        if self.run_id:
+            events.write_stage_error_event(
+                db_path=self.db_path,
+                run_id=self.run_id,
+                stage="synthesis",
+                message=(
+                    f"LLM synthesis failed after {MAX_SYNTHESIS_RETRIES} retries: "
+                    f"{type(last_error).__name__}: {last_error}"
+                ),
             )
-        except Exception as e:
-            logger.warning("LLM synthesis failed: %s, falling back to skeleton", e)
-            return self._generate_skeleton(initial_plan, paper_cards)
+        return self._generate_skeleton(initial_plan, paper_cards)
 
     def _generate_with_llm(
         self,
@@ -130,8 +168,10 @@ class SynthesisAgent:
 要求:
 1. 只引用提供的论文（paper_cards）
 2. 使用 [CITE:paper_id] 格式进行引用
-3. 不要编造信息，如果信息不足请注明"原文未明确说明"
-4. 保持学术严谨性
+3. **绝对不要编造任何具体数值、指标、百分比、数据**。如果论文 cards 中未提供具体数字，使用"原文未明确说明"或模糊表述（如"性能显著提升"、"优于对比方法"等）
+4. 每个具体结论（方法、结果、局限性等）必须在至少一篇论文 card 中有对应记录
+5. 第 4 章 SOTA And Key Results 中，如果论文 card 的 key_results 字段为空，请写"该论文未提供具体结果数据"
+6. 保持学术严谨性，使用中文撰写
 
 现在请生成完整报告:"""
 

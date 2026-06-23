@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.evaluation.metrics import load_comparison_samples
@@ -457,7 +457,7 @@ def compare_papers_batch(
     return CompareBatchRunResult(
         dataset_path=str(Path(dataset_path)),
         total_samples=len(results),
-        generated_at=datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         results=results,
     )
 

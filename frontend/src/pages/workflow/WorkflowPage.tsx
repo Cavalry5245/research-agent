@@ -148,7 +148,7 @@ export function WorkflowPage() {
                     <StatusBadge status={run.status} />
                   </td>
                   <td className="px-4 py-3 text-xs text-muted">
-                    {new Date(run.created_at).toLocaleString()}
+                    {new Date(run.created_at).toLocaleString(undefined, { hour12: false })}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">

@@ -49,7 +49,10 @@ export function AppLayout() {
           >
             <Menu className="h-4 w-4" aria-hidden="true" />
           </button>
-          <div className="text-sm text-muted">FastAPI backend: 127.0.0.1:8888</div>
+          <div className="text-sm text-muted">
+            FastAPI backend:{" "}
+            {import.meta.env.VITE_API_BASE_URL?.replace("http://", "") || "127.0.0.1:8888"}
+          </div>
         </header>
         <main className="p-6">
           <Outlet />

@@ -6,6 +6,7 @@ Extracts structured information from papers in abstract-only or PDF mode.
 
 import concurrent.futures
 import logging
+from pathlib import Path
 from typing import Any
 
 from app.research_pipeline.schemas import PaperCandidate, PaperCard
@@ -563,6 +564,9 @@ class ReaderAgent:
         """
         Extract information from local PDF file.
 
+        If the PDF file doesn't exist on disk, falls back to abstract-only
+        extraction instead of failing.
+
         Args:
             candidate: Paper candidate with local_pdf_path.
             reading_focus: Optional reading focus.
@@ -581,10 +585,20 @@ class ReaderAgent:
             "citation_count": candidate.citation_count,
         }
 
+        # Check if PDF file actually exists on disk
+        pdf_path = candidate.local_pdf_path
+        if not pdf_path or not Path(pdf_path).is_file():
+            logger.warning(
+                "PDF file not found for %s: %s, falling back to abstract-only",
+                candidate.paper_id,
+                pdf_path,
+            )
+            return self._read_abstract_only(candidate, reading_focus)
+
         # Try to parse PDF
         try:
-            logger.info("Parsing PDF for paper_id=%s from %s", candidate.paper_id, candidate.local_pdf_path)
-            parse_result = parse_pdf(candidate.local_pdf_path, candidate.paper_id)
+            logger.info("Parsing PDF for paper_id=%s from %s", candidate.paper_id, pdf_path)
+            parse_result = parse_pdf(pdf_path, candidate.paper_id)
         except Exception as e:
             # PDF parsing failed - return failed/degraded card
             logger.error("PDF parsing failed for %s: %s", candidate.paper_id, e)

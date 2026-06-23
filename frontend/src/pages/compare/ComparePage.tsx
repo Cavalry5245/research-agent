@@ -8,6 +8,7 @@ import type { TaskStatus } from "../../api/types";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorState } from "../../components/error-state/ErrorState";
 import { TaskStatusPanel } from "../../components/tasks/TaskStatusPanel";
+import { MarkdownContent } from "../../components/common/MarkdownContent";
 
 export function ComparePage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -117,9 +118,10 @@ export function ComparePage() {
                   </div>
                   <span className="text-xs font-medium uppercase text-muted">{compareMutation.data.status}</span>
                 </div>
-                <pre className="mt-4 max-h-[40rem] overflow-auto whitespace-pre-wrap rounded-md bg-surface p-4 text-sm leading-6 text-ink">
-                  {compareMutation.data.content}
-                </pre>
+                <MarkdownContent
+                  content={compareMutation.data.content}
+                  className="mt-4 max-h-[40rem] overflow-auto rounded-md bg-surface p-4"
+                />
               </section>
             ) : (
               <EmptyState title="No comparison yet" description="Run a comparison to preview the Markdown output." />

@@ -7,7 +7,7 @@ Research Pipeline Store
 import json
 import sqlite3
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -273,8 +273,8 @@ def create_run(
     Returns:
         run_id: The generated run ID.
     """
-    now = datetime.utcnow().isoformat()
-    run_id = f"run_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+    now = datetime.now(timezone.utc).isoformat()
+    run_id = f"run_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
 
     venue_filter = venue_filter or []
     keywords = keywords or []
@@ -508,6 +508,51 @@ def delete_run(db_path: str, run_id: str) -> bool:
         conn.close()
 
 
+def get_run_create_params(db_path: str, run_id: str) -> dict:
+    """
+    Extract creation parameters from an existing run for rerun purposes.
+
+    Args:
+        db_path: Path to SQLite database file.
+        run_id: Run ID.
+
+    Returns:
+        Dictionary with run creation parameters.
+
+    Raises:
+        ValueError: If run not found.
+    """
+    conn = _get_connection(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT question, source_mode, zotero_collection_key,
+                   max_reader_papers, reader_concurrency,
+                   year_start, year_end, venue_filter_json, keywords_json
+            FROM research_runs
+            WHERE id = ?
+        """, (run_id,))
+        row = cursor.fetchone()
+        if row is None:
+            raise ValueError(f"Run {run_id} not found")
+
+        return {
+            "question": row["question"],
+            "source_mode": row["source_mode"],
+            "zotero_collection_key": row["zotero_collection_key"],
+            "max_reader_papers": row["max_reader_papers"],
+            "reader_concurrency": row["reader_concurrency"],
+            "year_start": row["year_start"],
+            "year_end": row["year_end"],
+            "venue_filter": json.loads(row["venue_filter_json"]),
+            "keywords": json.loads(row["keywords_json"]),
+        }
+    finally:
+        conn.close()
+
+
 def update_run_status(
     db_path: str,
     run_id: str,
@@ -526,7 +571,7 @@ def update_run_status(
     Returns:
         True if update succeeded, False if run not found.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     conn = _get_connection(db_path)
     cursor = conn.cursor()
 
@@ -602,7 +647,7 @@ def update_stage(
     Returns:
         True if update succeeded, False if stage not found.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     conn = _get_connection(db_path)
     cursor = conn.cursor()
 
@@ -669,7 +714,7 @@ def append_event(
     Returns:
         event_id: The generated event ID.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     event_id = f"event_{uuid.uuid4().hex[:16]}"
     payload = payload or {}
 
@@ -712,7 +757,7 @@ def create_candidate(
     Returns:
         candidate_id: The generated candidate ID.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     candidate_id = f"cand_{uuid.uuid4().hex[:16]}"
 
     conn = _get_connection(db_path)
@@ -838,7 +883,7 @@ def create_plan(
     Returns:
         plan_id: The generated plan ID.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     plan_id = f"plan_{uuid.uuid4().hex[:16]}"
 
     conn = _get_connection(db_path)
@@ -936,7 +981,7 @@ def create_paper_card(
     Returns:
         card_id: The generated card ID.
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     card_id = f"card_{uuid.uuid4().hex[:16]}"
 
     conn = _get_connection(db_path)
@@ -1022,8 +1067,8 @@ def create_evidence(
     Returns:
         evidence_id: The generated evidence ID.
     """
-    now = datetime.utcnow().isoformat()
-    evidence_id = f"evid_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+    now = datetime.now(timezone.utc).isoformat()
+    evidence_id = f"evid_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
 
     conn = _get_connection(db_path)
     cursor = conn.cursor()
@@ -1217,7 +1262,7 @@ def save_report(
     Returns:
         report_id: The report ID (existing or newly created).
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     conn = _get_connection(db_path)
     cursor = conn.cursor()
 
@@ -1242,7 +1287,7 @@ def save_report(
             )
         else:
             # Create new report
-            report_id = f"report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}"
+            report_id = f"report_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}"
             cursor.execute(
                 """
                 INSERT INTO research_reports (
@@ -1324,14 +1369,14 @@ def save_claims(
             - verification_status: str
             - verification_reason: str
     """
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     conn = _get_connection(db_path)
     cursor = conn.cursor()
 
     try:
         for idx, claim in enumerate(claims):
             # Add index to ensure unique IDs when batch inserting
-            claim_id = f"claim_{datetime.utcnow().strftime('%Y%m%d_%H%M%S_%f')}_{idx}"
+            claim_id = f"claim_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S_%f')}_{idx}"
             cursor.execute(
                 """
                 INSERT INTO report_claims (

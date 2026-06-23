@@ -8,16 +8,17 @@ import * as notesApi from "../../api/notes";
 import * as papersApi from "../../api/papers";
 
 vi.mock("../../api/notes", () => ({
+  downloadPaperNote: vi.fn(),
   generatePaperNote: vi.fn(),
-  getPaperNote: vi.fn(),
-  getPaperNoteDownloadUrl: vi.fn((paperId: string) => `/papers/${paperId}/download`)
+  getPaperNote: vi.fn()
 }));
 
 vi.mock("../../api/papers", () => ({
   getPaperIndexStatus: vi.fn(),
   getPapers: vi.fn(),
   indexPaper: vi.fn(),
-  parsePaper: vi.fn()
+  parsePaper: vi.fn(),
+  updatePaperTitle: vi.fn()
 }));
 
 function renderPage(route = "/papers/paper_001") {
@@ -58,6 +59,7 @@ beforeEach(() => {
     content: "# New note",
     status: "generated"
   });
+  vi.mocked(notesApi.downloadPaperNote).mockResolvedValue(undefined);
   vi.mocked(papersApi.parsePaper).mockResolvedValue({
     paper_id: "paper_001",
     status: "parsed",
@@ -73,6 +75,11 @@ beforeEach(() => {
     created_at: "2026-06-22T00:00:00Z",
     updated_at: "2026-06-22T00:00:00Z"
   });
+  vi.mocked(papersApi.updatePaperTitle).mockResolvedValue({
+    paper_id: "paper_001",
+    title: "Updated Attention Survey",
+    status: "updated"
+  });
 });
 
 describe("PaperDetailPage", () => {
@@ -82,8 +89,8 @@ describe("PaperDetailPage", () => {
     await waitFor(() => expect(screen.getByText("Attention Survey")).toBeInTheDocument());
     expect(screen.getByText("12 chunks")).toBeInTheDocument();
     expect(screen.getByText("Abstract, Methods")).toBeInTheDocument();
-    expect(screen.getByText("# Paper note")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /download/i })).toHaveAttribute("href", "/papers/paper_001/download");
+    expect(screen.getByText("Paper note")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /download/i })).toBeInTheDocument();
   });
 
   it("triggers parse, index, and note generation actions", async () => {
@@ -94,10 +101,26 @@ describe("PaperDetailPage", () => {
     await user.click(screen.getByRole("button", { name: "Parse" }));
     await user.click(screen.getByRole("button", { name: "Index" }));
     await user.click(screen.getByRole("button", { name: "Generate" }));
+    await user.click(screen.getByRole("button", { name: /download/i }));
 
     expect(papersApi.parsePaper).toHaveBeenCalledWith("paper_001");
     expect(papersApi.indexPaper).toHaveBeenCalledWith("paper_001");
     expect(notesApi.generatePaperNote).toHaveBeenCalledWith("paper_001");
+    expect(notesApi.downloadPaperNote).toHaveBeenCalledWith("paper_001");
+  });
+
+  it("allows editing and saving the paper title", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Attention Survey")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /edit title/i }));
+    const input = screen.getByPlaceholderText(/enter paper title/i);
+    await user.clear(input);
+    await user.type(input, "Updated Attention Survey");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(papersApi.updatePaperTitle).toHaveBeenCalledWith("paper_001", "Updated Attention Survey");
   });
 
   it("shows not found state for unknown paper", async () => {

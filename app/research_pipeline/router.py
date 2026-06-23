@@ -239,6 +239,40 @@ def delete_run(
         ) from e
 
 
+@router.post(
+    "/runs/{run_id}/rerun",
+    response_model=ResearchRunCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def rerun_run(
+    run_id: str,
+    service: ResearchPipelineService = Depends(get_service),
+) -> ResearchRunCreateResponse:
+    """
+    Re-run an existing research run with identical parameters.
+
+    Creates a new run using the same question, source mode, collection key,
+    and other settings as the specified run, then starts the pipeline.
+
+    Args:
+        run_id: ID of the existing run to replicate.
+        service: ResearchPipelineService dependency.
+
+    Returns:
+        ResearchRunCreateResponse for the new run.
+
+    Raises:
+        HTTPException: 404 if original run not found.
+    """
+    try:
+        return service.rerun_run(run_id, runner_scheduler=schedule_pipeline_run)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
 @router.get("/sources/zotero/collections")
 def list_zotero_collections(limit: int = 100) -> dict:
     """

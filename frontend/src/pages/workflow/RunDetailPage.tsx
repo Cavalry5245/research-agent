@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   getResearchRunDetail,
   getReport,
+  rerunResearchRun,
   type ResearchRunDetailResponse,
   type RunStatus,
 } from "../../api/researchPipeline";
@@ -23,7 +24,7 @@ function shouldPoll(status: RunStatus): boolean {
 
 function formatTimestamp(timestamp: string | null): string {
   if (!timestamp) return "—";
-  return new Date(timestamp).toLocaleString();
+  return new Date(timestamp).toLocaleString(undefined, { hour12: false });
 }
 
 function getStatusColor(status: RunStatus): string {
@@ -45,8 +46,9 @@ function getStatusColor(status: RunStatus): string {
   }
 }
 
-function RunHeader({ run }: { run: ResearchRunDetailResponse }) {
+function RunHeader({ run, onRerun, rerunning }: { run: ResearchRunDetailResponse; onRerun?: () => void; rerunning?: boolean }) {
   const statusColor = getStatusColor(run.status);
+  const canRerun = run.status === "completed" || run.status === "failed";
 
   return (
     <div className="border-b border-line pb-6">
@@ -59,6 +61,16 @@ function RunHeader({ run }: { run: ResearchRunDetailResponse }) {
             <span>Source: {run.source_mode}</span>
           </div>
         </div>
+        {canRerun && onRerun && (
+          <button
+            type="button"
+            onClick={onRerun}
+            disabled={rerunning}
+            className="inline-flex items-center rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {rerunning ? "Rerunning..." : "Rerun"}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -101,7 +113,7 @@ function EventsLog({ run }: { run: ResearchRunDetailResponse }) {
         {run.events.map((event) => (
           <div key={event.id} className="flex items-start gap-3 text-sm">
             <span className="text-muted whitespace-nowrap">
-              {new Date(event.created_at).toLocaleTimeString()}
+              {new Date(event.created_at).toLocaleTimeString(undefined, { hour12: false })}
             </span>
             <span className="text-muted capitalize">{event.stage}</span>
             <span
@@ -155,6 +167,14 @@ export function RunDetailPage() {
     }
   }, [run, pollingEnabled]);
 
+  // Rerun mutation
+  const rerunMutation = useMutation({
+    mutationFn: rerunResearchRun,
+    onSuccess: (data) => {
+      navigate(`/workflow/${data.run_id}`);
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -201,7 +221,11 @@ export function RunDetailPage() {
       </div>
 
       <div className="space-y-6">
-        <RunHeader run={run} />
+        <RunHeader
+          run={run}
+          onRerun={() => rerunMutation.mutate(run.run_id)}
+          rerunning={rerunMutation.isPending}
+        />
         <AgentTimeline stages={run.stages} />
         <EventsLog run={run} />
         <CandidatePaperTable candidates={run.candidates} />

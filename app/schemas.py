@@ -106,6 +106,10 @@ class PaperParseResult(BaseModel):
     sections: list[Section]
     full_text: str
     pdf_path: str = ""
+    created_at: str | None = None
+    source: Literal["upload", "zotero"] = "upload"
+    source_id: str | None = None
+    source_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class PaperUploadResponse(BaseModel):
@@ -158,15 +162,89 @@ class NoteReadResponse(BaseModel):
     content: str
 
 
+class NoteStatusItem(BaseModel):
+    paper_id: str
+    exists: bool
+    note_path: str | None = None
+    generated_at: str | None = None
+
+
+class NoteStatusListResponse(BaseModel):
+    count: int
+    notes: list[NoteStatusItem]
+
+
 class PaperListItem(BaseModel):
     paper_id: str
     title: str
     abstract: str
+    created_at: str | None = None
+    source: Literal["upload", "zotero"] = "upload"
+    source_id: str | None = None
 
 
 class PaperListResponse(BaseModel):
     count: int
     papers: list[PaperListItem]
+
+
+class PaperTitleUpdateRequest(BaseModel):
+    title: str
+
+
+class PaperTitleUpdateResponse(BaseModel):
+    paper_id: str
+    title: str
+    status: str
+
+
+class ZoteroImportCollection(BaseModel):
+    key: str
+    name: str
+    parent_key: str | None = None
+    num_items: int | None = None
+
+
+class ZoteroImportCollectionsResponse(BaseModel):
+    collections: list[ZoteroImportCollection]
+    count: int
+
+
+class ZoteroImportItem(BaseModel):
+    key: str
+    title: str
+    creators: list[str] = Field(default_factory=list)
+    year: int | None = None
+    doi: str | None = None
+    has_pdf: bool
+    pdf_path: str | None = None
+    already_imported: bool = False
+    existing_paper_id: str | None = None
+
+
+class ZoteroImportItemsResponse(BaseModel):
+    collection_key: str
+    items: list[ZoteroImportItem]
+    count: int
+
+
+class ZoteroImportRequest(BaseModel):
+    collection_key: str
+    item_keys: list[str]
+
+
+class ZoteroImportResultItem(BaseModel):
+    item_key: str
+    title: str
+    paper_id: str | None = None
+    status: Literal["imported", "skipped", "failed"]
+    reason: str | None = None
+
+
+class ZoteroImportResponse(BaseModel):
+    imported: list[ZoteroImportResultItem]
+    skipped: list[ZoteroImportResultItem]
+    failed: list[ZoteroImportResultItem]
 
 
 class RetrievalResult(BaseModel):

@@ -1,8 +1,16 @@
 import os
 import shutil
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
+
+# Fix SSL certificate issue for httpx
+try:
+    import certifi
+    os.environ["SSL_CERT_FILE"] = certifi.where()
+except ImportError:
+    pass
 
 from fastapi import (
     BackgroundTasks,
@@ -41,20 +49,35 @@ from app.schemas import (
     LibraryIndexStatusResponse,
     NoteGenerateResponse,
     NoteReadResponse,
+    NoteStatusItem,
+    NoteStatusListResponse,
     PaperComparisonResult,
     PaperIndexDetailResponse,
     PaperListItem,
     PaperListResponse,
     PaperParseResult,
+    PaperTitleUpdateRequest,
+    PaperTitleUpdateResponse,
     PaperUploadResponse,
     ParseStatusResponse,
     QARequest,
     QAResponse,
     SourceItem,
     SystemStatusResponse,
+    ZoteroImportCollection,
+    ZoteroImportCollectionsResponse,
+    ZoteroImportItem,
+    ZoteroImportItemsResponse,
+    ZoteroImportRequest,
+    ZoteroImportResponse,
+    ZoteroImportResultItem,
 )
 from app.research_workflow.mcp_health import build_mcp_hub_health
 from app.research_workflow.store import FileResearchRunStore
+from app.research_workflow.zotero_intake import (
+    ZoteroLocalHttpClient,
+    resolve_first_existing_pdf,
+)
 from app.services.chunker import chunk_paper
 from app.services.embedding_client import EmbeddingClient
 from app.services.job_store import FileJobStore, InMemoryJobStore, utc_now_iso
@@ -77,6 +100,7 @@ from app.services.pdf_parser import (
     load_parsed_result,
     parse_pdf,
     save_parse_result,
+    update_parsed_title,
 )
 from app.services.vector_store import VectorStore
 
@@ -333,6 +357,53 @@ async def list_papers_endpoint():
 # ── Upload ───────────────────────────────────────────────────────────────────
 
 
+def _apply_paper_source_metadata(
+    result: PaperParseResult,
+    *,
+    source: str,
+    source_id: str | None = None,
+    source_metadata: dict | None = None,
+    created_at: str | None = None,
+) -> PaperParseResult:
+    result.created_at = created_at or result.created_at or utc_now_iso()
+    result.source = source  # type: ignore[assignment]
+    result.source_id = source_id
+    result.source_metadata = source_metadata or {}
+    return result
+
+
+def _normalize_duplicate_key(value: str | None) -> str:
+    if not value:
+        return ""
+    return " ".join(value.strip().lower().split())
+
+
+def _existing_paper_identity_index() -> dict[str, str]:
+    index: dict[str, str] = {}
+    for paper in list_papers(_resolve_metadata_dir()):
+        paper_id = paper.get("paper_id", "")
+        if not paper_id:
+            continue
+
+        source_id = _normalize_duplicate_key(paper.get("source_id"))
+        if source_id:
+            index[f"source_id:{source_id}"] = paper_id
+
+        title = _normalize_duplicate_key(paper.get("title"))
+        if title:
+            index[f"title:{title}"] = paper_id
+
+        try:
+            parsed = load_parsed_result(paper_id, _resolve_metadata_dir())
+        except FileNotFoundError:
+            continue
+
+        doi = _normalize_duplicate_key(parsed.get("source_metadata", {}).get("doi"))
+        if doi:
+            index[f"doi:{doi}"] = paper_id
+    return index
+
+
 @app.post("/papers/upload", response_model=PaperUploadResponse)
 async def upload_paper(file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
@@ -355,6 +426,7 @@ async def upload_paper(file: UploadFile = File(...)):
 
     try:
         result = parse_pdf(storage_path, paper_id)
+        _apply_paper_source_metadata(result, source="upload")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except FileNotFoundError as e:
@@ -388,7 +460,19 @@ async def parse_paper(paper_id: str):
         )
 
     try:
+        previous = load_parsed_result(paper_id, _resolve_metadata_dir())
+    except FileNotFoundError:
+        previous = {}
+
+    try:
         result = parse_pdf(pdf_path, paper_id)
+        _apply_paper_source_metadata(
+            result,
+            source=previous.get("source") or "upload",
+            source_id=previous.get("source_id"),
+            source_metadata=previous.get("source_metadata") or {},
+            created_at=previous.get("created_at"),
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -404,6 +488,193 @@ async def parse_paper(paper_id: str):
 
 
 # ── Generate note ────────────────────────────────────────────────────────────
+
+
+@app.patch("/papers/{paper_id}/title", response_model=PaperTitleUpdateResponse)
+async def update_paper_title(paper_id: str, payload: PaperTitleUpdateRequest):
+    title = payload.title.strip()
+    if len(title) < 3:
+        raise HTTPException(status_code=400, detail="Title must be at least 3 characters long")
+
+    data = update_parsed_title(paper_id, _resolve_metadata_dir(), title)
+    return PaperTitleUpdateResponse(
+        paper_id=paper_id,
+        title=data["title"],
+        status="updated",
+    )
+
+
+@app.get("/papers/zotero/collections", response_model=ZoteroImportCollectionsResponse)
+async def list_paper_zotero_collections(limit: int = 100):
+    try:
+        collections = ZoteroLocalHttpClient().list_collections(limit=limit)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+
+    items = [
+        ZoteroImportCollection(
+            key=collection.key,
+            name=collection.name,
+            parent_key=collection.parent_key,
+            num_items=collection.num_items,
+        )
+        for collection in collections
+    ]
+    return ZoteroImportCollectionsResponse(collections=items, count=len(items))
+
+
+def _zotero_import_item_response(item, existing_index: dict[str, str]) -> ZoteroImportItem:
+    pdf_path = resolve_first_existing_pdf([attachment.path for attachment in item.attachments])
+    existing_paper_id = (
+        existing_index.get(f"source_id:{_normalize_duplicate_key(item.key)}")
+        or existing_index.get(f"doi:{_normalize_duplicate_key(item.doi)}")
+        or existing_index.get(f"title:{_normalize_duplicate_key(item.title)}")
+    )
+    return ZoteroImportItem(
+        key=item.key,
+        title=item.title,
+        creators=item.creators,
+        year=item.year,
+        doi=item.doi,
+        has_pdf=pdf_path is not None,
+        pdf_path=pdf_path,
+        already_imported=existing_paper_id is not None,
+        existing_paper_id=existing_paper_id,
+    )
+
+
+@app.get(
+    "/papers/zotero/collections/{collection_key}/items",
+    response_model=ZoteroImportItemsResponse,
+)
+async def list_paper_zotero_collection_items(collection_key: str):
+    try:
+        zotero_items = ZoteroLocalHttpClient().list_collection_items(collection_key)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+
+    existing_index = _existing_paper_identity_index()
+    items = [_zotero_import_item_response(item, existing_index) for item in zotero_items]
+    return ZoteroImportItemsResponse(
+        collection_key=collection_key,
+        items=items,
+        count=len(items),
+    )
+
+
+def _unique_upload_path(upload_dir: str, filename: str) -> str:
+    stem = Path(filename).stem or "zotero_paper"
+    suffix = Path(filename).suffix or ".pdf"
+    candidate = Path(upload_dir) / f"{stem}{suffix}"
+    counter = 1
+    while candidate.exists():
+        candidate = Path(upload_dir) / f"{stem}__zotero_{counter}{suffix}"
+        counter += 1
+    return str(candidate)
+
+
+@app.post("/papers/zotero/import", response_model=ZoteroImportResponse)
+async def import_papers_from_zotero(payload: ZoteroImportRequest):
+    try:
+        zotero_items = ZoteroLocalHttpClient().list_collection_items(payload.collection_key)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+
+    items_by_key = {item.key: item for item in zotero_items}
+    existing_index = _existing_paper_identity_index()
+    upload_dir = _resolve_upload_dir()
+    os.makedirs(upload_dir, exist_ok=True)
+
+    imported: list[ZoteroImportResultItem] = []
+    skipped: list[ZoteroImportResultItem] = []
+    failed: list[ZoteroImportResultItem] = []
+
+    for item_key in payload.item_keys:
+        item = items_by_key.get(item_key)
+        if item is None:
+            failed.append(
+                ZoteroImportResultItem(
+                    item_key=item_key,
+                    title="Unknown Zotero item",
+                    status="failed",
+                    reason="Item not found in selected collection",
+                )
+            )
+            continue
+
+        duplicate_paper_id = (
+            existing_index.get(f"source_id:{_normalize_duplicate_key(item.key)}")
+            or existing_index.get(f"doi:{_normalize_duplicate_key(item.doi)}")
+            or existing_index.get(f"title:{_normalize_duplicate_key(item.title)}")
+        )
+        if duplicate_paper_id:
+            skipped.append(
+                ZoteroImportResultItem(
+                    item_key=item.key,
+                    title=item.title,
+                    paper_id=duplicate_paper_id,
+                    status="skipped",
+                    reason="Paper already exists",
+                )
+            )
+            continue
+
+        source_pdf_path = resolve_first_existing_pdf(
+            [attachment.path for attachment in item.attachments]
+        )
+        if source_pdf_path is None:
+            skipped.append(
+                ZoteroImportResultItem(
+                    item_key=item.key,
+                    title=item.title,
+                    status="skipped",
+                    reason="No local PDF attachment found",
+                )
+            )
+            continue
+
+        try:
+            paper_id = generate_paper_id(upload_dir)
+            storage_path = _unique_upload_path(upload_dir, Path(source_pdf_path).name)
+            shutil.copyfile(source_pdf_path, storage_path)
+            result = parse_pdf(storage_path, paper_id)
+            _apply_paper_source_metadata(
+                result,
+                source="zotero",
+                source_id=item.key,
+                source_metadata={
+                    "collection_key": payload.collection_key,
+                    "zotero_item_key": item.key,
+                    "doi": item.doi,
+                    "creators": item.creators,
+                    "year": item.year,
+                    "url": item.url,
+                },
+            )
+            save_parse_result(result, _resolve_metadata_dir())
+            existing_index[f"source_id:{_normalize_duplicate_key(item.key)}"] = paper_id
+            if item.doi:
+                existing_index[f"doi:{_normalize_duplicate_key(item.doi)}"] = paper_id
+            existing_index[f"title:{_normalize_duplicate_key(result.title)}"] = paper_id
+            imported.append(
+                ZoteroImportResultItem(
+                    item_key=item.key,
+                    title=result.title or item.title,
+                    paper_id=paper_id,
+                    status="imported",
+                )
+            )
+        except Exception as e:
+            failed.append(
+                ZoteroImportResultItem(
+                    item_key=item.key,
+                    title=item.title,
+                    status="failed",
+                    reason=str(e),
+                )
+            )
+
+    return ZoteroImportResponse(imported=imported, skipped=skipped, failed=failed)
 
 
 @app.post("/papers/{paper_id}/note", response_model=NoteGenerateResponse)
@@ -425,6 +696,51 @@ async def generate_note_endpoint(paper_id: str):
         note_path=note_path,
         content=content,
     )
+
+
+def _build_note_status_response() -> NoteStatusListResponse:
+    note_dir = _resolve_note_dir()
+    existing_notes: dict[str, str] = {}
+    if os.path.isdir(note_dir):
+        for filename in os.listdir(note_dir):
+            if filename.endswith("_note.md"):
+                existing_notes[filename.removesuffix("_note.md")] = os.path.join(note_dir, filename)
+
+    notes: list[NoteStatusItem] = []
+    for paper in list_papers(_resolve_metadata_dir()):
+        paper_id = paper.get("paper_id")
+        if not paper_id:
+            continue
+
+        note_path = existing_notes.get(paper_id) or os.path.join(note_dir, f"{paper_id}_note.md")
+        exists = os.path.isfile(note_path)
+        generated_at = None
+        if exists:
+            generated_at = datetime.fromtimestamp(
+                os.path.getmtime(note_path),
+                timezone.utc,
+            ).isoformat()
+
+        notes.append(
+            NoteStatusItem(
+                paper_id=paper_id,
+                exists=exists,
+                note_path=note_path if exists else None,
+                generated_at=generated_at,
+            )
+        )
+
+    return NoteStatusListResponse(count=len(notes), notes=notes)
+
+
+@app.get("/notes/status", response_model=NoteStatusListResponse)
+async def list_note_status():
+    return _build_note_status_response()
+
+
+@app.get("/papers/notes/status", response_model=NoteStatusListResponse)
+async def list_paper_note_status():
+    return _build_note_status_response()
 
 
 # ── Read note ────────────────────────────────────────────────────────────────

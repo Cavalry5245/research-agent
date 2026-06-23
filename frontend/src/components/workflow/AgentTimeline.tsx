@@ -1,4 +1,4 @@
-import type { ResearchStage, StageName, StageStatus } from "../../api/researchPipeline";
+﻿import type { ResearchStage, StageName, StageStatus } from "../../api/researchPipeline";
 
 const STAGE_NAMES: StageName[] = ["planner", "retriever", "reader", "synthesis", "harness"];
 
@@ -52,7 +52,7 @@ function StageProgressBar({ stage }: StageProgressBarProps) {
       <div className="flex-1 bg-gray-200 rounded-full h-2">
         <div
           className={`h-2 rounded-full ${progressColor}`}
-          style={{ width: `${stage.progress}%` }}
+          style={{ width: `${Math.round(stage.progress * 100)}%` }}
         />
       </div>
       <div className={`w-20 text-sm ${statusColor} capitalize`}>{stage.status}</div>

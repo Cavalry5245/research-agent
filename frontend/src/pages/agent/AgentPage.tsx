@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { executeAgent } from "../../api/agent";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorState } from "../../components/error-state/ErrorState";
+import { MarkdownContent } from "../../components/common/MarkdownContent";
 
 export function AgentPage() {
   const [task, setTask] = useState("");
@@ -71,7 +72,7 @@ export function AgentPage() {
             {mutation.data.conversation_id && <span>Conversation: {mutation.data.conversation_id}</span>}
             {mutation.data.task_type && <span>Type: {mutation.data.task_type}</span>}
           </div>
-          <pre className="mt-4 whitespace-pre-wrap rounded-md bg-surface p-4 text-sm leading-6 text-ink">{mutation.data.answer}</pre>
+          <MarkdownContent content={mutation.data.answer} className="mt-4 rounded-md bg-surface p-4" />
         </section>
       ) : (
         <EmptyState title="No agent result yet" description="Run an agent task to see the response here." />

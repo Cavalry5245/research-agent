@@ -255,6 +255,24 @@ export async function createResearchRun(
 }
 
 /**
+ * Re-run an existing research run with the same parameters.
+ *
+ * Creates a brand-new run with identical settings to the specified run
+ * and starts the pipeline immediately.
+ *
+ * @param runId - ID of the existing run to replicate
+ * @returns Created run with run_id, status, and created_at
+ */
+export async function rerunResearchRun(runId: string): Promise<ResearchRunCreateResponse> {
+  const response = await fetch(`/research-pipeline/runs/${runId}/rerun`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+
+  return handleResponse<ResearchRunCreateResponse>(response);
+}
+
+/**
  * List research runs in reverse chronological order.
  *
  * @param limit - Maximum number of runs to return (default 50)

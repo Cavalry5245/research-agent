@@ -64,6 +64,10 @@ def _normalize_pdf_path(raw_path: str) -> Path | None:
             normalized = f"//{parsed.netloc}{parsed.path}"
         else:
             normalized = parsed.path
+        # Handle Windows-style file: paths with backslashes
+        # e.g. "file:\D:\HC\Zotero\storage\file.pdf" → "D:\HC\Zotero\storage\file.pdf"
+        if normalized.startswith("\\") and len(normalized) > 3 and normalized[2] == ":":
+            normalized = normalized.lstrip("\\")
         normalized = unquote(normalized)
         if len(normalized) >= 4 and normalized[0] == "/" and normalized[2] == ":":
             normalized = normalized[1:]
@@ -83,9 +87,13 @@ class ZoteroLocalHttpClient:
         self.base_url = base_url.rstrip("/")
         self.library_path = library_path.strip("/")
         self.timeout = timeout
+        # Disable proxy auto-detection to avoid Windows system proxy interference.
+        # httpx defaults to trust_env=True which reads system proxy settings
+        # (e.g. Clash at 127.0.0.1:7890) and causes [Errno 2] errors on local calls.
+        self._client = httpx.Client(trust_env=False)
 
     def list_collections(self, limit: int = 100) -> list[ZoteroCollection]:
-        response = httpx.get(
+        response = self._client.get(
             f"{self._library_url}/collections?limit={int(limit)}",
             timeout=self.timeout,
         )
@@ -93,7 +101,7 @@ class ZoteroLocalHttpClient:
         return [_collection_from_local_api(raw) for raw in response.json()]
 
     def list_collection_items(self, collection_id: str) -> list[ZoteroCollectionItem]:
-        response = httpx.get(
+        response = self._client.get(
             f"{self._library_url}/collections/{quote(collection_id, safe='')}/items",
             timeout=self.timeout,
         )
@@ -119,7 +127,7 @@ class ZoteroLocalHttpClient:
             return []
 
         try:
-            response = httpx.get(
+            response = self._client.get(
                 f"{self._library_url}/items/{quote(item_key, safe='')}/children",
                 timeout=self.timeout,
             )

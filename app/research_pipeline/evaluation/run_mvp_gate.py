@@ -12,7 +12,7 @@ MVP Gate 条件 (PRD 10.3):
 
 import json
 import statistics
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -271,7 +271,7 @@ def generate_mvp_gate_report(
 
     # Build report
     report = {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "total_runs": len(run_results),
         "seed_questions": len(seed_dataset.questions) if seed_dataset else None,
         "gate_status": "PASSED" if gate_check["passed"] else "FAILED",

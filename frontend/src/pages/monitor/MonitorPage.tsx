@@ -102,7 +102,7 @@ export function MonitorPage() {
                   <span>{trace.action}</span>
                   {trace.conversation_id && <span>{trace.conversation_id}</span>}
                   {trace.duration_ms !== null && trace.duration_ms !== undefined && <span>{trace.duration_ms} ms</span>}
-                  <span>{new Date(trace.created_at * 1000).toLocaleString()}</span>
+                  <span>{new Date(trace.created_at * 1000).toLocaleString(undefined, { hour12: false })}</span>
                 </div>
                 <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-surface p-3 text-xs text-ink">
                   {JSON.stringify({ input: trace.input_data, output: trace.output_data, metadata: trace.metadata }, null, 2)}

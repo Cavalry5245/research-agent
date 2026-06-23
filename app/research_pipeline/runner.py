@@ -358,11 +358,11 @@ class SynthesisAgentWrapper:
             from app.services.llm_client import LLMClient
             from app.research_pipeline.agents.synthesis import SynthesisAgent
             llm_client = LLMClient()
-            self.agent = SynthesisAgent(db_path=db_path, llm_client=llm_client)
+            self.agent = SynthesisAgent(db_path=db_path, llm_client=llm_client, run_id=run_id)
         except Exception:
             # Fallback to skeleton-only mode
             from app.research_pipeline.agents.synthesis import SynthesisAgent
-            self.agent = SynthesisAgent(db_path=db_path, llm_client=None)
+            self.agent = SynthesisAgent(db_path=db_path, llm_client=None, run_id=run_id)
 
     def execute(self) -> dict[str, Any]:
         """

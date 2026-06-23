@@ -1,21 +1,24 @@
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, FileText, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, FileText, Pencil, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getPaperNote, generatePaperNote, getPaperNoteDownloadUrl } from "../../api/notes";
-import { getPaperIndexStatus, getPapers, indexPaper, parsePaper } from "../../api/papers";
+import { getPaperNote, generatePaperNote, downloadPaperNote } from "../../api/notes";
+import { getPaperIndexStatus, getPapers, indexPaper, parsePaper, updatePaperTitle } from "../../api/papers";
 import type { TaskStatus } from "../../api/types";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorState } from "../../components/error-state/ErrorState";
 import { StatusBadge } from "../../components/status/StatusBadge";
 import { TaskStatusPanel } from "../../components/tasks/TaskStatusPanel";
-import { useState } from "react";
+import { MarkdownContent } from "../../components/common/MarkdownContent";
+import { useEffect, useState } from "react";
 
 export function PaperDetailPage() {
   const { paperId } = useParams();
   const queryClient = useQueryClient();
   const [latestTask, setLatestTask] = useState<TaskStatus | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
 
   const papersQuery = useQuery({
     queryKey: ["papers"],
@@ -69,6 +72,32 @@ export function PaperDetailPage() {
     onError: (error) => setActionError(error instanceof Error ? error.message : "Note generation failed")
   });
 
+  const downloadMutation = useMutation({
+    mutationFn: () => downloadPaperNote(paperId!),
+    onSuccess: () => setActionError(null),
+    onError: (error) => setActionError(error instanceof Error ? error.message : "Note download failed")
+  });
+
+  const titleMutation = useMutation({
+    mutationFn: (title: string) => updatePaperTitle(paperId!, title),
+    onSuccess: (result) => {
+      setActionError(null);
+      setDraftTitle(result.title);
+      setIsEditingTitle(false);
+      refreshDetail();
+    },
+    onError: (error) => setActionError(error instanceof Error ? error.message : "Title update failed")
+  });
+
+  const paper = papersQuery.data?.papers.find((item) => item.paper_id === paperId);
+
+  useEffect(() => {
+    if (!paper) {
+      return;
+    }
+    setDraftTitle(paper.title);
+  }, [paper?.title]);
+
   if (!paperId) {
     return <ErrorState title="Missing paper ID" message="The route did not include a paper identifier." />;
   }
@@ -80,8 +109,6 @@ export function PaperDetailPage() {
   if (papersQuery.error) {
     return <ErrorState title="Unable to load paper" message={(papersQuery.error as Error).message} />;
   }
-
-  const paper = papersQuery.data?.papers.find((item) => item.paper_id === paperId);
   if (!paper) {
     return <EmptyState title="Paper not found" description="This paper is not present in the local metadata list." />;
   }
@@ -99,7 +126,51 @@ export function PaperDetailPage() {
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <p className="text-xs font-medium uppercase text-muted">{paper.paper_id}</p>
-            <h1 className="mt-2 text-2xl font-semibold text-ink">{paper.title || "Untitled paper"}</h1>
+            {isEditingTitle ? (
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  value={draftTitle}
+                  onChange={(event) => setDraftTitle(event.target.value)}
+                  className="w-full rounded-md border border-line bg-panel px-3 py-2 text-base text-ink"
+                  placeholder="Enter paper title"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => titleMutation.mutate(draftTitle)}
+                    disabled={titleMutation.isPending || !draftTitle.trim()}
+                    className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {titleMutation.isPending ? "Saving" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDraftTitle(paper.title);
+                      setIsEditingTitle(false);
+                    }}
+                    className="rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center gap-2">
+                <h1 className="text-2xl font-semibold text-ink">{paper.title || "Untitled paper"}</h1>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftTitle(paper.title);
+                    setIsEditingTitle(true);
+                  }}
+                  className="inline-flex items-center gap-1 rounded border border-line px-2 py-1 text-xs font-medium text-muted hover:bg-surface"
+                >
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                  Edit title
+                </button>
+              </div>
+            )}
             <p className="mt-3 max-w-4xl text-sm leading-6 text-muted">{paper.abstract || "No abstract available."}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -165,13 +236,15 @@ export function PaperDetailPage() {
               {noteMutation.isPending ? "Generating" : "Generate"}
             </button>
             {noteAvailable && (
-              <a
-                href={getPaperNoteDownloadUrl(paperId)}
-                className="inline-flex items-center gap-1 rounded border border-line px-2 py-1 text-xs font-medium text-muted hover:bg-surface"
+              <button
+                type="button"
+                onClick={() => downloadMutation.mutate()}
+                disabled={downloadMutation.isPending}
+                className="inline-flex items-center gap-1 rounded border border-line px-2 py-1 text-xs font-medium text-muted hover:bg-surface disabled:opacity-60"
               >
                 <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                Download
-              </a>
+                {downloadMutation.isPending ? "Downloading" : "Download"}
+              </button>
             )}
           </div>
         </div>
@@ -185,9 +258,10 @@ export function PaperDetailPage() {
         {noteQuery.isLoading ? (
           <p className="mt-4 text-sm text-muted">Loading note...</p>
         ) : noteAvailable ? (
-          <pre className="mt-4 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-md bg-surface p-4 text-sm leading-6 text-ink">
-            {noteQuery.data.content}
-          </pre>
+          <MarkdownContent
+            content={noteQuery.data.content}
+            className="mt-4 max-h-[32rem] overflow-auto rounded-md bg-surface p-4"
+          />
         ) : (
           <div className="mt-4">
             <EmptyState title="No note yet" description="Generate a note to preview it here." />

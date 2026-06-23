@@ -63,6 +63,26 @@ def _create_test_pdf(filepath: str):
     doc.close()
 
 
+def _create_cover_title_pdf(filepath: str):
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "\u535a\u58eb\u5b66\u4f4d\u8bba\u6587", fontsize=22)
+    page.insert_text(
+        (72, 118),
+        "A Reliable Title Detection Strategy for Research Papers",
+        fontsize=18,
+    )
+    page.insert_text((72, 150), "remote sensing", fontsize=16)
+    page.insert_text((72, 178), "Abstract", fontsize=14)
+    page.insert_text(
+        (72, 198),
+        "This paper introduces a stronger title extraction heuristic for imported PDFs.",
+        fontsize=12,
+    )
+    doc.save(filepath)
+    doc.close()
+
+
 def test_generate_paper_id():
     pid = generate_paper_id()
     assert pid.startswith("paper_"), f"Expected paper_id format, got {pid}"
@@ -93,6 +113,15 @@ def test_parse_pdf_title():
         assert isinstance(result, PaperParseResult)
         assert "Infrared Small Target Detection" in result.title
         assert "A Novel Approach" in result.title
+
+
+def test_parse_pdf_title_skips_cover_labels_and_journal_names():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pdf_path = os.path.join(tmpdir, "cover.pdf")
+        _create_cover_title_pdf(pdf_path)
+        result = parse_pdf(pdf_path, "paper_test_002")
+
+        assert result.title == "A Reliable Title Detection Strategy for Research Papers"
 
 
 def test_parse_pdf_abstract():

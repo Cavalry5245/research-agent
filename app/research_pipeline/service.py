@@ -4,7 +4,7 @@ Research Pipeline Service
 核心业务逻辑层，协调各模块完成研究任务。
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable
 
 from app.research_pipeline import store
@@ -104,6 +104,32 @@ class ResearchPipelineService:
             created_at=datetime.fromisoformat(detail["created_at"]),
         )
 
+    def rerun_run(
+        self,
+        run_id: str,
+        runner_scheduler: Callable[[str], None] | None = None,
+    ) -> ResearchRunCreateResponse:
+        """
+        Re-run an existing research run with the same parameters.
+
+        Extracts the original run's configuration parameters and creates
+        a brand-new run with identical settings.
+
+        Args:
+            run_id: Existing run ID to replicate.
+            runner_scheduler: Optional function to schedule background runner.
+
+        Returns:
+            ResearchRunCreateResponse for the new run.
+
+        Raises:
+            ValueError: If original run not found.
+        """
+        params = store.get_run_create_params(self.db_path, run_id)
+
+        request = ResearchRunCreateRequest(**params)
+        return self.create_run(request, runner_scheduler)
+
     def list_runs(self, limit: int = 50) -> ResearchRunListResponse:
         """
         List runs in reverse chronological order.
@@ -172,7 +198,7 @@ class ResearchPipelineService:
                     else None
                 ),
                 error=stage["error"],
-                created_at=datetime.utcnow(),  # Not stored in store, use current time
+                created_at=datetime.now(timezone.utc),  # Not stored in store, use current time
             )
             for stage in detail["stages"]
         ]

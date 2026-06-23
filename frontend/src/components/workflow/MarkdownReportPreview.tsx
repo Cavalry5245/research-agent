@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MarkdownContent } from "../common/MarkdownContent";
 
 export interface MarkdownReportPreviewProps {
   markdown: string | null;
@@ -101,11 +102,10 @@ export function MarkdownReportPreview({ markdown, runId }: MarkdownReportPreview
           Copy failed because the browser denied clipboard access. Use Download as a fallback.
         </div>
       )}
-      <div className="prose prose-sm max-w-none">
-        <pre className="whitespace-pre-wrap text-sm text-ink bg-white border border-line rounded p-4 overflow-x-auto">
-          {markdown}
-        </pre>
-      </div>
+      <MarkdownContent
+        content={markdown}
+        className="bg-white border border-line rounded p-4"
+      />
     </div>
   );
 }

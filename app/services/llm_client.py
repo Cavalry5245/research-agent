@@ -9,10 +9,10 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 RETRYABLE_EXCEPTIONS = (InternalServerError, RateLimitError, APITimeoutError)
-MAX_RETRIES = 3
-BACKOFF_SECONDS = 1.0
-REQUEST_TIMEOUT_SECONDS = 90.0
-_HTTPX_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
+MAX_RETRIES = 5
+BACKOFF_SECONDS = 2.0
+REQUEST_TIMEOUT_SECONDS = 150.0
+_HTTPX_TIMEOUT = httpx.Timeout(connect=15.0, read=180.0, write=60.0, pool=10.0)
 
 
 class LLMClient:
@@ -62,7 +62,18 @@ class LLMClient:
                 )
                 time.sleep(sleep_seconds)
             except Exception as e:
-                raise RuntimeError(f"LLM API 调用失败: {e}") from e
+                last_error = e
+                if attempt >= MAX_RETRIES:
+                    break
+                sleep_seconds = BACKOFF_SECONDS * (2 ** (attempt - 1))
+                logger.warning(
+                    "LLM unexpected error on attempt %d/%d: %s. Retry in %.1fs",
+                    attempt,
+                    MAX_RETRIES,
+                    e,
+                    sleep_seconds,
+                )
+                time.sleep(sleep_seconds)
 
         raise RuntimeError(
             f"LLM API 调用失败: {last_error}。服务暂时不可用，已重试 {MAX_RETRIES} 次。"

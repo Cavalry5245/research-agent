@@ -306,12 +306,18 @@ def deduplicate_candidates(candidates: list[PaperCandidate]) -> list[PaperCandid
 
     # 第二轮：去重和合并
     seen = set()
+    seen_paper_ids = set()
     result = []
 
     for candidate in candidates:
         # 生成唯一标识
         candidate_id = id(candidate)
         if candidate_id in seen:
+            continue
+
+        # 跳过 paper_id 已在结果中的（可能通过不同 key 被合并过）
+        if candidate.paper_id in seen_paper_ids:
+            seen.add(candidate_id)
             continue
 
         # 找到所有重复的候选
@@ -349,6 +355,7 @@ def deduplicate_candidates(candidates: list[PaperCandidate]) -> list[PaperCandid
         # 如果只有自己，直接添加
         if len(unique_duplicates) <= 1:
             seen.add(candidate_id)
+            seen_paper_ids.add(candidate.paper_id)
             result.append(candidate)
             continue
 
@@ -356,6 +363,12 @@ def deduplicate_candidates(candidates: list[PaperCandidate]) -> list[PaperCandid
         # 优先级: zotero > semantic_scholar > arxiv
         priority_order = {"zotero": 0, "semantic_scholar": 1, "arxiv": 2}
         base = min(unique_duplicates, key=lambda c: priority_order.get(c.source, 999))
+
+        # 如果 base 的 paper_id 已经在结果中，只标记已处理但不重复添加
+        if base.paper_id in seen_paper_ids:
+            for dup in unique_duplicates:
+                seen.add(id(dup))
+            continue
 
         # 合并元数据
         merged = base.model_copy()
@@ -403,6 +416,7 @@ def deduplicate_candidates(candidates: list[PaperCandidate]) -> list[PaperCandid
             if not merged.authors and dup.authors:
                 merged.authors = dup.authors
 
+        seen_paper_ids.add(merged.paper_id)
         result.append(merged)
 
     return result
