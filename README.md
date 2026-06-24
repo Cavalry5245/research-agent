@@ -1,5 +1,10 @@
 # ResearchAgent
 
+[![Docker](https://img.shields.io/badge/docker-ready-blue?logo=docker)](QUICKSTART.md)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue?logo=python)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 ResearchAgent 是一个面向科研阅读、选题调研和 related work 写作的本地优先研究助手。它现在有两条入口：
 
 - **Research Pipeline**：用户输入研究问题，系统执行 Planner -> Retriever -> Reader -> Synthesis -> Harness，生成带引用和校验状态的 Markdown 研究报告。
@@ -66,7 +71,22 @@ Legacy Streamlit UI
 - 旧 Zotero knowledge-pack workflow 仍位于 `app/research_workflow/` 和 `/research-runs`。
 - Streamlit 位于 `ui/streamlit_app.py`，继续保留。
 
-## 快速启动
+## 快速启动（Docker — 推荐）
+
+无需安装 Python，一行命令启动（[详细说明](QUICKSTART.md)）：
+
+```bash
+cp .env.example .env   # 编辑 .env 填入 LLM API Key
+docker compose up -d
+```
+
+然后打开：
+- **React 前端**：http://localhost
+- **API 文档**：http://localhost:8000/docs
+
+---
+
+## 快速启动（本地开发）
 
 ### 1. 准备 Python 环境
 

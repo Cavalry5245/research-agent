@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: research-agent-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app/storage:/app/app/storage
+    env_file:
+      - .env
+    environment:
+      - EMBEDDING_PROVIDER=local
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: research-agent-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    restart: unless-stopped

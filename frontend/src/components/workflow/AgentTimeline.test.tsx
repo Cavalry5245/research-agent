@@ -11,7 +11,7 @@ function createStage(
   error?: string
 ): ResearchStage {
   return {
-    id: stage-,
+    id: stage,
     run_id: "test-run",
     stage,
     status,

@@ -29,6 +29,9 @@ app/storage/logs/*
 
 app/analytics/reports/log_analysis.md
 app/storage/memory.db
+app/storage/memory.db-shm
+app/storage/memory.db-wal
+app/storage/research_pipeline.db
 
 .codex/
 .github/
@@ -39,3 +42,6 @@ tests/debug/
 
 # Resume documents (personal use only)
 docs/RESUME_*.md
+
+# Productization / business planning documents (not part of the codebase)
+docs/PRODUCTIZATION_*.md
