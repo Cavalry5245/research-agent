@@ -215,6 +215,16 @@ export interface KnowledgeBase {
   description: string;
   paper_ids: string[];
   created_at?: string | null;
+  updated_at?: string | null;
+  paper_count?: number | null;
+  indexed_count?: number | null;
+  noted_count?: number | null;
+}
+
+export interface KnowledgeBaseCreatePayload {
+  kb_id?: string;
+  name: string;
+  description?: string;
 }
 
 export interface KnowledgeBaseListResponse {
