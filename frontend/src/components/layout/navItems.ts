@@ -26,7 +26,7 @@ export const navItems: NavItem[] = [
   { label: "Notes", path: "/notes", icon: NotebookText },
   { label: "QA", path: "/qa", icon: MessageSquare },
   { label: "Compare", path: "/compare", icon: GitCompare },
-  { label: "Knowledge Base", path: "/knowledge-base", icon: Library },
+  { label: "Research Sets", path: "/knowledge-base", icon: Library },
   { label: "Agent", path: "/agent", icon: Bot },
   { label: "Monitor", path: "/monitor", icon: Activity },
   { label: "Settings", path: "/settings", icon: Settings }
