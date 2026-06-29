@@ -78,6 +78,41 @@ def test_add_and_remove_paper_in_kb():
     tmp.cleanup()
 
 
+def test_kb_response_includes_derived_stats():
+    client, tmp = _fresh_manager_client()
+    note_dir = Path(tmp.name) / "notes"
+    note_dir.mkdir()
+    (note_dir / "paper_001_note.md").write_text("note", encoding="utf-8")
+
+    class FakeVectorStore:
+        def list_chunks(self, paper_id=None):
+            chunks = [
+                {
+                    "paper_id": "paper_001",
+                    "section": "Abstract",
+                    "chunk_id": "paper_001_0",
+                }
+            ]
+            if paper_id is None:
+                return chunks
+            return [chunk for chunk in chunks if chunk["paper_id"] == paper_id]
+
+    main_module._vector_store = FakeVectorStore()
+
+    with patch.object(main_module.settings, "note_dir", str(note_dir)):
+        client.post("/kb", json={"kb_id": "k", "name": "n"})
+        client.post("/kb/k/papers", json={"paper_id": "paper_001"})
+        client.post("/kb/k/papers", json={"paper_id": "paper_002"})
+
+        listed = client.get("/kb").json()
+
+    payload = next(kb for kb in listed["knowledge_bases"] if kb["id"] == "k")
+    assert payload["paper_count"] == 2
+    assert payload["indexed_count"] == 1
+    assert payload["noted_count"] == 1
+    tmp.cleanup()
+
+
 def test_add_paper_to_missing_kb_returns_404():
     client, tmp = _fresh_manager_client()
     resp = client.post("/kb/nope/papers", json={"paper_id": "p"})

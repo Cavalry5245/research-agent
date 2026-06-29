@@ -1555,6 +1555,27 @@ def _get_kb_manager():
     return _kb_manager
 
 
+def _enrich_kb_response(kb: dict) -> dict:
+    paper_ids = list(kb.get("paper_ids", []))
+    indexed_ids = {
+        paper.get("paper_id")
+        for paper in get_library_status(_get_vector_store()).get("papers", [])
+        if paper.get("paper_id")
+    }
+    note_dir = _resolve_note_dir()
+    noted_ids = {
+        paper_id
+        for paper_id in paper_ids
+        if os.path.isfile(os.path.join(note_dir, f"{paper_id}_note.md"))
+    }
+    return {
+        **kb,
+        "paper_count": len(paper_ids),
+        "indexed_count": sum(1 for paper_id in paper_ids if paper_id in indexed_ids),
+        "noted_count": sum(1 for paper_id in paper_ids if paper_id in noted_ids),
+    }
+
+
 @app.get(
     "/kb",
     response_model=KBListResponse,
@@ -1565,7 +1586,7 @@ async def list_kbs_endpoint():
     items = _get_kb_manager().list_kbs()
     return KBListResponse(
         count=len(items),
-        knowledge_bases=[KBResponse(**kb) for kb in items],
+        knowledge_bases=[KBResponse(**_enrich_kb_response(kb)) for kb in items],
     )
 
 
@@ -1581,7 +1602,7 @@ async def create_kb_endpoint(req: KBCreateRequest):
         kb = _get_kb_manager().create_kb(req.kb_id, req.name, req.description)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
-    return KBResponse(**kb)
+    return KBResponse(**_enrich_kb_response(kb))
 
 
 @app.post(
@@ -1595,7 +1616,7 @@ async def add_paper_to_kb_endpoint(kb_id: str, req: KBAddPaperRequest):
         kb = _get_kb_manager().add_paper_to_kb(kb_id, req.paper_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    return KBResponse(**kb)
+    return KBResponse(**_enrich_kb_response(kb))
 
 
 @app.delete(
@@ -1609,4 +1630,4 @@ async def remove_paper_from_kb_endpoint(kb_id: str, paper_id: str):
         kb = _get_kb_manager().remove_paper_from_kb(kb_id, paper_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-    return KBResponse(**kb)
+    return KBResponse(**_enrich_kb_response(kb))
