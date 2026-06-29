@@ -7,7 +7,7 @@ import * as kbApi from "../../api/knowledgeBase";
 import * as papersApi from "../../api/papers";
 
 vi.mock("../../api/knowledgeBase", () => ({
-  addPaperToKnowledgeBase: vi.fn(),
+  addPapersToKnowledgeBase: vi.fn(),
   createKnowledgeBase: vi.fn(),
   getKnowledgeBases: vi.fn(),
   removePaperFromKnowledgeBase: vi.fn()
@@ -23,7 +23,18 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(kbApi.getKnowledgeBases).mockResolvedValue({
     count: 1,
-    knowledge_bases: [{ id: "kb_cv", name: "Computer Vision", description: "Vision papers", paper_ids: ["paper_001"] }]
+    knowledge_bases: [
+      {
+        id: "kb_cv",
+        name: "Computer Vision",
+        description: "Vision papers",
+        paper_ids: ["paper_001"],
+        paper_count: 1,
+        indexed_count: 1,
+        noted_count: 0,
+        updated_at: "2026-06-29T08:00:00Z"
+      }
+    ]
   });
   vi.mocked(papersApi.getPapers).mockResolvedValue({
     count: 2,
@@ -33,32 +44,36 @@ beforeEach(() => {
     ]
   });
   vi.mocked(kbApi.createKnowledgeBase).mockResolvedValue({ id: "kb_nlp", name: "NLP", description: "", paper_ids: [] });
-  vi.mocked(kbApi.addPaperToKnowledgeBase).mockResolvedValue({ id: "kb_cv", name: "Computer Vision", description: "", paper_ids: ["paper_001", "paper_002"] });
+  vi.mocked(kbApi.addPapersToKnowledgeBase).mockResolvedValue({ id: "kb_cv", name: "Computer Vision", description: "", paper_ids: ["paper_001", "paper_002"] });
   vi.mocked(kbApi.removePaperFromKnowledgeBase).mockResolvedValue({ id: "kb_cv", name: "Computer Vision", description: "", paper_ids: [] });
 });
 
 describe("KnowledgeBasePage", () => {
-  it("creates a knowledge base", async () => {
+  it("creates a research set without a manual id", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(await screen.findByLabelText(/kb id/i), "kb_nlp");
-    await user.type(screen.getByLabelText(/^name$/i), "NLP");
-    await user.click(screen.getByRole("button", { name: /create/i }));
+    await user.type(await screen.findByLabelText(/^name$/i), "NLP");
+    await user.click(screen.getByRole("button", { name: /create set/i }));
 
-    expect(vi.mocked(kbApi.createKnowledgeBase).mock.calls[0][0]).toEqual({ kb_id: "kb_nlp", name: "NLP", description: "" });
+    expect(vi.mocked(kbApi.createKnowledgeBase).mock.calls[0][0]).toEqual({ name: "NLP", description: "" });
   });
 
-  it("adds and removes papers", async () => {
+  it("adds selected papers and removes member papers", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.selectOptions(await screen.findByLabelText(/add paper/i), "paper_002");
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    expect(await screen.findByText("Research Sets")).toBeInTheDocument();
+    expect(screen.getByText("Attention Survey")).toBeInTheDocument();
+    expect(screen.getByText("Indexed")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText(/search by title or id/i), "RAG");
+    await user.click(screen.getByLabelText(/RAG Systems/i));
+    await user.click(screen.getByRole("button", { name: /add selected/i }));
     await user.click(screen.getByLabelText("Remove paper_001 from kb_cv"));
 
-    expect(vi.mocked(kbApi.addPaperToKnowledgeBase).mock.calls[0][0]).toBe("kb_cv");
-    expect(vi.mocked(kbApi.addPaperToKnowledgeBase).mock.calls[0][1]).toBe("paper_002");
+    expect(vi.mocked(kbApi.addPapersToKnowledgeBase).mock.calls[0][0]).toBe("kb_cv");
+    expect(vi.mocked(kbApi.addPapersToKnowledgeBase).mock.calls[0][1]).toEqual(["paper_002"]);
     expect(vi.mocked(kbApi.removePaperFromKnowledgeBase).mock.calls[0][0]).toBe("kb_cv");
     expect(vi.mocked(kbApi.removePaperFromKnowledgeBase).mock.calls[0][1]).toBe("paper_001");
   });

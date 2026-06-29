@@ -1,8 +1,8 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { GitCompare, MessageSquare, Plus, Workflow, X } from "lucide-react";
 import {
-  addPaperToKnowledgeBase,
+  addPapersToKnowledgeBase,
   createKnowledgeBase,
   getKnowledgeBases,
   removePaperFromKnowledgeBase
@@ -10,14 +10,14 @@ import {
 import { getPapers } from "../../api/papers";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorState } from "../../components/error-state/ErrorState";
-import { PaperSelector } from "../../components/papers/PaperSelector";
+import { ResearchSetPaperPicker } from "./ResearchSetPaperPicker";
+import { formatUpdatedAt, getAvailablePapers, getMemberPapers, percent } from "./researchSetUtils";
 
 export function KnowledgeBasePage() {
   const queryClient = useQueryClient();
-  const [kbId, setKbId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedPapers, setSelectedPapers] = useState<Record<string, string>>({});
+  const [selectedPaperIds, setSelectedPaperIds] = useState<Record<string, string[]>>({});
 
   const kbQuery = useQuery({
     queryKey: ["knowledge-bases"],
@@ -34,7 +34,6 @@ export function KnowledgeBasePage() {
   const createMutation = useMutation({
     mutationFn: createKnowledgeBase,
     onSuccess: () => {
-      setKbId("");
       setName("");
       setDescription("");
       refresh();
@@ -42,8 +41,11 @@ export function KnowledgeBasePage() {
   });
 
   const addMutation = useMutation({
-    mutationFn: ({ targetKbId, paperId }: { targetKbId: string; paperId: string }) => addPaperToKnowledgeBase(targetKbId, paperId),
-    onSuccess: refresh
+    mutationFn: ({ targetKbId, paperIds }: { targetKbId: string; paperIds: string[] }) => addPapersToKnowledgeBase(targetKbId, paperIds),
+    onSuccess: (_data, variables) => {
+      setSelectedPaperIds((current) => ({ ...current, [variables.targetKbId]: [] }));
+      refresh();
+    }
   });
 
   const removeMutation = useMutation({
@@ -53,16 +55,28 @@ export function KnowledgeBasePage() {
 
   const handleCreate = (event: FormEvent) => {
     event.preventDefault();
-    if (!kbId.trim() || !name.trim()) return;
-    createMutation.mutate({ kb_id: kbId.trim(), name: name.trim(), description: description.trim() });
+    if (!name.trim()) return;
+    createMutation.mutate({ name: name.trim(), description: description.trim() });
+  };
+
+  const toggleSelectedPaper = (kbId: string, paperId: string) => {
+    setSelectedPaperIds((current) => {
+      const selected = new Set(current[kbId] ?? []);
+      if (selected.has(paperId)) {
+        selected.delete(paperId);
+      } else {
+        selected.add(paperId);
+      }
+      return { ...current, [kbId]: Array.from(selected) };
+    });
   };
 
   if (kbQuery.isLoading || papersQuery.isLoading) {
-    return <p className="text-sm text-muted">Loading knowledge bases...</p>;
+    return <p className="text-sm text-muted">Loading research sets...</p>;
   }
 
   if (kbQuery.error) {
-    return <ErrorState title="Unable to load knowledge bases" message={(kbQuery.error as Error).message} />;
+    return <ErrorState title="Unable to load research sets" message={(kbQuery.error as Error).message} />;
   }
 
   if (papersQuery.error) {
@@ -75,17 +89,13 @@ export function KnowledgeBasePage() {
   return (
     <div className="space-y-6">
       <section>
-        <h1 className="text-2xl font-semibold text-ink">Knowledge Base</h1>
+        <h1 className="text-2xl font-semibold text-ink">Research Sets</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
-          Create focused paper sets and manage paper membership.
+          Group papers into reusable sets for QA, comparison, and workflow runs.
         </p>
       </section>
 
-      <form onSubmit={handleCreate} className="grid gap-3 rounded-md border border-line bg-panel p-4 shadow-panel md:grid-cols-[12rem_1fr_1.4fr_auto] md:items-end">
-        <label className="block">
-          <span className="text-xs font-medium uppercase text-muted">KB ID</span>
-          <input value={kbId} onChange={(event) => setKbId(event.target.value)} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" />
-        </label>
+      <form onSubmit={handleCreate} className="grid gap-3 rounded-md border border-line bg-panel p-4 shadow-panel md:grid-cols-[1fr_1.5fr_auto] md:items-end">
         <label className="block">
           <span className="text-xs font-medium uppercase text-muted">Name</span>
           <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" />
@@ -96,76 +106,128 @@ export function KnowledgeBasePage() {
         </label>
         <button
           type="submit"
-          disabled={!kbId.trim() || !name.trim() || createMutation.isPending}
+          disabled={!name.trim() || createMutation.isPending}
           className="inline-flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Create
+          Create Set
         </button>
       </form>
 
       {(createMutation.error || addMutation.error || removeMutation.error) && (
         <ErrorState
-          title="Knowledge base action failed"
+          title="Research set action failed"
           message={((createMutation.error || addMutation.error || removeMutation.error) as Error).message}
         />
       )}
 
       {knowledgeBases.length === 0 ? (
-        <EmptyState title="No knowledge bases" description="Create a knowledge base to group papers for focused retrieval." />
+        <EmptyState title="No research sets" description="Create a set to group papers for focused retrieval." />
       ) : (
         <section className="grid gap-4 xl:grid-cols-2">
-          {knowledgeBases.map((kb) => (
-            <article key={kb.id} className="rounded-md border border-line bg-panel p-4 shadow-panel">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-sm font-semibold text-ink">{kb.name}</h2>
-                  <p className="mt-1 text-xs text-muted">{kb.id}</p>
-                  {kb.description && <p className="mt-2 text-sm text-muted">{kb.description}</p>}
-                </div>
-                <span className="rounded-full bg-surface px-2 py-1 text-xs font-medium text-muted">{kb.paper_ids.length} papers</span>
-              </div>
+          {knowledgeBases.map((kb) => {
+            const memberPapers = getMemberPapers(papers, kb);
+            const availablePapers = getAvailablePapers(papers, kb);
+            const selectedForSet = selectedPaperIds[kb.id] ?? [];
+            const paperCount = kb.paper_count ?? kb.paper_ids.length;
+            const indexedCount = kb.indexed_count ?? 0;
+            const notedCount = kb.noted_count ?? 0;
+            const indexedPercent = percent(indexedCount, paperCount);
 
-              <div className="mt-4 flex gap-2">
-                <div className="flex-1">
-                  <PaperSelector
-                    papers={papers}
-                    value={selectedPapers[kb.id] ?? ""}
-                    onChange={(paperId) => setSelectedPapers((current) => ({ ...current, [kb.id]: paperId }))}
-                    label="Add paper"
+            return (
+              <article key={kb.id} className="rounded-md border border-line bg-panel p-4 shadow-panel">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="truncate text-base font-semibold text-ink">{kb.name}</h2>
+                    <p className="mt-1 text-xs text-muted">{kb.id}</p>
+                    {kb.description && <p className="mt-2 text-sm text-muted">{kb.description}</p>}
+                  </div>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                    {paperCount} papers
+                  </span>
+                </div>
+
+                <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-md border border-line bg-surface p-3">
+                    <dt className="text-xs uppercase text-muted">Indexed</dt>
+                    <dd className="mt-1 text-lg font-semibold text-ink">{indexedCount}/{paperCount}</dd>
+                  </div>
+                  <div className="rounded-md border border-line bg-surface p-3">
+                    <dt className="text-xs uppercase text-muted">Notes</dt>
+                    <dd className="mt-1 text-lg font-semibold text-ink">{notedCount}/{paperCount}</dd>
+                  </div>
+                  <div className="rounded-md border border-line bg-surface p-3">
+                    <dt className="text-xs uppercase text-muted">Updated</dt>
+                    <dd className="mt-1 truncate text-sm font-medium text-ink">{formatUpdatedAt(kb.updated_at ?? kb.created_at)}</dd>
+                  </div>
+                </dl>
+
+                <div className="mt-4">
+                  <div className="flex items-center justify-between text-xs text-muted">
+                    <span>Index coverage</span>
+                    <span>{indexedPercent}%</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface">
+                    <div className="h-full bg-emerald-50" style={{ width: `${indexedPercent}%` }} />
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                  <ResearchSetPaperPicker
+                    papers={availablePapers}
+                    selectedPaperIds={selectedForSet}
+                    onToggle={(paperId) => toggleSelectedPaper(kb.id, paperId)}
                   />
+                  <button
+                    type="button"
+                    disabled={selectedForSet.length === 0 || addMutation.isPending}
+                    onClick={() => addMutation.mutate({ targetKbId: kb.id, paperIds: selectedForSet })}
+                    className="rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface disabled:opacity-60"
+                  >
+                    Add selected
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  disabled={!selectedPapers[kb.id] || addMutation.isPending}
-                  onClick={() => addMutation.mutate({ targetKbId: kb.id, paperId: selectedPapers[kb.id] })}
-                  className="self-end rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface disabled:opacity-60"
-                >
-                  Add
-                </button>
-              </div>
 
-              <div className="mt-4 space-y-2">
-                {kb.paper_ids.length === 0 ? (
-                  <p className="text-sm text-muted">No papers assigned.</p>
-                ) : (
-                  kb.paper_ids.map((paperId) => (
-                    <div key={paperId} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2">
-                      <span className="text-sm text-ink">{paperId}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeMutation.mutate({ targetKbId: kb.id, paperId })}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded border border-line text-muted hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                        aria-label={`Remove ${paperId} from ${kb.id}`}
-                      >
-                        <X className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </article>
-          ))}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <a className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface" href={`/qa?scope=kb&kb_id=${encodeURIComponent(kb.id)}`}>
+                    <MessageSquare className="h-4 w-4" aria-hidden="true" />
+                    Ask
+                  </a>
+                  <a className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface" href={`/compare?kb_id=${encodeURIComponent(kb.id)}`}>
+                    <GitCompare className="h-4 w-4" aria-hidden="true" />
+                    Compare
+                  </a>
+                  <a className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface" href={`/workflow/new?kb_id=${encodeURIComponent(kb.id)}`}>
+                    <Workflow className="h-4 w-4" aria-hidden="true" />
+                    Workflow
+                  </a>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  {memberPapers.length === 0 ? (
+                    <p className="text-sm text-muted">No papers assigned.</p>
+                  ) : (
+                    memberPapers.map((paper) => (
+                      <div key={paper.paper_id} className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-ink">{paper.title || paper.paper_id}</span>
+                          <span className="block truncate text-xs text-muted">{paper.paper_id}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeMutation.mutate({ targetKbId: kb.id, paperId: paper.paper_id })}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-line text-muted hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                          aria-label={`Remove ${paper.paper_id} from ${kb.id}`}
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </section>
       )}
     </div>
