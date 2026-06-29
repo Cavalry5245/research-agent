@@ -51,6 +51,19 @@ def test_create_kb_duplicate_returns_409():
     tmp.cleanup()
 
 
+def test_create_kb_without_id_generates_id():
+    client, tmp = _fresh_manager_client()
+    resp = client.post("/kb", json={"name": "Graph RAG", "description": "retrieval"})
+
+    assert resp.status_code == 201
+    payload = resp.json()
+    assert payload["id"] == "graph-rag"
+    assert payload["name"] == "Graph RAG"
+    assert payload["description"] == "retrieval"
+    assert payload["updated_at"]
+    tmp.cleanup()
+
+
 def test_add_and_remove_paper_in_kb():
     client, tmp = _fresh_manager_client()
     client.post("/kb", json={"kb_id": "k", "name": "n"})

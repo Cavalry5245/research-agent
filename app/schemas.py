@@ -456,7 +456,7 @@ class AgentExecuteResponse(BaseModel):
 
 
 class KBCreateRequest(BaseModel):
-    kb_id: str
+    kb_id: str | None = None
     name: str
     description: str = ""
 
@@ -467,6 +467,10 @@ class KBResponse(BaseModel):
     description: str = ""
     paper_ids: list[str] = []
     created_at: str | None = None
+    updated_at: str | None = None
+    paper_count: int | None = None
+    indexed_count: int | None = None
+    noted_count: int | None = None
 
 
 class KBListResponse(BaseModel):

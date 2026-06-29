@@ -42,6 +42,29 @@ def test_create_kb_rejects_duplicate():
     tmp.cleanup()
 
 
+def test_create_kb_generates_slug_id_when_missing():
+    mgr, tmp = _store()
+    kb = mgr.create_kb(None, "Graph RAG", "retrieval papers")
+
+    assert kb["id"] == "graph-rag"
+    assert kb["name"] == "Graph RAG"
+    assert kb["description"] == "retrieval papers"
+    assert kb["paper_ids"] == []
+    assert kb["created_at"]
+    assert kb["updated_at"]
+    tmp.cleanup()
+
+
+def test_create_kb_generates_unique_suffix():
+    mgr, tmp = _store()
+    first = mgr.create_kb(None, "Graph RAG")
+    second = mgr.create_kb(None, "Graph RAG")
+
+    assert first["id"] == "graph-rag"
+    assert second["id"] == "graph-rag-2"
+    tmp.cleanup()
+
+
 def test_add_and_remove_papers():
     mgr, tmp = _store()
     mgr.create_kb("k", "n")
