@@ -14,6 +14,7 @@ from app.services.paper_compare import compare_papers, save_compare_result
 from app.services.paper_qa import answer_question
 from app.services.pdf_parser import (
     generate_paper_id,
+    list_papers,
     load_parsed_result,
     parse_pdf,
     save_parse_result,
@@ -82,6 +83,29 @@ class UploadPaperTool(BaseTool):
             )
         except Exception as e:
             logger.exception("Upload failed")
+            return ToolResult(success=False, error=str(e))
+
+
+class ListPapersTool(BaseTool):
+    name = "list_papers"
+    description = "列出本地论文库中已解析的论文，返回 paper_id、标题和摘要预览"
+
+    @property
+    def parameters(self) -> list[ToolParameter]:
+        return []
+
+    def execute(self, **kwargs) -> ToolResult:
+        try:
+            papers = list_papers(settings.metadata_dir)
+            return ToolResult(
+                success=True,
+                data={
+                    "count": len(papers),
+                    "papers": papers,
+                },
+            )
+        except Exception as e:
+            logger.exception("List papers failed")
             return ToolResult(success=False, error=str(e))
 
 

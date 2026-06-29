@@ -16,6 +16,7 @@ from app.agents.tools.paper_tools import (
     ExportMarkdownTool,
     GenerateNoteTool,
     IndexPaperTool,
+    ListPapersTool,
     QATool,
     UploadPaperTool,
 )
@@ -83,6 +84,7 @@ class PaperResearchAgent:
         self._registry.register_all(
             [
                 UploadPaperTool(),
+                ListPapersTool(),
                 GenerateNoteTool(),
                 IndexPaperTool(),
                 QATool(),

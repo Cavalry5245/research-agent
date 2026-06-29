@@ -11,6 +11,7 @@ from app.agents.tools.paper_tools import (
     ExportMarkdownTool,
     GenerateNoteTool,
     IndexPaperTool,
+    ListPapersTool,
     QATool,
     UploadPaperTool,
 )
@@ -133,6 +134,23 @@ def test_registry_empty_name():
 
     with pytest.raises(ValueError, match="must have a name"):
         registry.register(NoNameTool())
+
+
+def test_list_papers_tool_returns_local_library(tmp_path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    (metadata_dir / "paper_001_parsed.json").write_text(
+        '{"paper_id":"paper_001","title":"Graph RAG","abstract":"Retrieval augmented generation."}',
+        encoding="utf-8",
+    )
+
+    with patch("app.agents.tools.paper_tools.settings.metadata_dir", str(metadata_dir)):
+        result = ListPapersTool().execute()
+
+    assert result.success is True
+    assert result.data["count"] == 1
+    assert result.data["papers"][0]["paper_id"] == "paper_001"
+    assert result.data["papers"][0]["title"] == "Graph RAG"
 
 
 # ── UploadPaperTool ────────────────────────────────────────────────────────────

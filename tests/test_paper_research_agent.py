@@ -12,7 +12,8 @@ def test_agent_creation():
     from app.agents.paper_research_agent import PaperResearchAgent
 
     agent = PaperResearchAgent()
-    assert agent.tool_count == 6
+    assert agent.tool_count == 7
+    assert "list_papers" in agent.tool_names
     assert "qa" in agent.tool_names
     assert "upload_paper" in agent.tool_names
     assert "compare_papers" in agent.tool_names
@@ -34,7 +35,7 @@ def test_agent_creation_with_extra_tools():
             return ToolResult(success=True, data={"result": "ok"})
 
     agent = PaperResearchAgent(extra_tools=[CustomTool()])
-    assert agent.tool_count == 7
+    assert agent.tool_count == 8
     assert "custom_tool" in agent.tool_names
 
 

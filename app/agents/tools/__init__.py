@@ -4,6 +4,7 @@ from app.agents.tools.paper_tools import (
     ExportMarkdownTool,
     GenerateNoteTool,
     IndexPaperTool,
+    ListPapersTool,
     QATool,
     UploadPaperTool,
 )
@@ -13,6 +14,7 @@ __all__ = [
     "BaseTool",
     "ToolRegistry",
     "UploadPaperTool",
+    "ListPapersTool",
     "GenerateNoteTool",
     "IndexPaperTool",
     "QATool",
