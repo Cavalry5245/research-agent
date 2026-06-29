@@ -112,10 +112,14 @@ class ResearchRunService:
 
         if settings.semantic_scholar_mcp_enabled:
             try:
+                semantic_env = {}
+                if settings.semantic_scholar_api_key:
+                    semantic_env["SEMANTIC_SCHOLAR_API_KEY"] = settings.semantic_scholar_api_key
                 manager.start_server(
                     MCPServerConfig(
                         name="semantic-scholar",
                         command=["python", "-m", "app.mcp.minimal_semantic_scholar_server"],
+                        env=semantic_env,
                     )
                 )
                 logger.info("Semantic Scholar MCP server started")

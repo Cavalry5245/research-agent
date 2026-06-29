@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     zotero_mcp_enabled: bool = True
     zotero_mcp_auto_install: bool = False
     semantic_scholar_mcp_enabled: bool = False
+    semantic_scholar_api_key: str = ""
     arxiv_mcp_enabled: bool = False
     research_agent_mcp_enabled: bool = True
 

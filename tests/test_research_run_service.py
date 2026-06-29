@@ -904,10 +904,10 @@ def test_research_run_service_can_start_optional_mcp_servers(tmp_path, monkeypat
 
     class FakeManager:
         def start_server(self, config):
-            started.append((config.name, config.command))
+            started.append(config)
 
         def list_servers(self):
-            return [name for name, _command in started]
+            return [config.name for config in started]
 
         def shutdown_all(self):
             pass
@@ -923,15 +923,20 @@ def test_research_run_service_can_start_optional_mcp_servers(tmp_path, monkeypat
         "app.research_workflow.service.settings.semantic_scholar_mcp_enabled",
         True,
     )
+    monkeypatch.setattr(
+        "app.research_workflow.service.settings.semantic_scholar_api_key",
+        "semantic-test-key",
+    )
     monkeypatch.setattr("app.research_workflow.service.settings.arxiv_mcp_enabled", True)
 
     ResearchRunService(store=FileResearchRunStore(tmp_path / "runs.json"), vault_root=tmp_path)
 
-    assert (
-        "semantic-scholar",
-        ["python", "-m", "app.mcp.minimal_semantic_scholar_server"],
-    ) in started
-    assert ("arxiv", ["python", "-m", "app.mcp.minimal_arxiv_server"]) in started
+    semantic_config = next(config for config in started if config.name == "semantic-scholar")
+    assert semantic_config.command == ["python", "-m", "app.mcp.minimal_semantic_scholar_server"]
+    assert semantic_config.env == {"SEMANTIC_SCHOLAR_API_KEY": "semantic-test-key"}
+
+    arxiv_config = next(config for config in started if config.name == "arxiv")
+    assert arxiv_config.command == ["python", "-m", "app.mcp.minimal_arxiv_server"]
 
 
 def test_research_run_service_execute_local_run_marks_intake_exception_failed(
