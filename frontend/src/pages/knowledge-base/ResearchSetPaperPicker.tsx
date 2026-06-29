@@ -22,7 +22,7 @@ export function ResearchSetPaperPicker({ papers, selectedPaperIds, onToggle }: R
   }, [normalizedQuery, papers]);
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <label className="block">
         <span className="text-xs font-medium uppercase text-muted">Add papers</span>
         <div className="mt-1 flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2">
@@ -36,7 +36,7 @@ export function ResearchSetPaperPicker({ papers, selectedPaperIds, onToggle }: R
         </div>
       </label>
 
-      <div className="max-h-56 overflow-y-auto rounded-md border border-line bg-white">
+      <div className="max-h-44 overflow-y-auto rounded-md border border-line bg-white">
         {filteredPapers.length === 0 ? (
           <p className="px-3 py-4 text-sm text-muted">No matching papers.</p>
         ) : (

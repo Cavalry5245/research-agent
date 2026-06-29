@@ -124,7 +124,7 @@ export function KnowledgeBasePage() {
       {knowledgeBases.length === 0 ? (
         <EmptyState title="No research sets" description="Create a set to group papers for focused retrieval." />
       ) : (
-        <section className="grid gap-4 xl:grid-cols-2">
+        <section className="grid gap-4">
           {knowledgeBases.map((kb) => {
             const memberPapers = getMemberPapers(papers, kb);
             const availablePapers = getAvailablePapers(papers, kb);
@@ -135,7 +135,7 @@ export function KnowledgeBasePage() {
             const indexedPercent = percent(indexedCount, paperCount);
 
             return (
-              <article key={kb.id} className="rounded-md border border-line bg-panel p-4 shadow-panel">
+              <article key={kb.id} className="rounded-md border border-line bg-panel p-5 shadow-panel">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <h2 className="truncate text-base font-semibold text-ink">{kb.name}</h2>
@@ -172,20 +172,26 @@ export function KnowledgeBasePage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                <div className="mt-5 rounded-md border border-line bg-surface p-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-ink">Add papers</h3>
+                      <p className="text-xs text-muted">{availablePapers.length} available, {selectedForSet.length} selected</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={selectedForSet.length === 0 || addMutation.isPending}
+                      onClick={() => addMutation.mutate({ targetKbId: kb.id, paperIds: selectedForSet })}
+                      className="rounded-md border border-line bg-white px-3 py-2 text-sm font-medium text-muted hover:bg-panel disabled:opacity-60"
+                    >
+                      {selectedForSet.length > 0 ? `Add ${selectedForSet.length} paper${selectedForSet.length > 1 ? "s" : ""}` : "Add selected"}
+                    </button>
+                  </div>
                   <ResearchSetPaperPicker
                     papers={availablePapers}
                     selectedPaperIds={selectedForSet}
                     onToggle={(paperId) => toggleSelectedPaper(kb.id, paperId)}
                   />
-                  <button
-                    type="button"
-                    disabled={selectedForSet.length === 0 || addMutation.isPending}
-                    onClick={() => addMutation.mutate({ targetKbId: kb.id, paperIds: selectedForSet })}
-                    className="rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface disabled:opacity-60"
-                  >
-                    Add selected
-                  </button>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">

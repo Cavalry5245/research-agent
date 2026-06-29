@@ -69,7 +69,7 @@ describe("KnowledgeBasePage", () => {
 
     await user.type(screen.getByPlaceholderText(/search by title or id/i), "RAG");
     await user.click(screen.getByLabelText(/RAG Systems/i));
-    await user.click(screen.getByRole("button", { name: /add selected/i }));
+    await user.click(screen.getByRole("button", { name: /add 1 paper/i }));
     await user.click(screen.getByLabelText("Remove paper_001 from kb_cv"));
 
     expect(vi.mocked(kbApi.addPapersToKnowledgeBase).mock.calls[0][0]).toBe("kb_cv");
