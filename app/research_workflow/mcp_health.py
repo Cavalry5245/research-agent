@@ -43,6 +43,7 @@ def build_mcp_hub_health(
         )
     )
     tools.append(_server_health(manager, "arxiv", "arXiv MCP Server"))
+    tools.append(_server_health(manager, "paper-search", "Paper Search MCP Server"))
     tools.append(_research_agent_server_health())
     return tools
 
@@ -65,11 +66,13 @@ def _server_health(
         "zotero": "local_http",
         "semantic-scholar": "local_metadata",
         "arxiv": "local_metadata",
+        "paper-search": "local_metadata",
     }.get(server_name, "local")
     fallback_message = {
         "zotero": "MCP server is not running; Zotero local HTTP fallback is active",
         "semantic-scholar": "MCP server is not running; local metadata fallback is active",
         "arxiv": "MCP server is not running; local paper metadata fallback is active",
+        "paper-search": "MCP server is not running; unified paper search fallback is active",
     }.get(server_name, "MCP server is not running")
 
     if manager is not None:
@@ -81,7 +84,8 @@ def _server_health(
                         "tool_name": label,
                         "provider": "mcp",
                         "available": True,
-                        "fallback_available": server_name in {"zotero", "semantic-scholar", "arxiv"},
+                        "fallback_available": server_name
+                        in {"zotero", "semantic-scholar", "arxiv", "paper-search"},
                         "fallback_active": False,
                         "message": f"{len(tools)} MCP tool(s) discovered",
                         "tool_count": len(tools),

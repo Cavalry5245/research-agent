@@ -170,11 +170,14 @@ def test_tool_health_reports_mcp_state(tmp_path, monkeypatch):
 
     class FakeManager:
         def list_servers(self):
-            return ["zotero"]
+            return ["zotero", "paper-search"]
 
         def list_tools(self, server_name):
-            assert server_name == "zotero"
-            return ["zotero_get_collection_items", "zotero_get_item"]
+            if server_name == "zotero":
+                return ["zotero_get_collection_items", "zotero_get_item"]
+            if server_name == "paper-search":
+                return ["search_papers", "download_with_fallback"]
+            raise AssertionError(f"unexpected server health check: {server_name}")
 
     service._mcp_manager = FakeManager()
 
@@ -196,7 +199,44 @@ def test_tool_health_reports_mcp_state(tmp_path, monkeypatch):
         assert zotero["fallback_active"] is False
         assert zotero["tool_count"] == 2
         assert "MCP tool(s) discovered" in zotero["message"]
+
+        paper_search = next(
+            tool for tool in tools if tool["tool_name"] == "Paper Search MCP Server"
+        )
+        assert paper_search["provider"] == "mcp"
+        assert paper_search["available"] is True
+        assert paper_search["fallback_available"] is True
+        assert paper_search["fallback_active"] is False
+        assert paper_search["tool_count"] == 2
+        assert paper_search["state"] == "running"
+        assert "MCP tool(s) discovered" in paper_search["message"]
+
         assert any(tool["tool_name"] == "ResearchAgent MCP Server" for tool in tools)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_tool_health_reports_paper_search_fallback_when_not_running(
+    tmp_path, monkeypatch
+):
+    _override_research_run_service(tmp_path, monkeypatch)
+
+    try:
+        client = TestClient(app)
+        response = client.get("/research-runs/tools/health")
+
+        assert response.status_code == 200
+        tools = response.json()["tools"]
+        paper_search = next(
+            tool for tool in tools if tool["tool_name"] == "Paper Search MCP Server"
+        )
+        assert paper_search["provider"] == "local_metadata"
+        assert paper_search["available"] is False
+        assert paper_search["fallback_available"] is True
+        assert paper_search["fallback_active"] is True
+        assert paper_search["tool_count"] == 0
+        assert paper_search["state"] == "fallback_active"
+        assert "unified paper search fallback is active" in paper_search["message"]
     finally:
         app.dependency_overrides.clear()
 
