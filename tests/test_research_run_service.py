@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.mcp.schemas import Paper
 from app.research_workflow.knowledge_pack import (
     create_knowledge_pack_skeleton,
     slugify_run_name,
@@ -928,6 +929,14 @@ def test_research_run_service_can_start_optional_mcp_servers(tmp_path, monkeypat
         "semantic-test-key",
     )
     monkeypatch.setattr("app.research_workflow.service.settings.arxiv_mcp_enabled", True)
+    monkeypatch.setattr(
+        "app.research_workflow.service.settings.paper_search_mcp_enabled",
+        True,
+    )
+    monkeypatch.setattr(
+        "app.research_workflow.service.settings.paper_search_mcp_command",
+        "python -m app.mcp.paper_search_server",
+    )
 
     ResearchRunService(store=FileResearchRunStore(tmp_path / "runs.json"), vault_root=tmp_path)
 
@@ -937,6 +946,139 @@ def test_research_run_service_can_start_optional_mcp_servers(tmp_path, monkeypat
 
     arxiv_config = next(config for config in started if config.name == "arxiv")
     assert arxiv_config.command == ["python", "-m", "app.mcp.minimal_arxiv_server"]
+
+    paper_search_config = next(
+        config for config in started if config.name == "paper-search"
+    )
+    assert paper_search_config.command == ["python", "-m", "app.mcp.paper_search_server"]
+
+
+def test_research_run_service_registers_paper_search_mcp_tools(tmp_path, monkeypatch):
+    captured = {}
+
+    class FakeMCPManager:
+        def list_servers(self):
+            return ["paper-search"]
+
+    class FakePaperSearchAdapter:
+        def __init__(self, _proxy):
+            pass
+
+        def search_papers(self, query, **kwargs):
+            captured["search"] = {"query": query, **kwargs}
+            return [
+                Paper(
+                    paper_id="2106.15928",
+                    title="Retrieval-Augmented Generation",
+                    authors=["Lewis", "Perez"],
+                    doi="10.5555/rag.1234",
+                    source="arxiv",
+                )
+            ]
+
+        def download(self, **kwargs):
+            captured["download"] = kwargs
+            return "app/storage/papers/arxiv_2106.15928.pdf"
+
+    monkeypatch.setattr(
+        "app.research_workflow.service.PaperSearchMCPAdapter",
+        FakePaperSearchAdapter,
+    )
+
+    service = ResearchRunService(
+        store=FileResearchRunStore(tmp_path / "runs.json"),
+        vault_root=tmp_path / "vault",
+        mcp_manager=FakeMCPManager(),
+    )
+    registry = ToolRegistry()
+
+    service._register_enrichment_tools(registry)
+
+    search_result = registry.dispatch(
+        "paper.search",
+        {
+            "query": "agentic rag",
+            "max_results_per_source": 2,
+            "sources": "arxiv,openalex",
+            "year": "2021",
+        },
+    )
+    assert search_result.status == "completed"
+    assert search_result.provider == "paper_search_mcp"
+    assert search_result.fallback_used is False
+    assert search_result.result["fallback_used"] is False
+    assert search_result.result["summary"] == "1 paper(s) across sources"
+    assert search_result.result["papers"][0]["paper_id"] == "2106.15928"
+    assert captured["search"] == {
+        "query": "agentic rag",
+        "max_results_per_source": 2,
+        "sources": "arxiv,openalex",
+        "year": "2021",
+    }
+
+    download_result = registry.dispatch(
+        "paper.download",
+        {
+            "paper_id": "2106.15928",
+            "source": "arxiv",
+            "doi": "10.5555/rag.1234",
+            "title": "Retrieval-Augmented Generation",
+            "save_path": "app/storage/papers",
+        },
+    )
+    assert download_result.status == "completed"
+    assert download_result.provider == "paper_search_mcp"
+    assert download_result.fallback_used is False
+    assert download_result.result == {
+        "path": "app/storage/papers/arxiv_2106.15928.pdf",
+        "fallback_used": False,
+        "summary": "app/storage/papers/arxiv_2106.15928.pdf",
+    }
+    assert captured["download"] == {
+        "paper_id": "2106.15928",
+        "source": "arxiv",
+        "doi": "10.5555/rag.1234",
+        "title": "Retrieval-Augmented Generation",
+        "save_path": "app/storage/papers",
+    }
+
+
+def test_research_run_service_registers_paper_search_fallback_tools(tmp_path):
+    class FakeMCPManager:
+        def list_servers(self):
+            return []
+
+    service = ResearchRunService(
+        store=FileResearchRunStore(tmp_path / "runs.json"),
+        vault_root=tmp_path / "vault",
+        mcp_manager=FakeMCPManager(),
+    )
+    registry = ToolRegistry()
+
+    service._register_enrichment_tools(registry)
+
+    search_result = registry.dispatch("paper.search", {"query": "agentic rag"})
+    assert search_result.status == "completed"
+    assert search_result.provider == "local_metadata"
+    assert search_result.fallback_used is True
+    assert search_result.result == {
+        "papers": [],
+        "summary": "paper-search MCP not enabled; unified search unavailable",
+        "fallback_used": True,
+    }
+
+    download_result = registry.dispatch(
+        "paper.download",
+        {"paper_id": "2106.15928", "source": "arxiv"},
+    )
+    assert download_result.status == "completed"
+    assert download_result.provider == "local_metadata"
+    assert download_result.fallback_used is True
+    assert download_result.result == {
+        "path": "",
+        "summary": "paper-search MCP not enabled; download unavailable",
+        "fallback_used": True,
+    }
 
 
 def test_research_run_service_execute_local_run_marks_intake_exception_failed(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import shlex
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,7 @@ from app.research_workflow.knowledge_pack import (
 )
 from app.research_workflow.paper_processing import PaperProcessingService
 from app.research_workflow.arxiv_mcp_adapter import ArxivMCPAdapter
+from app.research_workflow.paper_search_mcp_adapter import PaperSearchMCPAdapter
 from app.research_workflow.schemas import (
     ResearchRun,
     ResearchRunCreateRequest,
@@ -137,6 +139,18 @@ class ResearchRunService:
                 logger.info("arXiv MCP server started")
             except Exception as e:
                 logger.warning(f"Failed to start arXiv MCP server: {e}")
+
+        if settings.paper_search_mcp_enabled:
+            try:
+                manager.start_server(
+                    MCPServerConfig(
+                        name="paper-search",
+                        command=shlex.split(settings.paper_search_mcp_command),
+                    )
+                )
+                logger.info("paper-search MCP server started")
+            except Exception as e:
+                logger.warning(f"Failed to start paper-search MCP server: {e}")
 
         return manager
 
@@ -571,6 +585,96 @@ class ResearchRunService:
                     provider="local_metadata",
                     handler=lambda arguments: arxiv_fallback.find_preprint(arguments),
                     required_args=("title",),
+                    fallback_available=True,
+                    fallback_active=True,
+                )
+            )
+
+        # Unified multi-source search + OA download via external paper-search-mcp.
+        # Sci-Hub is disabled inside the adapter; the OA fallback chain is the
+        # only download path. When the server is not running, both tools fall
+        # back to local-metadata stubs so the tool names always exist.
+        if proxy is not None and "paper-search" in running_servers:
+            paper_adapter = PaperSearchMCPAdapter(proxy)
+
+            def search_papers_unified(arguments):
+                kwargs = {
+                    "max_results_per_source": int(
+                        arguments.get("max_results_per_source") or 5
+                    ),
+                    "year": arguments.get("year"),
+                }
+                sources_arg = arguments.get("sources")
+                if sources_arg:
+                    kwargs["sources"] = str(sources_arg)
+                papers = paper_adapter.search_papers(str(arguments["query"]), **kwargs)
+                return {
+                    "papers": [p.model_dump() for p in papers],
+                    "summary": f"{len(papers)} paper(s) across sources",
+                    "fallback_used": False,
+                }
+
+            def download_paper(arguments):
+                path = paper_adapter.download(
+                    paper_id=str(arguments["paper_id"]),
+                    source=str(arguments["source"]),
+                    doi=str(arguments.get("doi") or ""),
+                    title=str(arguments.get("title") or ""),
+                    save_path=str(
+                        arguments.get("save_path") or settings.paper_search_mcp_save_dir
+                    ),
+                )
+                return {
+                    "path": path,
+                    "fallback_used": False,
+                    "summary": path,
+                }
+
+            registry.register(
+                ToolDefinition(
+                    name="paper.search",
+                    provider="paper_search_mcp",
+                    handler=search_papers_unified,
+                    required_args=("query",),
+                    fallback_available=True,
+                    fallback_active=False,
+                )
+            )
+            registry.register(
+                ToolDefinition(
+                    name="paper.download",
+                    provider="paper_search_mcp",
+                    handler=download_paper,
+                    required_args=("paper_id", "source"),
+                    fallback_available=True,
+                    fallback_active=False,
+                )
+            )
+        else:
+            registry.register(
+                ToolDefinition(
+                    name="paper.search",
+                    provider="local_metadata",
+                    handler=lambda arguments: {
+                        "papers": [],
+                        "summary": "paper-search MCP not enabled; unified search unavailable",
+                        "fallback_used": True,
+                    },
+                    required_args=("query",),
+                    fallback_available=True,
+                    fallback_active=True,
+                )
+            )
+            registry.register(
+                ToolDefinition(
+                    name="paper.download",
+                    provider="local_metadata",
+                    handler=lambda arguments: {
+                        "path": "",
+                        "summary": "paper-search MCP not enabled; download unavailable",
+                        "fallback_used": True,
+                    },
+                    required_args=("paper_id", "source"),
                     fallback_available=True,
                     fallback_active=True,
                 )

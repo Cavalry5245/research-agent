@@ -38,3 +38,26 @@ class MCPToolResult(BaseModel):
         if self.status == 'error' and self.error is None:
             raise ValueError('error field is required when status is "error"')
         return self
+
+
+class Paper(BaseModel):
+    """Unified paper shape normalized across all academic search sources.
+
+    Every MCP search source (the external paper-search-mcp server and the
+    project's own minimal arXiv / Semantic Scholar servers) is mapped to this
+    model by ``app.mcp.paper_normalizer.normalize_paper`` so downstream
+    workflow code never sees source-specific dict layouts.
+    """
+
+    paper_id: str = ""
+    title: str = ""
+    authors: list[str] = Field(default_factory=list)
+    abstract: str = ""
+    doi: str = ""
+    pdf_url: str = ""
+    url: str = ""
+    source: str = ""
+    published_date: str | None = None
+    year: int | None = None
+    citation_count: int = 0
+    extra: dict[str, Any] = Field(default_factory=dict)

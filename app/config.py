@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     arxiv_mcp_enabled: bool = False
     research_agent_mcp_enabled: bool = True
 
+    # External multi-source paper search MCP server (paper-search-mcp).
+    # Disabled by default; when enabled, prefer disabling the two minimal
+    # arXiv / Semantic Scholar servers above to avoid duplicate requests.
+    paper_search_mcp_enabled: bool = False
+    paper_search_mcp_command: str = "python -m app.mcp.paper_search_server"
+    paper_search_mcp_save_dir: str = "app/storage/papers"
+
     # Phase 4: Rerank
     enable_rerank: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
