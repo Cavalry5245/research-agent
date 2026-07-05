@@ -6,12 +6,6 @@ import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorState } from "../../components/error-state/ErrorState";
 import { StatusBadge } from "../../components/status/StatusBadge";
 
-const BYOK_PRESETS: Array<{ label: string; baseUrl: string; model: string }> = [
-  { label: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", model: "deepseek-chat" },
-  { label: "SiliconFlow", baseUrl: "https://api.siliconflow.cn/v1", model: "deepseek-ai/DeepSeek-V3" },
-  { label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini" }
-];
-
 export function SettingsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["system-status"],
@@ -47,11 +41,6 @@ export function SettingsPage() {
     setSaved(false);
   };
 
-  const applyPreset = (preset: (typeof BYOK_PRESETS)[number]) => {
-    setBaseUrl(preset.baseUrl);
-    setModel(preset.model);
-  };
-
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -71,23 +60,10 @@ export function SettingsPage() {
           {saved && <span className="text-xs text-emerald-600">Saved — your key will be used for new requests.</span>}
         </div>
         <p className="mt-2 text-xs leading-5 text-muted">
-          Fill in your own OpenAI-compatible LLM credentials. They are stored only in this browser (localStorage) and
-          sent per-request as <code>X-LLM-*</code> headers. The backend never persists your key. Leave empty to use the
-          operator-configured model.
+          Fill in your own OpenAI-compatible LLM credentials (Base URL / API Key / Model). They are stored only in
+          this browser (localStorage) and sent per-request as <code>X-LLM-*</code> headers. The backend never
+          persists your key. Leave empty to use the operator-configured model.
         </p>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {BYOK_PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              onClick={() => applyPreset(preset)}
-              className="rounded border border-line bg-surface px-2 py-1 text-xs text-ink hover:bg-line"
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
 
         <div className="mt-4 grid gap-3">
           <label className="block text-xs text-muted">
