@@ -34,7 +34,6 @@ app/storage/memory.db-wal
 app/storage/research_pipeline.db
 
 .codex/
-.github/
 .claude/
 .agents/
 app/storage/research_runs.json

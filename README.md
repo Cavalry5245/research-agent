@@ -5,6 +5,10 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+> 一句话：上传论文 PDF → 自动生成 13 段中文精读笔记 → 基于全文的 RAG 问答 → 多论文横向对比 → 一键导出 Markdown。也支持输入研究问题，自动检索 arXiv / Semantic Scholar / Zotero 并产出带引用校验的研究综述。
+
+> 🌐 **在线 Demo**：_（部署中，敬请期待 —— 见 [产品化计划](docs/PRODUCTIZATION_PLAN.md)）_ · 💻 **自部署**：`git clone && docker compose up -d`（见 [快速启动](#快速启动docker--推荐)）
+
 ResearchAgent 是一个面向科研阅读、选题调研和 related work 写作的本地优先研究助手。它现在有两条入口：
 
 - **Research Pipeline**：用户输入研究问题，系统执行 Planner -> Retriever -> Reader -> Synthesis -> Harness，生成带引用和校验状态的 Markdown 研究报告。
@@ -43,6 +47,27 @@ Research Pipeline 的 6 个开发 slice 已完成：
 | Evaluation Harness | 3 个 seed questions、gold annotations、自动指标和 MVP gate report 脚本 |
 
 ## 架构概览
+
+```mermaid
+flowchart LR
+    UI[React UI<br/>Workflow / Papers / QA / Compare]
+    API[FastAPI]
+    UI --> API
+    API --> RP[Research Pipeline<br/>Planner → Retriever → Reader → Synthesis → Harness]
+    RP --> SRC[(arXiv · Semantic Scholar<br/>Zotero · paper-search MCP)]
+    RP --> PDF[PyMuPDF PDF parser]
+    RP --> RPT[Markdown report<br/>+ claim verification]
+    API --> LT[Legacy Paper Tools]
+    LT --> NOTE[13-section 中文笔记]
+    LT --> RAG[Hybrid RAG QA<br/>向量 + BM25 + 父子文档]
+    LT --> CMP[多论文对比]
+    PDF --> EMB[(bge embedding<br/>Chroma vector store)]
+    EMB --> RAG
+    RAG --> LLM[(OpenAI 兼容 LLM<br/>DeepSeek / Qwen / ...)]
+    NOTE --> LLM
+    CMP --> LLM
+    RP --> SQLite[(SQLite<br/>pipeline + memory)]
+```
 
 ```text
 React Workflow UI

@@ -19,10 +19,9 @@ httpx>=0.24.0
 
 # MCP: multi-source academic paper search & OA download fallback
 # External stdio MCP server (paper-search-mcp). Gated by PAPER_SEARCH_MCP_ENABLED.
-# Pinned to GitHub main commit: the unified search_papers / download_with_fallback
-# tools and OpenAlex/Crossref/Unpaywall connectors are not in any PyPI release yet
-# (PyPI latest is 0.1.3, which only ships 5 per-source tools). Sci-Hub stays off.
-paper-search-mcp @ git+https://github.com/openags/paper-search-mcp@dba2c7430aec7e17463ad981caf1d391f0204335
+# PyPI 0.1.4 ships the unified search_papers / download_with_fallback tools and
+# OpenAlex/Crossref/Unpaywall connectors (Layer 1 unified tooling). Sci-Hub stays off.
+paper-search-mcp>=0.1.4
 
 # Phase 1: Agent 工作流
 langchain>=0.1.0

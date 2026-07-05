@@ -109,11 +109,4 @@ docker compose logs -f frontend    # 前端日志
 
 ### Embedding 模型下载慢？
 
-首次启动时 API 服务会自动下载 embedding 模型（~33MB）。如果下载失败，可以设置 HTTP 代理或更换为 API embedding：
-
-```env
-EMBEDDING_PROVIDER=api
-EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
-EMBEDDING_API_KEY=your-siliconflow-key
-EMBEDDING_MODEL=BAAI/bge-m3
-```
+首次启动时 API 服务会自动下载本地 embedding 模型（~33MB，bge-small-zh-v1.5）。如果下载失败，可设置 HTTP 代理，或等待后续 `EMBEDDING_PROVIDER=api` 模式（计划中，将支持 SiliconFlow / OpenAI 兼容的 `/v1/embeddings`，免本地下载冷启动）。
