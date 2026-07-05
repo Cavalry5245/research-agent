@@ -107,6 +107,15 @@ docker compose logs -f frontend    # 前端日志
 
 正常。Docker 镜像默认使用 CPU 版 torch。sentence-transformers 模型推理在 CPU 上运行，性能足够个人使用。
 
-### Embedding 模型下载慢？
+### Embedding 模型下载慢 / 想用 API embedding？
 
-首次启动时 API 服务会自动下载本地 embedding 模型（~33MB，bge-small-zh-v1.5）。如果下载失败，可设置 HTTP 代理，或等待后续 `EMBEDDING_PROVIDER=api` 模式（计划中，将支持 SiliconFlow / OpenAI 兼容的 `/v1/embeddings`，免本地下载冷启动）。
+默认本地 embedding（~33MB，bge-small-zh-v1.5）。也可切到 OpenAI 兼容的 `/v1/embeddings` API（如 SiliconFlow bge-m3），免本地下载、冷启动更快：
+
+```env
+EMBEDDING_PROVIDER=api
+EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
+EMBEDDING_API_KEY=your-siliconflow-key
+EMBEDDING_MODEL=BAAI/bge-m3
+```
+
+注意：切换 embedding 模型会改变向量维度，需清空 `app/storage/vector_db/` 后重建索引。

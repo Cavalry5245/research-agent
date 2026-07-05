@@ -9,10 +9,15 @@ class Settings(BaseSettings):
     llm_model: str = "deepseek-chat"
 
     # Embedding
+    # embedding_provider: "local" (sentence-transformers, in-process) |
+    # "api" (OpenAI-compatible /v1/embeddings — e.g. SiliconFlow bge-m3)
     embedding_provider: str = "local"
     embedding_model: str = "m3e-base"
     embedding_device: str = "auto"
     embedding_batch_size: int = 32
+    # Only used when embedding_provider == "api"
+    embedding_base_url: str = ""
+    embedding_api_key: str = ""
 
     # Vector store
     vector_store: str = "chroma"

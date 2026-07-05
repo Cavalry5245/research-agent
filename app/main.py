@@ -29,6 +29,7 @@ from app.middleware.error_handler import (
     http_exception_handler,
     unhandled_exception_handler,
 )
+from app.middleware.byok import ByokMiddleware
 from app.middleware.tracing import RequestIDMiddleware
 from app.schemas import (
     AgentExecuteRequest,
@@ -111,6 +112,7 @@ app = FastAPI(title="ResearchAgent", version="0.1.0")
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(ByokMiddleware)
 
 from app.routers.conversations import router as conversations_router
 

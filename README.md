@@ -109,6 +109,10 @@ docker compose up -d
 - **React 前端**：http://localhost
 - **API 文档**：http://localhost:8000/docs
 
+### 用自己的 LLM Key（BYOK）
+
+打开前端 **Settings** 页面，填入你自己的 OpenAI 兼容 LLM 凭据（Base URL / API Key / Model，支持 DeepSeek / SiliconFlow / OpenAI 预设）。Key 仅保存在浏览器 localStorage，按请求以 `X-LLM-*` 头发给后端；后端通过 `ByokMiddleware` 把它注入 `LLMClient`，**绝不落盘**。留空则回退到运维配置的默认 LLM。详见 [QUICKSTART.md](QUICKSTART.md)。
+
 ---
 
 ## 快速启动（本地开发）

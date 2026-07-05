@@ -82,8 +82,50 @@ class EmbeddingClient:
         self._resolved_model_name = _resolve_model_name(self.model_name)
         self.device = _resolve_device(device)
         self.batch_size = batch_size or settings.embedding_batch_size
-        self._model = None
+        self._provider = settings.embedding_provider
+        self._model = None  # local sentence-transformers model cache
+        self._api_client = None  # OpenAI client, lazily built for api mode
 
+    @property
+    def provider(self) -> str:
+        return self._provider
+
+    # --- API mode (OpenAI-compatible /v1/embeddings) --------------------------
+    def _ensure_api_client(self):
+        if self._api_client is not None:
+            return
+        if not settings.embedding_base_url or not settings.embedding_api_key:
+            raise RuntimeError(
+                "embedding_provider=api 需配置 EMBEDDING_BASE_URL 和 EMBEDDING_API_KEY"
+            )
+        from openai import OpenAI
+
+        self._api_client = OpenAI(
+            base_url=settings.embedding_base_url,
+            api_key=settings.embedding_api_key,
+        )
+        logger.info(
+            "Embedding API client ready: base_url=%s, model=%s",
+            settings.embedding_base_url,
+            self._resolved_model_name,
+        )
+
+    def _api_embed(self, texts: list[str]) -> list[list[float]]:
+        self._ensure_api_client()
+        out: list[list[float]] = []
+        # Some providers cap input batch size; chunk to be safe.
+        for i in range(0, len(texts), self.batch_size):
+            batch = texts[i : i + self.batch_size]
+            resp = self._api_client.embeddings.create(
+                model=self._resolved_model_name,
+                input=batch,
+            )
+            # Response data may come back out of order; sort by index.
+            for item in sorted(resp.data, key=lambda d: getattr(d, "index", 0)):
+                out.append(list(item.embedding))
+        return out
+
+    # --- local mode (sentence-transformers) -----------------------------------
     def _ensure_model(self):
         if self._model is not None:
             return
@@ -161,8 +203,12 @@ class EmbeddingClient:
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
+        if self._provider == "api":
+            return self._api_embed(texts)
         embeddings = self._encode_with_recovery(texts)
         return embeddings.tolist()
 
     def embed_query(self, query: str) -> list[float]:
+        if self._provider == "api":
+            return self._api_embed([query])[0]
         return self._encode_with_recovery([query])[0].tolist()

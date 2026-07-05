@@ -1,0 +1,51 @@
+# Railway deploy config for the ResearchAgent BYOK demo.
+# Railway builds the root Dockerfile (api on :8000) and serves the React
+# frontend (built in frontend/Dockerfile, nginx on :80) as a second service.
+#
+# Quickstart (after `railway login`):
+#   railway link  # link this repo to a Railway project
+#   railway up    # deploy both services
+#
+# Required variables (set in Railway dashboard > Variables):
+#   LLM_PROVIDER=openai_compatible
+#   LLM_BASE_URL=<operator default, e.g. https://api.deepseek.com/v1>
+#   LLM_API_KEY=<operator key — used only when a visitor does not supply BYOK>
+#   LLM_MODEL=<e.g. deepseek-chat>
+#   EMBEDDING_PROVIDER=api                      # avoid local model cold start
+#   EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
+#   EMBEDDING_API_KEY=<SiliconFlow key — free tier covers the demo>
+#   EMBEDDING_MODEL=BAAI/bge-m3
+#   VECTOR_STORE=chroma
+#   CHROMA_PERSIST_DIR=app/storage/vector_db
+#   UPLOAD_DIR=app/storage/papers
+#   NOTE_DIR=app/storage/notes
+#   METADATA_DIR=app/storage/metadata
+#
+# Visitors then bring their OWN LLM key via the Settings page (BYOK), which
+# overrides LLM_* per-request via X-LLM-* headers. The operator's key is the
+# fallback. Embedding is operator-provided (free SiliconFlow tier).
+
+[deploy]
+# Railway uses the Dockerfile at repo root for the api service.
+# The frontend is deployed as a separate Railway service from ./frontend.
+
+[[services]]
+name = "api"
+source = "."
+dockerfilePath = "Dockerfile"
+
+  [services.variables]
+  PORT = "8000"
+
+  # Persist uploaded papers / notes / vector_db across redeploys.
+  [services.volumes]
+  "app/storage" = "/app/app/storage"
+
+[[services]]
+name = "frontend"
+source = "frontend"
+dockerfilePath = "Dockerfile"
+
+  [services.variables]
+  # The frontend nginx proxies API calls to the api service.
+  API_BASE_URL = "${api.RAILWAY_PRIVATE_DOMAIN}:8000"
