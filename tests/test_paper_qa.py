@@ -7,6 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from app.prompts import qa_prompt
 from app.prompts.qa_prompt import build_qa_prompt
 from app.schemas import Chunk
 from app.services.paper_qa import _build_context, answer_question
@@ -62,6 +63,60 @@ def test_build_qa_prompt():
     assert "[片段 1]" in prompt
     assert "不要使用上下文之外的知识" in prompt
     assert "根据当前论文片段无法判断" in prompt
+
+
+def test_build_query_rewrite_prompt_contains_memory_boundaries():
+    prompt = qa_prompt.build_query_rewrite_prompt(
+        question="How does it compare to CLIP?",
+        conversation_summary="User is comparing VLM detectors for infrared targets.",
+        recent_turns="User: What is the core method?\nAssistant: It uses VLM guidance.",
+    )
+
+    assert "How does it compare to CLIP?" in prompt
+    assert "User is comparing VLM detectors for infrared targets." in prompt
+    assert "User: What is the core method?" in prompt
+    assert "CONVERSATION SUMMARY" in prompt
+    assert "RECENT TURNS" in prompt
+    assert "CURRENT QUESTION" in prompt
+    assert "do not answer" in prompt.lower()
+    assert "preserve original technical terms" in prompt.lower()
+
+
+def test_build_contextual_qa_prompt_keeps_history_out_of_facts():
+    prompt = qa_prompt.build_contextual_qa_prompt(
+        question="What about the ablation?",
+        rewritten_question="ablation study results for VLM infrared detector",
+        context="[fragment 1] The ablation removes language guidance.",
+        conversation_summary="User cares about method details.",
+        recent_turns="User: Explain the architecture.\nAssistant: ...",
+    )
+
+    assert "What about the ablation?" in prompt
+    assert "ablation study results for VLM infrared detector" in prompt
+    assert "[fragment 1] The ablation removes language guidance." in prompt
+    assert "User cares about method details." in prompt
+    assert "User: Explain the architecture." in prompt
+    assert "only retrieved paper" in prompt.lower()
+    assert "evidence" in prompt.lower()
+    assert "memory" in prompt.lower()
+    assert "intent" in prompt.lower()
+    assert "not factual support" in prompt.lower()
+
+
+def test_build_summary_update_prompt_warns_against_fact_memory():
+    prompt = qa_prompt.build_summary_update_prompt(
+        existing_summary="User prefers concise answers with evidence fragments.",
+        recent_turns="User: What is the accuracy?\nAssistant: The paper reports 91%.",
+    )
+
+    assert "User prefers concise answers with evidence fragments." in prompt
+    assert "User: What is the accuracy?" in prompt
+    assert "EXISTING SUMMARY" in prompt
+    assert "RECENT QA TURNS" in prompt
+    assert "do not store" in prompt.lower()
+    assert "paper factual claims" in prompt.lower()
+    assert "durable memory" in prompt.lower()
+    assert "query rewriting" in prompt.lower()
 
 
 def test_build_context():
