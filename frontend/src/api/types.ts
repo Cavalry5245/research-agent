@@ -135,8 +135,41 @@ export interface SourceItem {
 
 export interface QAResponse {
   question: string;
+  rewritten_question?: string | null;
   answer: string;
   sources: SourceItem[];
+  conversation_id?: string | null;
+}
+
+export interface ConversationListItem {
+  id: string;
+  title: string;
+  created_at: number;
+  updated_at: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: "user" | "assistant" | string;
+  content: string;
+  created_at: number;
+  metadata: Record<string, unknown>;
+}
+
+export interface ConversationDetail {
+  conversation: ConversationListItem;
+  messages: ConversationMessage[];
+}
+
+export interface ConversationListResponse {
+  conversations: ConversationListItem[];
+  total: number;
+}
+
+export interface DeleteConversationResponse {
+  deleted: boolean;
+  conversation_id: string;
 }
 
 export interface TaskStatus {
