@@ -51,7 +51,10 @@ describe("ComparePage", () => {
     await user.click(screen.getByLabelText(/RAG Systems/i));
     await user.click(screen.getByRole("button", { name: /compare now/i }));
 
-    await waitFor(() => expect(screen.getByText("# Comparison")).toBeInTheDocument());
+    // The markdown content "# Comparison" is rendered as a parsed <h1> heading.
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Comparison", level: 1 })).toBeInTheDocument()
+    );
     expect(vi.mocked(compareApi.comparePapers).mock.calls[0][0]).toEqual(["paper_001", "paper_002"]);
   });
 
