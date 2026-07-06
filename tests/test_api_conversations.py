@@ -81,6 +81,33 @@ def test_list_conversations_filters_by_metadata_kind(client, memory_store):
     assert data["conversations"][0]["metadata"] == {"kind": "qa_thread"}
 
 
+def test_list_conversations_filters_by_metadata_kind_respects_offset(
+    client, memory_store
+):
+    qa_ids = [
+        memory_store.create_conversation(
+            f"QA thread {i}", metadata=json.dumps({"kind": "qa_thread"})
+        )
+        for i in range(5)
+    ]
+    memory_store.create_conversation(
+        "Regular chat", metadata=json.dumps({"kind": "chat"})
+    )
+    expected_ids = [
+        c["id"]
+        for c in memory_store.list_conversations(limit=20)
+        if json.loads(c["metadata"]).get("kind") == "qa_thread"
+    ][2:4]
+
+    resp = client.get("/api/conversations?kind=qa_thread&limit=2&offset=2")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    assert [c["id"] for c in data["conversations"]] == expected_ids
+    assert set(expected_ids).issubset(set(qa_ids))
+
+
 def test_conversation_detail_returns_message_metadata(client, memory_store):
     cid = memory_store.create_conversation(
         "QA thread", metadata=json.dumps({"kind": "qa_thread"})
@@ -107,6 +134,25 @@ def test_memory_store_updates_conversation_metadata(memory_store):
     before = memory_store.get_conversation(cid)["updated_at"]
 
     memory_store.update_conversation_metadata(cid, {"status": "closed", "owner": "qa"})
+
+    conv = memory_store.get_conversation(cid)
+    assert json.loads(conv["metadata"]) == {
+        "kind": "qa_thread",
+        "status": "closed",
+        "owner": "qa",
+    }
+    assert conv["updated_at"] >= before
+
+
+def test_memory_store_updates_conversation_metadata_accepts_json_string(memory_store):
+    cid = memory_store.create_conversation(
+        "QA thread", metadata=json.dumps({"kind": "qa_thread", "status": "open"})
+    )
+    before = memory_store.get_conversation(cid)["updated_at"]
+
+    memory_store.update_conversation_metadata(
+        cid, json.dumps({"status": "closed", "owner": "qa"})
+    )
 
     conv = memory_store.get_conversation(cid)
     assert json.loads(conv["metadata"]) == {

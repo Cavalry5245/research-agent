@@ -57,7 +57,7 @@ class ConversationListResponse(BaseModel):
 def list_conversations(limit: int = 50, offset: int = 0, kind: str | None = None):
     store = get_memory_store()
     convs = (
-        store.list_conversations_by_kind(kind, limit=limit)
+        store.list_conversations_by_kind(kind, limit=limit, offset=offset)
         if kind is not None
         else store.list_conversations(limit=limit, offset=offset)
     )

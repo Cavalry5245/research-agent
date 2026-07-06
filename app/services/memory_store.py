@@ -117,7 +117,7 @@ class MemoryStore:
         return [dict(r) for r in rows]
 
     def list_conversations_by_kind(
-        self, kind: str, limit: int | None = None
+        self, kind: str, limit: int | None = None, offset: int = 0
     ) -> list[dict]:
         conn = self._get_conn()
         rows = conn.execute(
@@ -129,7 +129,8 @@ class MemoryStore:
             for conversation in conversations
             if self._metadata_dict(conversation.get("metadata")).get("kind") == kind
         ]
-        return matching[:limit] if limit is not None else matching
+        paged = matching[offset:]
+        return paged[:limit] if limit is not None else paged
 
     def get_conversation(self, conv_id: str) -> dict | None:
         conn = self._get_conn()
@@ -139,13 +140,13 @@ class MemoryStore:
         return dict(row) if row else None
 
     def update_conversation_metadata(
-        self, conversation_id: str, metadata: dict[str, Any]
+        self, conversation_id: str, metadata: dict[str, Any] | str
     ) -> None:
         conv = self.get_conversation(conversation_id)
         if not conv:
             raise KeyError(conversation_id)
         merged = self._metadata_dict(conv.get("metadata"))
-        merged.update(metadata)
+        merged.update(self._metadata_dict(metadata))
         now = time.time()
         conn = self._get_conn()
         conn.execute(
