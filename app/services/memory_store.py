@@ -1,5 +1,6 @@
 """SQLite-backed memory store for conversations, messages, preferences, and reading history."""
 
+import json
 import sqlite3
 import threading
 import time
@@ -115,6 +116,21 @@ class MemoryStore:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def list_conversations_by_kind(
+        self, kind: str, limit: int | None = None
+    ) -> list[dict]:
+        conn = self._get_conn()
+        rows = conn.execute(
+            "SELECT * FROM conversations ORDER BY updated_at DESC",
+        ).fetchall()
+        conversations = [dict(r) for r in rows]
+        matching = [
+            conversation
+            for conversation in conversations
+            if self._metadata_dict(conversation.get("metadata")).get("kind") == kind
+        ]
+        return matching[:limit] if limit is not None else matching
+
     def get_conversation(self, conv_id: str) -> dict | None:
         conn = self._get_conn()
         row = conn.execute(
@@ -122,11 +138,50 @@ class MemoryStore:
         ).fetchone()
         return dict(row) if row else None
 
+    def update_conversation_metadata(
+        self, conversation_id: str, metadata: dict[str, Any]
+    ) -> None:
+        conv = self.get_conversation(conversation_id)
+        if not conv:
+            raise KeyError(conversation_id)
+        merged = self._metadata_dict(conv.get("metadata"))
+        merged.update(metadata)
+        now = time.time()
+        conn = self._get_conn()
+        conn.execute(
+            "UPDATE conversations SET metadata = ?, updated_at = ? WHERE id = ?",
+            (json.dumps(merged), now, conversation_id),
+        )
+        conn.commit()
+
+    def update_conversation_title(
+        self, conversation_id: str, title: str | None
+    ) -> None:
+        conv = self.get_conversation(conversation_id)
+        if not conv:
+            raise KeyError(conversation_id)
+        conn = self._get_conn()
+        conn.execute(
+            "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?",
+            (title or "", time.time(), conversation_id),
+        )
+        conn.commit()
+
     def delete_conversation(self, conv_id: str) -> bool:
         conn = self._get_conn()
         cursor = conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
         conn.commit()
         return cursor.rowcount > 0
+
+    @staticmethod
+    def _metadata_dict(raw_metadata: Any) -> dict[str, Any]:
+        if isinstance(raw_metadata, dict):
+            return raw_metadata
+        try:
+            decoded = json.loads(raw_metadata or "{}")
+        except (TypeError, json.JSONDecodeError):
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
 
     # ── Messages ─────────────────────────────────────────────────────────
 
