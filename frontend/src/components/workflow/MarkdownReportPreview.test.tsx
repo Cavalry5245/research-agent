@@ -164,7 +164,11 @@ We used approach X.`;
 
     render(<MarkdownReportPreview markdown={formattedMarkdown} runId="test-run" />);
 
-    const preElement = screen.getByText(/Bold text/i).closest("pre");
-    expect(preElement).toBeInTheDocument();
+    // Bold/italic render as semantic elements (formatting preserved, not escaped).
+    expect(screen.getByText(/Bold text/).tagName).toBe("STRONG");
+    expect(screen.getByText(/italic text/).tagName).toBe("EM");
+    // List items render.
+    expect(screen.getByText("Item 1").tagName).toBe("LI");
+    expect(screen.getByText("Item 2").tagName).toBe("LI");
   });
 });

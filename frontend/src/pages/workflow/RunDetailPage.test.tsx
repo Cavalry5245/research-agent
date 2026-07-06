@@ -16,6 +16,7 @@ vi.mock("../../api/researchPipeline", () => ({
   getResearchRunDetail: vi.fn(),
   getReport: vi.fn(),
   cancelResearchRun: vi.fn(),
+  rerunResearchRun: vi.fn(),
 }));
 
 const createMockRunDetail = (overrides?: Partial<ResearchRunDetailResponse>): ResearchRunDetailResponse => ({
