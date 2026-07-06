@@ -141,32 +141,31 @@ class MemoryStore:
 
     def update_conversation_metadata(
         self, conversation_id: str, metadata: dict[str, Any] | str
-    ) -> None:
+    ) -> bool:
         conv = self.get_conversation(conversation_id)
         if not conv:
-            raise KeyError(conversation_id)
+            return False
         merged = self._metadata_dict(conv.get("metadata"))
         merged.update(self._metadata_dict(metadata))
         now = time.time()
         conn = self._get_conn()
-        conn.execute(
+        cursor = conn.execute(
             "UPDATE conversations SET metadata = ?, updated_at = ? WHERE id = ?",
             (json.dumps(merged), now, conversation_id),
         )
         conn.commit()
+        return cursor.rowcount > 0
 
     def update_conversation_title(
         self, conversation_id: str, title: str | None
-    ) -> None:
-        conv = self.get_conversation(conversation_id)
-        if not conv:
-            raise KeyError(conversation_id)
+    ) -> bool:
         conn = self._get_conn()
-        conn.execute(
+        cursor = conn.execute(
             "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?",
             (title or "", time.time(), conversation_id),
         )
         conn.commit()
+        return cursor.rowcount > 0
 
     def delete_conversation(self, conv_id: str) -> bool:
         conn = self._get_conn()

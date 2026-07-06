@@ -133,9 +133,12 @@ def test_memory_store_updates_conversation_metadata(memory_store):
     )
     before = memory_store.get_conversation(cid)["updated_at"]
 
-    memory_store.update_conversation_metadata(cid, {"status": "closed", "owner": "qa"})
+    updated = memory_store.update_conversation_metadata(
+        cid, {"status": "closed", "owner": "qa"}
+    )
 
     conv = memory_store.get_conversation(cid)
+    assert updated is True
     assert json.loads(conv["metadata"]) == {
         "kind": "qa_thread",
         "status": "closed",
@@ -150,11 +153,12 @@ def test_memory_store_updates_conversation_metadata_accepts_json_string(memory_s
     )
     before = memory_store.get_conversation(cid)["updated_at"]
 
-    memory_store.update_conversation_metadata(
+    updated = memory_store.update_conversation_metadata(
         cid, json.dumps({"status": "closed", "owner": "qa"})
     )
 
     conv = memory_store.get_conversation(cid)
+    assert updated is True
     assert json.loads(conv["metadata"]) == {
         "kind": "qa_thread",
         "status": "closed",
@@ -163,15 +167,34 @@ def test_memory_store_updates_conversation_metadata_accepts_json_string(memory_s
     assert conv["updated_at"] >= before
 
 
+def test_memory_store_update_conversation_metadata_returns_false_when_missing(
+    memory_store,
+):
+    updated = memory_store.update_conversation_metadata(
+        "missing-conversation", json.dumps({"status": "closed"})
+    )
+
+    assert updated is False
+
+
 def test_memory_store_updates_conversation_title(memory_store):
     cid = memory_store.create_conversation("Draft title")
     before = memory_store.get_conversation(cid)["updated_at"]
 
-    memory_store.update_conversation_title(cid, "Final title")
+    updated = memory_store.update_conversation_title(cid, "Final title")
 
     conv = memory_store.get_conversation(cid)
+    assert updated is True
     assert conv["title"] == "Final title"
     assert conv["updated_at"] >= before
+
+
+def test_memory_store_update_conversation_title_returns_false_when_missing(
+    memory_store,
+):
+    updated = memory_store.update_conversation_title("missing-conversation", "Title")
+
+    assert updated is False
 
 
 def test_delete_conversation(client, memory_store):
