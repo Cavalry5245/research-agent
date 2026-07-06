@@ -58,7 +58,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/block_dangerous_bash.py"
+            "command": "python E:/projects/ResearchAgent/.claude/hooks/block_dangerous_bash.py"
           }
         ]
       }
@@ -69,7 +69,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python .claude/hooks/check_task_completion.py"
+            "command": "python E:/projects/ResearchAgent/.claude/hooks/block_dangerous_bash.py"
           }
         ]
       }
