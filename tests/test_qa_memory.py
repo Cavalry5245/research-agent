@@ -106,6 +106,7 @@ def test_ask_reuses_existing_qa_conversation_and_includes_recent_turns(tmp_path)
                 "default_paper_id": "paper-1",
                 "summary": "User is asking about the model architecture.",
                 "summary_message_count": 2,
+                "last_rewritten_question": "Previous rewritten query",
             }
         ),
     )
@@ -139,8 +140,14 @@ def test_ask_reuses_existing_qa_conversation_and_includes_recent_turns(tmp_path)
     assert result["conversation_id"] == conv_id
     assert result["question"] == "How is it trained?"
     assert result["rewritten_question"] == "standalone follow up query"
-    assert "User is asking about the model architecture." in llm.calls[0]
-    assert "user: What is the encoder?" in llm.calls[0]
+    rewrite_prompt = llm.calls[0]
+    assert "User is asking about the model architecture." in rewrite_prompt
+    assert "user: What is the encoder?" in rewrite_prompt
+    # previous_rewritten_question and paper_id are fed into the rewrite prompt
+    assert "上一轮改写问题" in rewrite_prompt
+    assert "Previous rewritten query" in rewrite_prompt
+    assert "当前论文范围" in rewrite_prompt
+    assert "paper-2" in rewrite_prompt
 
     messages = store.get_messages(conv_id)
     assert len(messages) == 4
@@ -193,6 +200,30 @@ def test_ask_rejects_non_qa_conversation(tmp_path):
     assert "not a QA conversation" in exc_info.value.detail
 
 
+def test_ask_includes_rewritten_annotation_in_recent_turns(tmp_path):
+    llm = FakeLLM(["rewritten follow up"])
+    service, store = _make_service(tmp_path, llm_client=llm, recent_message_limit=4)
+    conv_id = store.create_conversation(
+        title="Existing QA",
+        metadata=json.dumps({"kind": "qa", "summary_message_count": 0}),
+    )
+    # Prior assistant turn carries a rewritten_question in metadata.
+    store.add_message(
+        conv_id,
+        "assistant",
+        "It uses a transformer encoder.",
+        metadata=json.dumps({"rewritten_question": "encoder architecture"}),
+    )
+
+    def answer_fn(**kwargs):
+        return {"answer": "ok", "sources": []}
+
+    service.ask("它呢？", answer_fn, conversation_id=conv_id)
+
+    rewrite_prompt = llm.calls[0]
+    assert "(rewritten: encoder architecture)" in rewrite_prompt
+
+
 def test_rewrite_failure_uses_original_question_and_records_metadata(tmp_path):
     llm = FakeLLM(fail_on_calls={1})
     service, store = _make_service(tmp_path, llm_client=llm)
@@ -231,8 +262,14 @@ def test_summary_update_runs_after_threshold_and_failure_does_not_block(tmp_path
     conv_meta = _metadata(store.get_conversation(first["conversation_id"]))
     assert conv_meta["summary"] == "updated summary"
     assert conv_meta["summary_message_count"] == 2
-    assert "user: Q1" in llm.calls[1]
-    assert "assistant: Answer for Q1" in llm.calls[1]
+    assert conv_meta["summary_updated_at"] is not None
+    summary_prompt = llm.calls[1]
+    assert "user: Q1" in summary_prompt
+    assert "assistant: Answer for Q1" in summary_prompt
+    # rewritten_question and source_notes are fed into the summary prompt
+    assert "本轮改写问题" in summary_prompt
+    assert "rewritten q1" in summary_prompt
+    assert "本轮来源提示" in summary_prompt
 
     second = service.ask(
         "Q2", answer_fn, paper_id="paper-1", conversation_id=first["conversation_id"]

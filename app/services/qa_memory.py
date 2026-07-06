@@ -1,6 +1,7 @@
 """QA conversation memory orchestration."""
 
 import json
+import time
 from typing import Any, Callable
 
 from fastapi import HTTPException
@@ -46,6 +47,9 @@ class QAMemoryService:
         conversation = self.store.get_conversation(conversation_id) or {}
         conversation_metadata = self._metadata_dict(conversation.get("metadata"))
         summary = str(conversation_metadata.get("summary") or "")
+        previous_rewritten = str(
+            conversation_metadata.get("last_rewritten_question") or ""
+        )
         recent_messages = self.store.get_messages(
             conversation_id, limit=self.recent_message_limit
         )
@@ -55,6 +59,8 @@ class QAMemoryService:
             question=question,
             summary=summary,
             recent_turns=recent_turns,
+            paper_id=paper_id,
+            previous_rewritten_question=previous_rewritten,
         )
 
         self.store.add_message(
@@ -129,7 +135,7 @@ class QAMemoryService:
             conversation_id,
             metadata_update,
         )
-        self._maybe_update_summary(conversation_id)
+        self._maybe_update_summary(conversation_id, rewritten_question, sources)
 
         response = dict(result)
         response.update(
@@ -178,6 +184,8 @@ class QAMemoryService:
         question: str,
         summary: str,
         recent_turns: str,
+        paper_id: str | None = None,
+        previous_rewritten_question: str = "",
     ) -> tuple[str, bool]:
         if self.llm_client is None:
             return question, False
@@ -186,6 +194,8 @@ class QAMemoryService:
             question,
             conversation_summary=summary,
             recent_turns=recent_turns,
+            paper_id=paper_id,
+            previous_rewritten_question=previous_rewritten_question,
         )
         try:
             rewritten = str(self.llm_client.generate_text(prompt) or "").strip()
@@ -193,7 +203,12 @@ class QAMemoryService:
             return question, True
         return (rewritten or question), False
 
-    def _maybe_update_summary(self, conversation_id: str) -> None:
+    def _maybe_update_summary(
+        self,
+        conversation_id: str,
+        rewritten_question: str,
+        sources: list[dict[str, Any]],
+    ) -> None:
         if self.llm_client is None:
             return
 
@@ -214,9 +229,12 @@ class QAMemoryService:
             return
 
         turns_for_summary = self._format_turns(messages[summary_message_count:])
+        source_notes = self._source_notes(sources)
         prompt = build_summary_update_prompt(
-            str(metadata.get("summary") or ""),
-            turns_for_summary,
+            previous_summary=str(metadata.get("summary") or ""),
+            recent_turns=turns_for_summary,
+            rewritten_question=rewritten_question,
+            source_notes=source_notes,
         )
         try:
             updated_summary = str(self.llm_client.generate_text(prompt) or "").strip()
@@ -230,17 +248,32 @@ class QAMemoryService:
             {
                 "summary": updated_summary,
                 "summary_message_count": message_count,
+                "summary_updated_at": time.time(),
             },
         )
 
-    @staticmethod
-    def _format_turns(messages: list[dict[str, Any]]) -> str:
+    def _format_turns(self, messages: list[dict[str, Any]]) -> str:
         lines = []
         for message in messages:
             role = str(message.get("role") or "").strip() or "unknown"
-            content = str(message.get("content") or "").strip()
-            lines.append(f"{role}: {content}")
+            content = " ".join(str(message.get("content") or "").split())
+            metadata = self._metadata_dict(message.get("metadata"))
+            rewritten = metadata.get("rewritten_question")
+            if rewritten:
+                lines.append(f"{role}: {content} (rewritten: {rewritten})")
+            else:
+                lines.append(f"{role}: {content}")
         return "\n".join(lines)
+
+    @staticmethod
+    def _source_notes(sources: list[dict[str, Any]]) -> str:
+        notes = []
+        for source in sources[:5]:
+            paper = source.get("paper_id") or "unknown"
+            section = source.get("section_path") or source.get("section") or "unknown"
+            page = source.get("page_range") or source.get("page_number") or "?"
+            notes.append(f"{paper} {section} p.{page}")
+        return "\n".join(notes)
 
     @staticmethod
     def _metadata_dict(raw_metadata: Any) -> dict[str, Any]:

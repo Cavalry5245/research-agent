@@ -19,30 +19,29 @@ def build_qa_prompt(question: str, context: str) -> str:
     return QA_PROMPT.format(question=question, context=context)
 
 
-def build_query_rewrite_prompt(
-    question: str, conversation_summary: str = "", recent_turns: str = ""
-) -> str:
-    summary = conversation_summary or "(empty)"
-    turns = recent_turns or "(empty)"
-    return f"""Rewrite the current user question into a standalone retrieval query for paper search.
+CONTEXTUAL_QA_PROMPT = """你是一个严谨的科研论文问答助手。请只根据本轮检索到的论文证据回答用户问题。
 
-Rules:
-1. Do not answer the question. Only rewrite it.
-2. Preserve original technical terms where possible.
-3. Use the conversation memory only to resolve references, ellipses, and user intent.
-4. Return one concise retrieval query.
-5. Keep the user's language: a Chinese question must yield a Chinese retrieval query; do not translate.
+会话摘要：
+{conversation_summary}
 
-=== CONVERSATION SUMMARY ===
-{summary}
+最近对话：
+{recent_turns}
 
-=== RECENT TURNS ===
-{turns}
-
-=== CURRENT QUESTION ===
+用户原始问题：
 {question}
 
-Standalone retrieval query:
+用于检索的改写问题：
+{rewritten_question}
+
+本轮检索到的论文证据：
+{context}
+
+要求：
+1. 会话摘要和最近对话只用于理解指代和任务上下文，不能作为论文事实依据。
+2. 答案必须来自本轮检索到的论文证据。
+3. 如果证据不足，明确说明"根据当前论文片段无法判断"。
+4. 如果历史和本轮证据冲突，以本轮证据为准。
+5. 回答后列出依据片段编号或来源信息。
 """
 
 
@@ -53,52 +52,89 @@ def build_contextual_qa_prompt(
     conversation_summary: str = "",
     recent_turns: str = "",
 ) -> str:
-    summary = conversation_summary or "(empty)"
-    turns = recent_turns or "(empty)"
-    return f"""You are a rigorous research paper QA assistant.
+    return CONTEXTUAL_QA_PROMPT.format(
+        question=question,
+        rewritten_question=rewritten_question,
+        context=context,
+        conversation_summary=conversation_summary or "无",
+        recent_turns=recent_turns or "无",
+    )
 
-Evidence rules:
-1. Only retrieved paper fragments/context can be used as evidence and factual basis.
-2. Conversation memory/history is only for understanding the user's intent and is not factual support.
-3. Do not fabricate answers from outside the retrieved paper context.
-4. If the retrieved context is insufficient, explicitly say "根据当前论文片段无法判断".
-5. Keep the answer clear and useful for researchers.
-6. Be specific about methods, experiments, and metrics when the retrieved context supports it.
-7. List the supporting fragment identifiers after the answer.
 
-=== CONVERSATION SUMMARY ===
-{summary}
+QUERY_REWRITE_PROMPT = """你要把科研论文 QA 对话中的当前问题改写成独立、适合检索的查询。
 
-=== RECENT TURNS ===
-{turns}
+会话摘要：
+{conversation_summary}
 
-=== ORIGINAL USER QUESTION ===
+最近对话：
+{recent_turns}
+
+当前论文范围：
+{paper_id}
+
+上一轮改写问题：
+{previous_rewritten_question}
+
+当前问题：
 {question}
 
-=== REWRITTEN RETRIEVAL QUESTION ===
+要求：
+1. 只补全指代、省略和上下文对象。
+2. 不要引入历史中没有出现的新事实。
+3. 不要回答问题。
+4. 如果当前问题已经独立，保持原意并轻微规范化。
+5. 保持用户语言，中文问题输出中文。
+6. 只输出改写后的检索问题，不要输出解释。
+"""
+
+
+def build_query_rewrite_prompt(
+    question: str,
+    conversation_summary: str = "",
+    recent_turns: str = "",
+    paper_id: str | None = None,
+    previous_rewritten_question: str = "",
+) -> str:
+    return QUERY_REWRITE_PROMPT.format(
+        question=question,
+        conversation_summary=conversation_summary or "无",
+        recent_turns=recent_turns or "无",
+        paper_id=paper_id or "全库",
+        previous_rewritten_question=previous_rewritten_question or "无",
+    )
+
+
+SUMMARY_UPDATE_PROMPT = """你要更新科研 QA thread 的会话状态摘要。
+
+旧会话状态摘要：
+{previous_summary}
+
+最近对话：
+{recent_turns}
+
+本轮改写问题：
 {rewritten_question}
 
-=== RETRIEVED PAPER CONTEXT ===
-{context}
+本轮来源提示：
+{source_notes}
+
+要求：
+1. 输出一段简洁的会话状态摘要，说明当前讨论主题、被反复指代的对象、用户关注维度和后续追问需要的上下文。
+2. 不要把 assistant answer 改写成无来源的长期事实。
+3. 不要把无法由来源提示支持的内容写成确定结论。
+4. 摘要只服务本会话后续追问，不替代论文检索。
 """
 
 
-def build_summary_update_prompt(existing_summary: str, recent_turns: str) -> str:
-    summary = existing_summary or "(empty)"
-    turns = recent_turns or "(empty)"
-    return f"""Update a concise conversation summary for future query rewriting in a paper QA workflow.
-
-Guidelines:
-1. Keep durable memory focused on user intent, preferences, workflow needs, unresolved references, and recurring terminology.
-2. Do not store paper factual claims as long-term or durable memory unless they are explicitly user preferences or workflow needs.
-3. This project requires source-grounded QA, so paper facts should come from retrieved context in each answer, not from memory.
-4. Produce a concise summary suitable for future query rewriting.
-
-=== EXISTING SUMMARY ===
-{summary}
-
-=== RECENT QA TURNS ===
-{turns}
-
-Updated concise summary:
-"""
+def build_summary_update_prompt(
+    previous_summary: str = "",
+    recent_turns: str = "",
+    rewritten_question: str = "",
+    source_notes: str = "",
+) -> str:
+    return SUMMARY_UPDATE_PROMPT.format(
+        previous_summary=previous_summary or "无",
+        recent_turns=recent_turns or "无",
+        rewritten_question=rewritten_question or "无",
+        source_notes=source_notes or "无",
+    )
