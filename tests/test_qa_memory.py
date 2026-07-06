@@ -61,6 +61,7 @@ def test_ask_creates_qa_conversation_and_persists_messages(tmp_path):
     )
 
     assert result["conversation_id"]
+    assert result["question"] == "What is the method?"
     assert result["rewritten_question"] == "rewritten retrieval query"
     assert result["rewrite_failed"] is False
     assert result["answer"] == "The method is retrieval augmented QA."
@@ -136,6 +137,7 @@ def test_ask_reuses_existing_qa_conversation_and_includes_recent_turns(tmp_path)
     )
 
     assert result["conversation_id"] == conv_id
+    assert result["question"] == "How is it trained?"
     assert result["rewritten_question"] == "standalone follow up query"
     assert "User is asking about the model architecture." in llm.calls[0]
     assert "user: What is the encoder?" in llm.calls[0]
@@ -147,6 +149,25 @@ def test_ask_reuses_existing_qa_conversation_and_includes_recent_turns(tmp_path)
     conv_meta = _metadata(store.get_conversation(conv_id))
     assert conv_meta["default_paper_id"] == "paper-2"
     assert conv_meta["last_rewritten_question"] == "standalone follow up query"
+
+
+def test_ask_preserves_default_paper_id_on_scopeless_followup(tmp_path):
+    llm = FakeLLM(["rewritten q1", "rewritten q2"])
+    service, store = _make_service(tmp_path, llm_client=llm)
+
+    def answer_fn(**kwargs):
+        return {"answer": "a", "sources": []}
+
+    first = service.ask("First?", answer_fn, paper_id="paper-1")
+    conv_id = first["conversation_id"]
+    assert _metadata(store.get_conversation(conv_id))["default_paper_id"] == "paper-1"
+
+    # Follow-up carries no paper_id; default_paper_id must be preserved, not clobbered to None.
+    service.ask("它呢？", answer_fn, conversation_id=conv_id)
+
+    conv_meta = _metadata(store.get_conversation(conv_id))
+    assert conv_meta["default_paper_id"] == "paper-1"
+    assert conv_meta["last_rewritten_question"] == "rewritten q2"
 
 
 def test_ask_rejects_missing_conversation_id(tmp_path):

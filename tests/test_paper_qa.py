@@ -80,6 +80,8 @@ def test_build_query_rewrite_prompt_contains_memory_boundaries():
     assert "CURRENT QUESTION" in prompt
     assert "do not answer" in prompt.lower()
     assert "preserve original technical terms" in prompt.lower()
+    assert "user's language" in prompt.lower()
+    assert "chinese" in prompt.lower()
 
 
 def test_build_contextual_qa_prompt_keeps_history_out_of_facts():

@@ -120,18 +120,21 @@ class QAMemoryService:
             ),
         )
 
+        metadata_update: dict[str, Any] = {
+            "last_rewritten_question": rewritten_question,
+        }
+        if paper_id is not None:
+            metadata_update["default_paper_id"] = paper_id
         self.store.update_conversation_metadata(
             conversation_id,
-            {
-                "last_rewritten_question": rewritten_question,
-                "default_paper_id": paper_id,
-            },
+            metadata_update,
         )
         self._maybe_update_summary(conversation_id)
 
         response = dict(result)
         response.update(
             {
+                "question": question,
                 "conversation_id": conversation_id,
                 "rewritten_question": rewritten_question,
                 "rewrite_failed": rewrite_failed,

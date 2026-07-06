@@ -53,6 +53,7 @@ def test_qa_endpoint_creates_conversation_and_returns_thread_fields(tmp_path):
         assert resp.status_code == 200
         data = resp.json()
         assert data["conversation_id"]
+        assert data["question"] == "它的 zero-shot 指标是多少？"
         assert data["rewritten_question"] == "Grounding DINO zero-shot metrics?"
         assert data["answer"] == "grounded answer"
         mock_answer.assert_called_once()

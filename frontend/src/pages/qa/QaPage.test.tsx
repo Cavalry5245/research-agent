@@ -7,6 +7,7 @@ import * as conversationApi from "../../api/conversations";
 import * as papersApi from "../../api/papers";
 import * as qaApi from "../../api/qa";
 import type { ConversationDetail, ConversationListResponse, QAResponse } from "../../api/types";
+import { ApiError } from "../../api/client";
 
 vi.mock("../../api/papers", () => ({ getPapers: vi.fn() }));
 vi.mock("../../api/qa", () => ({ askQuestion: vi.fn() }));
@@ -219,5 +220,53 @@ describe("QaPage", () => {
 
     pending.resolve(qaResponse);
     await waitFor(() => expect(screen.getByText("Attention weighs token interactions.")).toBeInTheDocument());
+  });
+
+  it("renders an inline error when the conversations list fails to load", async () => {
+    vi.mocked(conversationApi.listConversations).mockRejectedValue(
+      new Error("network down")
+    );
+    renderPage();
+
+    expect(await screen.findByText("Unable to load conversations")).toBeInTheDocument();
+    expect(screen.getByText("network down")).toBeInTheDocument();
+  });
+
+  it("shows an error banner when deleting a conversation fails with a server error", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await ask(user, "What is attention?");
+    await waitFor(() => expect(screen.getByText("Attention weighs token interactions.")).toBeInTheDocument());
+
+    vi.mocked(conversationApi.deleteConversation).mockRejectedValue(
+      new ApiError("server error", 500)
+    );
+
+    await user.click(screen.getByRole("button", { name: "Clear conversation" }));
+
+    expect(await screen.findByText("Failed to clear conversation")).toBeInTheDocument();
+    expect(screen.getByText("server error")).toBeInTheDocument();
+    // Active conversation is preserved on non-404 failure (still exists server-side).
+    expect(localStorage.getItem("research-agent:qa:conversation-id:v1")).toBe("conv_1");
+  });
+
+  it("clears local state when delete fails with 404 (already deleted server-side)", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await ask(user, "What is attention?");
+    await waitFor(() => expect(screen.getByText("Attention weighs token interactions.")).toBeInTheDocument());
+
+    vi.mocked(conversationApi.deleteConversation).mockRejectedValue(
+      new ApiError("not found", 404)
+    );
+
+    await user.click(screen.getByRole("button", { name: "Clear conversation" }));
+
+    await waitFor(() => expect(screen.queryByText("Attention weighs token interactions.")).not.toBeInTheDocument());
+    expect(localStorage.getItem("research-agent:qa:conversation-id:v1")).toBeNull();
+    // No error banner for 404 — treated as already-deleted.
+    expect(screen.queryByText("Failed to clear conversation")).not.toBeInTheDocument();
   });
 });

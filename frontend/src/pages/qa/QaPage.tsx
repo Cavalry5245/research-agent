@@ -4,6 +4,7 @@ import { SendHorizontal, X } from "lucide-react";
 import { askQuestion } from "../../api/qa";
 import { deleteConversation, getConversation, listConversations } from "../../api/conversations";
 import { getPapers } from "../../api/papers";
+import { ApiError } from "../../api/client";
 import type { ConversationDetail, ConversationMessage, SourceItem } from "../../api/types";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorState } from "../../components/error-state/ErrorState";
@@ -134,6 +135,7 @@ export function QaPage() {
     title: string;
     sources: SourceItem[];
   } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const papersQuery = useQuery({
     queryKey: ["papers"],
@@ -151,11 +153,26 @@ export function QaPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteConversation,
+    onMutate: () => {
+      setDeleteError(null);
+    },
     onSuccess: () => {
       setActiveConversationId(null);
       setMessages([]);
       setSourcePanel(null);
       storeConversationId(null);
+      queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
+    },
+    onError: (error) => {
+      // 404 = already deleted server-side; mirror success so the UI clears.
+      if (error instanceof ApiError && error.status === 404) {
+        setActiveConversationId(null);
+        setMessages([]);
+        setSourcePanel(null);
+        storeConversationId(null);
+      } else {
+        setDeleteError(error instanceof Error ? error.message : "Failed to clear conversation");
+      }
       queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
     }
   });
@@ -339,7 +356,12 @@ export function QaPage() {
         </div>
       </section>
 
-      {conversationsQuery.data?.conversations.length ? (
+      {conversationsQuery.error ? (
+        <ErrorState
+          title="Unable to load conversations"
+          message={(conversationsQuery.error as Error).message}
+        />
+      ) : conversationsQuery.data?.conversations.length ? (
         <section className="flex flex-wrap gap-2">
           {conversationsQuery.data.conversations.map((conversation) => (
             <button
@@ -356,6 +378,10 @@ export function QaPage() {
             </button>
           ))}
         </section>
+      ) : null}
+
+      {deleteError ? (
+        <ErrorState title="Failed to clear conversation" message={deleteError} />
       ) : null}
 
       <div className="flex flex-1 flex-col gap-4 xl:flex-row xl:items-start">

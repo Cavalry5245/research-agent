@@ -31,6 +31,7 @@ Rules:
 2. Preserve original technical terms where possible.
 3. Use the conversation memory only to resolve references, ellipses, and user intent.
 4. Return one concise retrieval query.
+5. Keep the user's language: a Chinese question must yield a Chinese retrieval query; do not translate.
 
 === CONVERSATION SUMMARY ===
 {summary}
