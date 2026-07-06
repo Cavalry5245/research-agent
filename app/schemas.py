@@ -279,12 +279,15 @@ class QARequest(BaseModel):
     question: str
     paper_id: str | None = None
     top_k: int = 5
+    conversation_id: str | None = None
 
 
 class QAResponse(BaseModel):
     question: str
+    rewritten_question: str | None = None
     answer: str
     sources: list[SourceItem]
+    conversation_id: str | None = None
 
 
 class JobStatusResponse(BaseModel):

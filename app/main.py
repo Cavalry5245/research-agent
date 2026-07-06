@@ -88,6 +88,7 @@ from app.services.note_generator import generate_note
 from app.services.paper_compare import compare_papers, save_compare_result
 from app.services.paper_manager import delete_paper_assets
 from app.services.paper_qa import answer_question
+from app.services.qa_memory import QAMemoryService
 from app.services.paper_status import (
     build_index_job_status,
     build_job_status,
@@ -114,7 +115,7 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(ByokMiddleware)
 
-from app.routers.conversations import router as conversations_router
+from app.routers.conversations import get_memory_store, router as conversations_router
 
 app.include_router(conversations_router)
 
@@ -1478,16 +1479,40 @@ async def qa_endpoint(req: QARequest):
     try:
         reranker = _get_reranker()
         retriever = _get_retriever()
-        result = answer_question(
-            question=req.question,
-            vector_store=_get_vector_store(),
-            embedding_client=_get_embedding_client(),
+        service = QAMemoryService(
+            store=get_memory_store(),
             llm_client=_get_llm_client(),
+        )
+
+        def run_answer_question(
+            question: str,
+            paper_id: str | None = None,
+            top_k: int = 5,
+            conversation_summary: str = "",
+            recent_turns: str = "",
+            original_question: str | None = None,
+        ):
+            return answer_question(
+                question=question,
+                vector_store=_get_vector_store(),
+                embedding_client=_get_embedding_client(),
+                llm_client=_get_llm_client(),
+                paper_id=paper_id,
+                top_k=settings.rerank_top_k if reranker else top_k,
+                reranker=reranker,
+                recall_top_k=settings.rerank_recall_top_k if reranker else None,
+                retriever=retriever,
+                conversation_summary=conversation_summary,
+                recent_turns=recent_turns,
+                original_question=original_question,
+            )
+
+        result = service.ask(
+            question=req.question,
+            answer_fn=run_answer_question,
             paper_id=req.paper_id,
-            top_k=settings.rerank_top_k if reranker else req.top_k,
-            reranker=reranker,
-            recall_top_k=settings.rerank_recall_top_k if reranker else None,
-            retriever=retriever,
+            top_k=req.top_k,
+            conversation_id=req.conversation_id,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -1496,8 +1521,10 @@ async def qa_endpoint(req: QARequest):
 
     return QAResponse(
         question=result["question"],
+        rewritten_question=result.get("rewritten_question"),
         answer=result["answer"],
         sources=[SourceItem(**s) for s in result["sources"]],
+        conversation_id=result.get("conversation_id"),
     )
 
 
