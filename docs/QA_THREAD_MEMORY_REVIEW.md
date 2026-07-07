@@ -62,23 +62,18 @@
 
 ### 真实 bug
 
-- [ ] **[Major] 前端读不存在的 `metadata.question` key**
-  - `QaPage.tsx:108` 读 `stringMetadataValue(message.metadata, "question")`，但 `qa_memory.py:108-121` 只存 `rewritten_question`。死分支，永远 fallthrough。
+- [x] **[Major] 前端读不存在的 `metadata.question` key** ✅ `cc479080`
 
-- [ ] **[Minor] 空结果路径缺 timing 字段**
-  - `app/services/paper_qa.py:155-159` 返回 dict 无 `retrieval_time`/`llm_time`；`qa_memory.py:116-117` 存 None，与有结果路径不一致。
+- [x] **[Minor] 空结果路径缺 timing 字段** ✅ `cc479080`
 
-- [ ] **[Minor] 错误路径 assistant 消息 content 为空**
-  - `qa_memory.py:84-100` 写 `content=""`，错误只进 metadata；前端显示空气泡。计划用 `str(exc)` 作 content。
+- [x] **[Minor] 错误路径 assistant 消息 content 为空** ✅ `cc479080`（+ 关闭测试缺口 T3）
 
-- [ ] **[Minor] `qa_endpoint` 缺 `except HTTPException: raise`**
-  - `app/main.py:1479-1520` 仅捕 `ValueError`/`RuntimeError`；`_ensure_qa_conversation`（`qa_memory.py:163,167-170`）抛的 HTTPException 一旦被未来子类化就会被错包。
+- [x] **[Minor] `qa_endpoint` 缺 `except HTTPException: raise`** ✅ `cc479080`（+ 关闭测试缺口 T4）
 
 - [x] **[Minor] `summary_updated_at` 未跟踪** ✅ `6c6968cf`
   - `qa_memory.py:225-231` 更新 summary / summary_message_count 但不写 `summary_updated_at`（计划含此字段）。
 
-- [ ] **[Minor] status 值漂移**
-  - `qa_memory.py:110` 写 `"status": "ok"`；计划/规范为 `"done"`。`tests/test_qa_memory.py:87` 把漂移固化。
+- [x] **[Minor] status 值漂移** ✅ `cc479080`（ok→done）
 
 ### 冗余 / 死代码
 
@@ -110,8 +105,8 @@
 
 - [x] **[Major] 无测试覆盖 M1（`question` 回错值）** ✅ `ac883173` — service+API 均补断言
 - [x] **[Major] 无测试覆盖 M2（`default_paper_id` 被覆盖）** ✅ `ac883173` — 专项回归测试
-- [ ] **[Major] 无 `answer_fn` 异常路径测试** — `qa_memory.py:83-101` try/except 未覆盖。
-- [ ] **[Major] 无 `/qa` 400 非 QA 会话拒绝的 API 级测试** — 仅 service 层 `test_qa_memory.py:162-172`。
+- [x] **[Major] 无 `answer_fn` 异常路径测试** ✅ `cc479080`
+- [x] **[Major] 无 `/qa` 400 非 QA 会话拒绝的 API 级测试** ✅ `cc479080`
 - [ ] **[Minor] 无 rewrite/summary 失败的 API 级测试** — 仅 unit 级。
 - [x] **[Minor] 无 `previous_rewritten_question` / `paper_id` 在改写 prompt 中的断言** ✅ `6c6968cf`
 - [x] **[Minor] 无 `source_notes` / `rewritten_question` 在摘要 prompt 中的断言** ✅ `6c6968cf`
