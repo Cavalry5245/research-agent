@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.memory_store import MemoryStore
+from app.services.memory_store import MemoryStore, parse_metadata
 
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
 
@@ -56,11 +56,12 @@ class ConversationListResponse(BaseModel):
 @router.get("", response_model=ConversationListResponse)
 def list_conversations(limit: int = 50, offset: int = 0, kind: str | None = None):
     store = get_memory_store()
-    convs = (
-        store.list_conversations_by_kind(kind, limit=limit, offset=offset)
-        if kind is not None
-        else store.list_conversations(limit=limit, offset=offset)
-    )
+    if kind is not None:
+        convs = store.list_conversations_by_kind(kind, limit=limit, offset=offset)
+        total = store.count_conversations_by_kind(kind)
+    else:
+        convs = store.list_conversations(limit=limit, offset=offset)
+        total = store.count_conversations()
     return ConversationListResponse(
         conversations=[
             ConversationOut(
@@ -68,11 +69,11 @@ def list_conversations(limit: int = 50, offset: int = 0, kind: str | None = None
                 title=c["title"],
                 created_at=c["created_at"],
                 updated_at=c["updated_at"],
-                metadata=_metadata_dict(c.get("metadata")),
+                metadata=parse_metadata(c.get("metadata")),
             )
             for c in convs
         ],
-        total=len(convs),
+        total=total,
     )
 
 
@@ -89,7 +90,7 @@ def get_conversation(conversation_id: str):
             title=conv["title"],
             created_at=conv["created_at"],
             updated_at=conv["updated_at"],
-            metadata=_metadata_dict(conv.get("metadata")),
+            metadata=parse_metadata(conv.get("metadata")),
         ),
         messages=[
             MessageOut(
@@ -97,7 +98,7 @@ def get_conversation(conversation_id: str):
                 role=m["role"],
                 content=m["content"],
                 created_at=m["created_at"],
-                metadata=_metadata_dict(m.get("metadata")),
+                metadata=parse_metadata(m.get("metadata")),
             )
             for m in messages
         ],
@@ -111,13 +112,3 @@ def delete_conversation(conversation_id: str):
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"deleted": True, "conversation_id": conversation_id}
-
-
-def _metadata_dict(raw_metadata: Any) -> dict[str, Any]:
-    if isinstance(raw_metadata, dict):
-        return raw_metadata
-    try:
-        decoded = json.loads(raw_metadata or "{}")
-    except (TypeError, json.JSONDecodeError):
-        return {}
-    return decoded if isinstance(decoded, dict) else {}

@@ -10,7 +10,7 @@ from app.prompts.qa_prompt import (
     build_query_rewrite_prompt,
     build_summary_update_prompt,
 )
-from app.services.memory_store import MemoryStore
+from app.services.memory_store import MemoryStore, parse_metadata
 
 
 class QAMemoryService:
@@ -45,7 +45,7 @@ class QAMemoryService:
             conversation_id=conversation_id,
         )
         conversation = self.store.get_conversation(conversation_id) or {}
-        conversation_metadata = self._metadata_dict(conversation.get("metadata"))
+        conversation_metadata = parse_metadata(conversation.get("metadata"))
         summary = str(conversation_metadata.get("summary") or "")
         previous_rewritten = str(
             conversation_metadata.get("last_rewritten_question") or ""
@@ -126,16 +126,20 @@ class QAMemoryService:
             ),
         )
 
+        summary_update = self._maybe_update_summary(
+            conversation_id, rewritten_question, sources
+        )
         metadata_update: dict[str, Any] = {
             "last_rewritten_question": rewritten_question,
         }
         if paper_id is not None:
             metadata_update["default_paper_id"] = paper_id
+        if summary_update:
+            metadata_update.update(summary_update)
         self.store.update_conversation_metadata(
             conversation_id,
             metadata_update,
         )
-        self._maybe_update_summary(conversation_id, rewritten_question, sources)
 
         response = dict(result)
         response.update(
@@ -171,7 +175,7 @@ class QAMemoryService:
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
 
-        metadata = self._metadata_dict(conversation.get("metadata"))
+        metadata = parse_metadata(conversation.get("metadata"))
         if metadata.get("kind") != "qa":
             raise HTTPException(
                 status_code=400,
@@ -208,15 +212,16 @@ class QAMemoryService:
         conversation_id: str,
         rewritten_question: str,
         sources: list[dict[str, Any]],
-    ) -> None:
+    ) -> dict[str, Any] | None:
+        """Compute summary metadata fields to merge, or None if no update."""
         if self.llm_client is None:
-            return
+            return None
 
         conversation = self.store.get_conversation(conversation_id)
         if conversation is None:
-            return
+            return None
 
-        metadata = self._metadata_dict(conversation.get("metadata"))
+        metadata = parse_metadata(conversation.get("metadata"))
         summary_message_count = self._int_metadata(
             metadata.get("summary_message_count"), default=0
         )
@@ -224,9 +229,9 @@ class QAMemoryService:
         message_count = len(messages)
         new_message_count = message_count - summary_message_count
         if message_count < self.summary_message_threshold:
-            return
+            return None
         if new_message_count < self.summary_min_new_messages:
-            return
+            return None
 
         turns_for_summary = self._format_turns(messages[summary_message_count:])
         source_notes = self._source_notes(sources)
@@ -239,25 +244,22 @@ class QAMemoryService:
         try:
             updated_summary = str(self.llm_client.generate_text(prompt) or "").strip()
         except Exception:
-            return
+            return None
         if not updated_summary:
-            return
+            return None
 
-        self.store.update_conversation_metadata(
-            conversation_id,
-            {
-                "summary": updated_summary,
-                "summary_message_count": message_count,
-                "summary_updated_at": time.time(),
-            },
-        )
+        return {
+            "summary": updated_summary,
+            "summary_message_count": message_count,
+            "summary_updated_at": time.time(),
+        }
 
     def _format_turns(self, messages: list[dict[str, Any]]) -> str:
         lines = []
         for message in messages:
             role = str(message.get("role") or "").strip() or "unknown"
             content = " ".join(str(message.get("content") or "").split())
-            metadata = self._metadata_dict(message.get("metadata"))
+            metadata = parse_metadata(message.get("metadata"))
             rewritten = metadata.get("rewritten_question")
             if rewritten:
                 lines.append(f"{role}: {content} (rewritten: {rewritten})")
@@ -274,16 +276,6 @@ class QAMemoryService:
             page = source.get("page_range") or source.get("page_number") or "?"
             notes.append(f"{paper} {section} p.{page}")
         return "\n".join(notes)
-
-    @staticmethod
-    def _metadata_dict(raw_metadata: Any) -> dict[str, Any]:
-        if isinstance(raw_metadata, dict):
-            return raw_metadata
-        try:
-            decoded = json.loads(raw_metadata or "{}")
-        except (TypeError, json.JSONDecodeError):
-            return {}
-        return decoded if isinstance(decoded, dict) else {}
 
     @staticmethod
     def _json_metadata(metadata: dict[str, Any]) -> str:

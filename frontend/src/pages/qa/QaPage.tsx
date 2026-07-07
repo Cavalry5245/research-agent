@@ -160,7 +160,6 @@ export function QaPage() {
       setActiveConversationId(null);
       setMessages([]);
       setSourcePanel(null);
-      storeConversationId(null);
       queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
     },
     onError: (error) => {
@@ -169,7 +168,6 @@ export function QaPage() {
         setActiveConversationId(null);
         setMessages([]);
         setSourcePanel(null);
-        storeConversationId(null);
       } else {
         setDeleteError(error instanceof Error ? error.message : "Failed to clear conversation");
       }
@@ -199,7 +197,6 @@ export function QaPage() {
       .catch(() => {
         if (cancelled) return;
         setActiveConversationId(null);
-        storeConversationId(null);
         setMessages([]);
       });
     return () => {
@@ -252,7 +249,6 @@ export function QaPage() {
           if (result.conversation_id) {
             skipNextConversationLoad.current = result.conversation_id !== activeConversationId;
             setActiveConversationId(result.conversation_id);
-            storeConversationId(result.conversation_id);
           }
           queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
           setMessages((current) =>
@@ -302,7 +298,6 @@ export function QaPage() {
     setActiveConversationId(null);
     setMessages([]);
     setSourcePanel(null);
-    storeConversationId(null);
   };
 
   const clearConversation = () => {
@@ -316,7 +311,6 @@ export function QaPage() {
   const loadConversation = (conversationId: string) => {
     skipNextConversationLoad.current = false;
     setActiveConversationId(conversationId);
-    storeConversationId(conversationId);
     setSourcePanel(null);
   };
 

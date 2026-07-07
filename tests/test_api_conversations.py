@@ -103,7 +103,9 @@ def test_list_conversations_filters_by_metadata_kind_respects_offset(
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == 2
+    # total is the true match count, not the paged slice length
+    assert data["total"] == 5
+    assert len(data["conversations"]) == 2
     assert [c["id"] for c in data["conversations"]] == expected_ids
     assert set(expected_ids).issubset(set(qa_ids))
 

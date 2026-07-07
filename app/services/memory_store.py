@@ -10,6 +10,17 @@ from typing import Any
 
 DEFAULT_DB_PATH = Path("app/storage") / "memory.db"
 
+
+def parse_metadata(raw_metadata: Any) -> dict[str, Any]:
+    """Decode a conversation/message metadata blob (JSON string or dict)."""
+    if isinstance(raw_metadata, dict):
+        return raw_metadata
+    try:
+        decoded = json.loads(raw_metadata or "{}")
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
+
 _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
@@ -116,21 +127,33 @@ class MemoryStore:
         ).fetchall()
         return [dict(r) for r in rows]
 
+    def count_conversations(self) -> int:
+        conn = self._get_conn()
+        row = conn.execute("SELECT COUNT(*) FROM conversations").fetchone()
+        return int(row[0])
+
+    def count_conversations_by_kind(self, kind: str) -> int:
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT COUNT(*) FROM conversations WHERE json_extract(metadata, '$.kind') = ?",
+            (kind,),
+        ).fetchone()
+        return int(row[0])
+
     def list_conversations_by_kind(
         self, kind: str, limit: int | None = None, offset: int = 0
     ) -> list[dict]:
         conn = self._get_conn()
-        rows = conn.execute(
-            "SELECT * FROM conversations ORDER BY updated_at DESC",
-        ).fetchall()
-        conversations = [dict(r) for r in rows]
-        matching = [
-            conversation
-            for conversation in conversations
-            if self._metadata_dict(conversation.get("metadata")).get("kind") == kind
-        ]
-        paged = matching[offset:]
-        return paged[:limit] if limit is not None else paged
+        sql = (
+            "SELECT * FROM conversations WHERE json_extract(metadata, '$.kind') = ? "
+            "ORDER BY updated_at DESC"
+        )
+        params: list[Any] = [kind]
+        if limit is not None:
+            sql += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
 
     def get_conversation(self, conv_id: str) -> dict | None:
         conn = self._get_conn()
@@ -145,8 +168,8 @@ class MemoryStore:
         conv = self.get_conversation(conversation_id)
         if not conv:
             return False
-        merged = self._metadata_dict(conv.get("metadata"))
-        merged.update(self._metadata_dict(metadata))
+        merged = parse_metadata(conv.get("metadata"))
+        merged.update(parse_metadata(metadata))
         now = time.time()
         conn = self._get_conn()
         cursor = conn.execute(
@@ -172,16 +195,6 @@ class MemoryStore:
         cursor = conn.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
         conn.commit()
         return cursor.rowcount > 0
-
-    @staticmethod
-    def _metadata_dict(raw_metadata: Any) -> dict[str, Any]:
-        if isinstance(raw_metadata, dict):
-            return raw_metadata
-        try:
-            decoded = json.loads(raw_metadata or "{}")
-        except (TypeError, json.JSONDecodeError):
-            return {}
-        return decoded if isinstance(decoded, dict) else {}
 
     # ── Messages ─────────────────────────────────────────────────────────
 
