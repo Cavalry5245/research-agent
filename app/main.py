@@ -1514,6 +1514,8 @@ async def qa_endpoint(req: QARequest):
             top_k=req.top_k,
             conversation_id=req.conversation_id,
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except RuntimeError as e:

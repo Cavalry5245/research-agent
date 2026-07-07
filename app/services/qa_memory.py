@@ -90,7 +90,7 @@ class QAMemoryService:
             self.store.add_message(
                 conversation_id,
                 "assistant",
-                "",
+                str(exc),
                 metadata=self._json_metadata(
                     {
                         "kind": "qa_assistant",
@@ -114,7 +114,7 @@ class QAMemoryService:
             metadata=self._json_metadata(
                 {
                     "kind": "qa_assistant",
-                    "status": "ok",
+                    "status": "done",
                     "paper_id": paper_id,
                     "top_k": top_k,
                     "rewritten_question": rewritten_question,

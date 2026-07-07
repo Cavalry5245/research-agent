@@ -110,3 +110,24 @@ def test_qa_endpoint_rejects_deleted_conversation(tmp_path):
     finally:
         set_memory_store(None)
         store.close()
+
+
+def test_qa_endpoint_rejects_non_qa_conversation(tmp_path):
+    store = MemoryStore(tmp_path / "memory.db")
+    set_memory_store(store)
+    client = TestClient(app)
+    other_id = store.create_conversation(
+        title="Notes chat", metadata='{"kind": "notes"}'
+    )
+
+    try:
+        resp = client.post(
+            "/qa",
+            json={"question": "Anything?", "conversation_id": other_id},
+        )
+
+        assert resp.status_code == 400
+        assert "not a QA conversation" in resp.json()["message"]
+    finally:
+        set_memory_store(None)
+        store.close()

@@ -156,6 +156,8 @@ def answer_question(
             "question": question,
             "answer": "当前知识库中没有检索到相关内容。请先上传并索引论文。",
             "sources": [],
+            "retrieval_time": retrieval_seconds,
+            "llm_time": 0.0,
         }
 
     results = _apply_reranker(

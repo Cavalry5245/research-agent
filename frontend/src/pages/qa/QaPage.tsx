@@ -106,7 +106,7 @@ function mapConversationMessage(message: ConversationMessage): QaMessage | null 
       rewritten_question: stringMetadataValue(message.metadata, "rewritten_question"),
       error: stringMetadataValue(message.metadata, "error") ?? undefined,
       request: {
-        question: stringMetadataValue(message.metadata, "question") ?? stringMetadataValue(message.metadata, "rewritten_question") ?? message.content,
+        question: stringMetadataValue(message.metadata, "rewritten_question") ?? message.content,
         paper_id: stringMetadataValue(message.metadata, "paper_id"),
         top_k: numberMetadataValue(message.metadata, "top_k", 5)
       }

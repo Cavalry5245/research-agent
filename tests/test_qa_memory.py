@@ -85,7 +85,7 @@ def test_ask_creates_qa_conversation_and_persists_messages(tmp_path):
     }
     assistant_meta = _metadata(messages[1])
     assert assistant_meta["kind"] == "qa_assistant"
-    assert assistant_meta["status"] == "ok"
+    assert assistant_meta["status"] == "done"
     assert assistant_meta["paper_id"] == "paper-1"
     assert assistant_meta["top_k"] == 3
     assert assistant_meta["rewritten_question"] == "rewritten retrieval query"
@@ -198,6 +198,26 @@ def test_ask_rejects_non_qa_conversation(tmp_path):
 
     assert exc_info.value.status_code == 400
     assert "not a QA conversation" in exc_info.value.detail
+
+
+def test_ask_records_error_message_when_answer_fn_raises(tmp_path):
+    llm = FakeLLM(["rewritten q"])
+    service, store = _make_service(tmp_path, llm_client=llm)
+
+    def answer_fn(**kwargs):
+        raise RuntimeError("upstream LLM blew up")
+
+    with pytest.raises(RuntimeError, match="upstream LLM blew up"):
+        service.ask("Q?", answer_fn, paper_id="paper-1")
+
+    messages = store.get_messages(store.list_conversations_by_kind("qa")[0]["id"])
+    assistant_meta = _metadata(messages[-1])
+    assert assistant_meta["kind"] == "qa_assistant"
+    assert assistant_meta["status"] == "error"
+    assert assistant_meta["error"] == "upstream LLM blew up"
+    # content carries the error message so the UI doesn't render an empty bubble
+    assert messages[-1]["content"] == "upstream LLM blew up"
+    assert assistant_meta["rewritten_question"] == "rewritten q"
 
 
 def test_ask_includes_rewritten_annotation_in_recent_turns(tmp_path):
