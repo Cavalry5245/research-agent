@@ -77,29 +77,22 @@
 
 ### 冗余 / 死代码
 
-- [ ] **[Minor] `_metadata_dict` 重复三份**
-  - `qa_memory.py:243-250`、`memory_store.py:176-184`、`conversations.py:116-123` 逐字节相同。抽公共 util。
+- [x] **[Minor] `_metadata_dict` 重复三份** ✅ `2a833174`（抽 `parse_metadata` 到 memory_store 模块级）
 
-- [ ] **[Minor] 死导入 `Depends`**
-  - `app/routers/conversations.py:8`，本分支引入，无路由使用。
+- [x] **[Minor] 死导入 `Depends`** ✅ `2a833174`
 
-- [ ] **[Minor] 每轮两次 `update_conversation_metadata`**
-  - `qa_memory.py:123-129` + `_maybe_update_summary:225-231` 各一次 get→merge→update→commit。多余 I/O + TOCTOU 窗口。
+- [x] **[Minor] 每轮两次 `update_conversation_metadata`** ✅ `2a833174`（`_maybe_update_summary` 返回字段，ask 单次合并写入）
 
-- [ ] **[Minor] `list_conversations_by_kind` 全表加载后 Python 过滤**
-  - `memory_store.py:119-133` `SELECT *` 无 `WHERE`，O(N)。
+- [x] **[Minor] `list_conversations_by_kind` 全表加载后 Python 过滤** ✅ `2a833174`（改用 `json_extract` SQL WHERE）
 
-- [ ] **[Minor] `ConversationListResponse.total` 语义误导**
-  - `conversations.py:64-76` 返回分页后数量而非总数；`tests/test_api_conversations.py:84-108` 固化错语义。
+- [x] **[Minor] `ConversationListResponse.total` 语义误导** ✅ `2a833174`（加 count 方法，返回真实总数）
 
-- [ ] **[Nit] 前端 `localStorage` 写 `activeConversationId` 冗余**
-  - `QaPage.tsx:193-195` `useEffect` + `:238` / `:288` / `:158` 三处显式调用，二选一。
+- [x] **[Nit] 前端 `localStorage` 写 `activeConversationId` 冗余** ✅ `2a833174`（删 6 处显式调用，保留 effect 单一来源）
 
-- [ ] **[Nit] `_format_turns` 不折叠空白**
-  - `qa_memory.py:238` 仅 `.strip()`；计划用 `" ".join(...split())`。多行答案会泄换行到单行格式。
+- [x] **[Nit] `_format_turns` 不折叠空白** ✅ `6c6968cf`（`" ".join(...split())`）
 
 - [ ] **[Nit] `_maybe_update_summary` 用 `messages[summary_message_count:]`**
-  - `qa_memory.py:205-213` 取至多 10000 条后切片；计划限 `recent_message_limit`，长会话会把全部 post-summary 历史塞进摘要 prompt。
+  - 取至多 10000 条后切片；计划限 `recent_message_limit`，长会话会把全部 post-summary 历史塞进摘要 prompt。
 
 ### 测试缺口
 
