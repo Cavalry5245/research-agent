@@ -116,51 +116,39 @@ git 工作区干净，但不满足 CLAUDE.md cleanliness 规则。
 
 ### Major
 
-- [ ] **`.codex/plans/current-plan.md` + `.codex/tasks/current-tasks.md` 过时**
-  - 内容为 M3/M4 MCP Hub / Obsidian Knowledge Pack 里程碑（已 ship），与本分支无关。平行于已删的 `.claude/` 那两份。
+- [x] **`.codex/plans/current-plan.md` + `.codex/tasks/current-tasks.md` 过时** ✅ `a8030020` — `git rm --cached`（磁盘保留）
 
-- [ ] **CLAUDE.md 规定的 pre-edit 流程已坏**
-  - `CLAUDE.md` 要求编辑前读 `.claude/plans/current-plan.md` 与 `.claude/tasks/current-tasks.md`，二者均已删。需更新 CLAUDE.md 指令或重建权威 plan/task 路径。
+- [x] **CLAUDE.md 规定的 pre-edit 流程已坏** ✅ `a8030020` — 改为通用表述，不再硬编码死路径
 
-- [ ] **4 个死 hook 脚本**
-  - `.claude/hooks/block_dangerous_bash.py`、`.claude/hooks/check_task_completion.py`、`.codex/hooks/block_dangerous_bash.py`、`.codex/hooks/check_task_completion.py` —— tracked 但 settings 的 `hooks` 已清空。接回或删。
+- [x] **4 个死 hook 脚本** ✅ `a8030020` — 随 `.claude`/`.codex` 一并 `git rm --cached`
 
-- [ ] **`.superpowers/sdd/` 25 个陈旧 SDD 产物**
-  - `progress.md` + `task-{1..12}-report.md` + `task-{1..12}-review-package.txt`，2026-06-21 research-pipeline MVP 记录，无引用。纯历史包袱。
+- [x] **`.superpowers/sdd/` 25 个陈旧 SDD 产物** ✅ `a8030020` — `git rm --cached` + `.superpowers/` 加 gitignore（磁盘保留）
 
-- [ ] **gitignore 自相矛盾**
-  - `.gitignore:36-38` ignore `.codex/`/`.claude/`/`.agents/`，但这俩目录下共 11 个文件 tracked（ignore 对已跟踪文件无效）。要么 untrack 要么删 ignore 行。
+- [x] **gitignore 自相矛盾** ✅ `a8030020` — `.claude`/`.codex` 下 11 个 tracked 文件全部 untrack，ignore 规则恢复有效
 
-- [ ] **repo 根目录字面 `~/` 目录**
-  - 含 `.cache/`，疑为 `mkdir ~` 未展开。CLAUDE.md 明令禁止。gitignored 但仍在工作树。
+- [x] **repo 根目录字面 `~/` 目录** ✅ `a8030020` — 物理删除（仅 HF 缓存空骨架，无真实权重）
 
 ### Minor
 
-- [ ] **`app/storage/parent_docs/` 空且无 `.gitkeep`**
-  - 兄弟目录（papers/notes/vector_db/metadata/analytics/logs）都有；fresh clone 不会重建此 RAG 存储目录。
+- [x] **`app/storage/parent_docs/` 空且无 `.gitkeep`** ✅ `a8030020` — 补 `.gitkeep` + gitignore contents/keep 规则
 
-- [ ] **`.claude/` 残留过时计划/任务**
-  - `.claude/plans/pdf-rag-optimization-plan.md`、`.claude/tasks/phase6-detailed-tasks.md`、`phase6-quick-guide.md`、`phase6-tasks-part2.md`、`task_2.3_completion_report.md`。
+- [x] **`.claude/` 残留过时计划/任务** ✅ `a8030020` — 随 `.claude` untrack 一并处理
 
-- [ ] **多套并行 plan/task 目录**
-  - Plans：`.claude/plans`、`.codex/plans`、`docs/plans`（空）、`docs/superpowers/plans`。
-  - Tasks：`.claude/tasks`、`.codex/tasks`。应合并为单一权威位置。
+- [x] **多套并行 plan/task 目录** ✅ `a8030020` — `.claude`/`.codex` 已 untrack；`docs/plans`（空）已删。权威计划留在 `docs/superpowers/plans`
 
-- [ ] **`docs/CRON_WORK_LOG.md` 2205 行运行日志 tracked 在源码树**
+- [x] **`docs/CRON_WORK_LOG.md` 2205 行运行日志 tracked 在源码树** ✅ `a8030020` — `git rm --cached` + gitignore（磁盘保留）
 
-- [ ] **`docs/MEMORY_SYSTEM.md` 未更新本分支特性**
-  - 仅文档化旧 3-tier agent memory，未提及 `QAMemoryService` / conversation schema / QA thread memory。本分支自身功能文档漂移。
+- [x] **`docs/MEMORY_SYSTEM.md` 未更新本分支特性** ✅ `a8030020` — 补 QA Thread Memory 一节
 
-- [ ] **`docs/ASYNC_TASKS.md` 无 QA-thread 条目**
+- [x] **`docs/ASYNC_TASKS.md` 无 QA-thread 条目** ⏭️ 误标 — QA thread memory 是同步流程（`/qa` 直接返回，不走 BackgroundTasks），不属 async task，无需条目
 
-- [ ] **`.paper-search-download-check/` 空目录残留**（gitignored）
+- [x] **`.paper-search-download-check/` 空目录残留** ✅ `a8030020`（物理删除）
 
-- [ ] **`app/agents/scenarios/` 仅为 re-export 门面**
-  - 只 `__init__.py` 转发 `app/agents/specialists/`；候选合并进 `specialists/`。
+- [x] **`app/agents/scenarios/` 仅为 re-export 门面** ⏭️ 误判 — 实为含实质逻辑的 LangGraph 编排，且 2 个测试文件 `@patch` 其内部符号。合并风险高收益低，保留
 
 ### Nit
 
-- [ ] **工作树测试产物**（均 gitignored）：`.coverage`、`htmlcov/`、`.pytest_cache/`、34 个 `__pycache__/`。CLAUDE.md 严格读法下应清理。
+- [x] **工作树测试产物**（均 gitignored）：`.coverage`、`htmlcov/`、`.pytest_cache/`、`__pycache__/`。⏭️ 跳过 — 均 gitignored 不进仓库，删除命令被安全策略拦截，不影响仓库干净度
 
 ---
 
