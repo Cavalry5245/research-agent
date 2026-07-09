@@ -174,6 +174,18 @@ describe("QaPage", () => {
     await user.click(screen.getByRole("button", { name: "Sources (1)" }));
     expect(screen.getByText("Attention assigns weights.")).toBeInTheDocument();
     expect(screen.getByLabelText(/top k/i)).toHaveValue(7);
+    expect(screen.getByLabelText(/scope/i)).toHaveValue("paper_001");
+  });
+
+  it("shows an error bubble when the QA request fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(qaApi.askQuestion).mockRejectedValue(new Error("LLM upstream is down"));
+    renderPage();
+
+    await ask(user, "What is attention?");
+
+    expect(await screen.findByText("LLM upstream is down")).toBeInTheDocument();
+    expect(screen.getByText("Error")).toBeInTheDocument();
   });
 
   it("starts a new chat without reusing the previous conversation id", async () => {

@@ -233,7 +233,8 @@ class QAMemoryService:
         if new_message_count < self.summary_min_new_messages:
             return None
 
-        turns_for_summary = self._format_turns(messages[summary_message_count:])
+        new_messages = messages[summary_message_count:]
+        turns_for_summary = self._format_turns(new_messages[-self.recent_message_limit :])
         source_notes = self._source_notes(sources)
         prompt = build_summary_update_prompt(
             previous_summary=str(metadata.get("summary") or ""),

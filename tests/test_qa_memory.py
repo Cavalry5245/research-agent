@@ -300,3 +300,34 @@ def test_summary_update_runs_after_threshold_and_failure_does_not_block(tmp_path
     assert conv_meta["summary"] == "updated summary"
     assert conv_meta["summary_message_count"] == 2
     assert len(store.get_messages(first["conversation_id"])) == 4
+
+
+def test_summary_prompt_limits_recent_turns_to_recent_message_limit(tmp_path):
+    llm = FakeLLM(["rewritten", "updated summary"])
+    service, store = _make_service(
+        tmp_path,
+        llm_client=llm,
+        recent_message_limit=2,
+        summary_message_threshold=2,
+        summary_min_new_messages=2,
+    )
+    conv_id = store.create_conversation(
+        title="Long thread",
+        metadata=json.dumps({"kind": "qa", "summary_message_count": 0}),
+    )
+    # Seed a long history so the summary slice must be capped.
+    for i in range(6):
+        store.add_message(conv_id, "user", f"EARLY-USER-{i}")
+        store.add_message(conv_id, "assistant", f"EARLY-ASSISTANT-{i}")
+
+    def answer_fn(**_):
+        return {"answer": "Latest answer", "sources": []}
+
+    service.ask("Latest question", answer_fn, conversation_id=conv_id)
+
+    summary_prompt = llm.calls[1]
+    # Only the most recent recent_message_limit turns are fed to the summary prompt.
+    assert "EARLY-USER-0" not in summary_prompt
+    assert "EARLY-ASSISTANT-0" not in summary_prompt
+    assert "Latest question" in summary_prompt
+    assert "Latest answer" in summary_prompt
