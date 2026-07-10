@@ -53,7 +53,7 @@
 - [x] **[Major] KB 页深链失效** ✅ `ac883173`（删链，后端无 KB-scoped QA）
   - `frontend/src/pages/knowledge-base/KnowledgeBasePage.tsx:198` 链到 `/qa?scope=kb&kb_id=...`；`QaPage` 不读 URL 参数，落地为普通 QA 页。
 
-- [ ] **[Minor] 硬编码 `limit=8` 无分页**
+- [x] **[Minor] 硬编码 `limit=8` 无分页** ✅ `37f97431` — Show more 按钮按 total 增量加载
   - `frontend/src/api/conversations.ts:8-13`；后端支持 `limit/offset`（默认 50）。超过 8 个会话的老人无法访问。
 
 ---
@@ -91,8 +91,7 @@
 
 - [x] **[Nit] `_format_turns` 不折叠空白** ✅ `6c6968cf`（`" ".join(...split())`）
 
-- [ ] **[Nit] `_maybe_update_summary` 用 `messages[summary_message_count:]`**
-  - 取至多 10000 条后切片；计划限 `recent_message_limit`，长会话会把全部 post-summary 历史塞进摘要 prompt。
+- [x] **[Nit] `_maybe_update_summary` 用 `messages[summary_message_count:]`** ✅ `a7976f59`（喂给 prompt 的切片限 `recent_message_limit`，阈值判断仍用全量 count；加长会话切片测试）
 
 ### 测试缺口
 
@@ -100,13 +99,14 @@
 - [x] **[Major] 无测试覆盖 M2（`default_paper_id` 被覆盖）** ✅ `ac883173` — 专项回归测试
 - [x] **[Major] 无 `answer_fn` 异常路径测试** ✅ `cc479080`
 - [x] **[Major] 无 `/qa` 400 非 QA 会话拒绝的 API 级测试** ✅ `cc479080`
-- [ ] **[Minor] 无 rewrite/summary 失败的 API 级测试** — 仅 unit 级。
+- [x] **[Minor] 无 rewrite/summary 失败的 API 级测试** ✅ `a7976f59` — `test_qa_endpoint_survives_rewrite_failure`（LLM 抛异常仍返回 200 + fallback）
 - [x] **[Minor] 无 `previous_rewritten_question` / `paper_id` 在改写 prompt 中的断言** ✅ `6c6968cf`
 - [x] **[Minor] 无 `source_notes` / `rewritten_question` 在摘要 prompt 中的断言** ✅ `6c6968cf`
-- [ ] **[Minor] `test_qa_endpoint_reuses_conversation_id` 不验证改写上下文** — `test_qa_thread_api.py:68-94`。
+- [x] **[Minor] `test_qa_endpoint_reuses_conversation_id` 不验证改写上下文** ✅ `a7976f59` — 断言第二轮改写 prompt 含第一轮问题+改写
 - [x] **[Minor] 前端无 QA mutation `onError` 测试** ✅ `ac883173` — 列表/delete 错误分支 3 个测试
-- [ ] **[Minor] 前端无 `paper_id` 从已存会话恢复的断言** — `QaPage.test.tsx:175` 只查 `top_k`。
-- [ ] **[Minor] 前端无会话列表首答后刷新/高亮/摘要展示/多会话/`loadConversation.catch`/`MAX_VISIBLE_MESSAGES` 截断/score 格式化测试。**
+- [x] **[Minor] 前端无 `paper_id` 从已存会话恢复的断言** ✅ `a7976f59` — 恢复测试补 Scope select 断言
+- [x] **[Minor] 前端无 QA mutation `onError`（气泡）测试** ✅ `a7976f59` — 新增 error bubble 测试
+- [x] **[Minor] 前端会话列表杂项测试** — 多会话/分页 ✅ `37f97431`；摘要展示按 M8 决定不做；高亮/`loadConversation.catch`/`MAX_VISIBLE_MESSAGES` 截断/score 格式化为低价值边角，⏭️ 不做
 
 ---
 
