@@ -244,6 +244,35 @@ describe("QaPage", () => {
     expect(screen.getByText("network down")).toBeInTheDocument();
   });
 
+  it("paginates the conversation list via Show more", async () => {
+    const user = userEvent.setup();
+    const makeConv = (i: number) => ({
+      id: `conv_${i}`,
+      title: `Thread ${i}`,
+      created_at: 1,
+      updated_at: 2,
+      metadata: { kind: "qa" }
+    });
+    const all = Array.from({ length: 12 }, (_, i) => makeConv(i));
+    vi.mocked(conversationApi.listConversations).mockImplementation(
+      (_kind?: string, limit = 8) =>
+        Promise.resolve({ total: all.length, conversations: all.slice(0, limit) })
+    );
+    renderPage();
+
+    // First page: 8 chips + a "Show more (4)" button.
+    expect(await screen.findByRole("button", { name: "Thread 0" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Thread 11" })).not.toBeInTheDocument();
+    const showMore = screen.getByRole("button", { name: /Show more \(4\)/ });
+
+    await user.click(showMore);
+
+    // Second page: all 12 chips, no more "Show more".
+    expect(await screen.findByRole("button", { name: "Thread 11" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show more/ })).not.toBeInTheDocument();
+    expect(vi.mocked(conversationApi.listConversations).mock.calls.map((c) => c[1])).toContain(16);
+  });
+
   it("shows an error banner when deleting a conversation fails with a server error", async () => {
     const user = userEvent.setup();
     renderPage();

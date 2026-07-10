@@ -90,6 +90,39 @@ def test_qa_endpoint_reuses_conversation_id(tmp_path):
         assert second["conversation_id"] == first["conversation_id"]
         assert second["rewritten_question"] == "Second rewritten"
         assert store.count_messages(first["conversation_id"]) == 4
+
+        # The second rewrite prompt must see the first turn's context so
+        # coreference ("它呢？") can be resolved against prior messages.
+        second_rewrite_prompt = llm.generate_text.call_args_list[1].args[0]
+        assert "First?" in second_rewrite_prompt
+        assert "First rewritten" in second_rewrite_prompt
+    finally:
+        set_memory_store(None)
+        store.close()
+
+
+def test_qa_endpoint_survives_rewrite_failure(tmp_path):
+    store = MemoryStore(tmp_path / "memory.db")
+    set_memory_store(store)
+    client = TestClient(app)
+    llm = MagicMock()
+    llm.generate_text.side_effect = RuntimeError("llm down")
+
+    try:
+        with patch("app.main._get_llm_client", return_value=llm), patch(
+            "app.main.answer_question", return_value=_qa_payload()
+        ) as mock_answer:
+            resp = client.post(
+                "/qa",
+                json={"question": "原始问题？", "paper_id": "paper_001", "top_k": 5},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        # Rewrite failed → falls back to the original question for retrieval.
+        assert data["rewritten_question"] == "原始问题？"
+        assert data["answer"] == "grounded answer"
+        assert mock_answer.call_args.kwargs["question"] == "原始问题？"
     finally:
         set_memory_store(None)
         store.close()

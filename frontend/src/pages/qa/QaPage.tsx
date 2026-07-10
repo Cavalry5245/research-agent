@@ -13,6 +13,7 @@ import { MarkdownContent } from "../../components/common/MarkdownContent";
 
 const QA_CONVERSATION_ID_KEY = "research-agent:qa:conversation-id:v1";
 const MAX_VISIBLE_MESSAGES = 30;
+const CONVERSATION_PAGE_SIZE = 8;
 
 type QaMessage =
   | {
@@ -136,6 +137,7 @@ export function QaPage() {
     sources: SourceItem[];
   } | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [conversationLimit, setConversationLimit] = useState(CONVERSATION_PAGE_SIZE);
 
   const papersQuery = useQuery({
     queryKey: ["papers"],
@@ -143,8 +145,8 @@ export function QaPage() {
   });
 
   const conversationsQuery = useQuery({
-    queryKey: ["qa-conversations"],
-    queryFn: () => listConversations("qa", 8)
+    queryKey: ["qa-conversations", conversationLimit],
+    queryFn: () => listConversations("qa", conversationLimit)
   });
 
   const qaMutation = useMutation({
@@ -356,7 +358,7 @@ export function QaPage() {
           message={(conversationsQuery.error as Error).message}
         />
       ) : conversationsQuery.data?.conversations.length ? (
-        <section className="flex flex-wrap gap-2">
+        <section className="flex flex-wrap items-center gap-2">
           {conversationsQuery.data.conversations.map((conversation) => (
             <button
               key={conversation.id}
@@ -371,6 +373,16 @@ export function QaPage() {
               {conversation.title || "QA conversation"}
             </button>
           ))}
+          {conversationsQuery.data.conversations.length < conversationsQuery.data.total ? (
+            <button
+              type="button"
+              onClick={() => setConversationLimit((n) => n + CONVERSATION_PAGE_SIZE)}
+              disabled={conversationsQuery.isFetching}
+              className="rounded-full border border-dashed border-line px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface hover:text-ink disabled:opacity-60"
+            >
+              Show more ({conversationsQuery.data.total - conversationsQuery.data.conversations.length})
+            </button>
+          ) : null}
         </section>
       ) : null}
 
