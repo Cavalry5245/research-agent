@@ -31,4 +31,9 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run test suite
+        env:
+          # Dummy keys so OpenAI-compatible clients construct in CI; tests that
+          # actually reach the network are mocked, they only need a client to exist.
+          LLM_API_KEY: sk-ci-dummy
+          OPENAI_API_KEY: sk-ci-dummy
         run: python -m pytest tests -q --ignore=tests/performance

@@ -226,7 +226,8 @@ def test_embedding_client_import():
 
     client = EmbeddingClient()
     assert client.model_name == settings.embedding_model
-    assert _resolve_model_name(client.model_name) == "BAAI/bge-small-zh-v1.5"
+    # Alias resolution maps short bge names to their HuggingFace repo ids.
+    assert _resolve_model_name("bge-small-zh-v1.5") == "BAAI/bge-small-zh-v1.5"
 
 
 def test_embedding_client_with_model():

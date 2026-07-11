@@ -4,6 +4,7 @@ Tests for Zotero Source Adapter
 测试 Zotero source adapter，包括 collection 列表和 candidate 导入。
 """
 
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -61,6 +62,10 @@ class TestZoteroSourceAdapter:
 
         assert collections == []
 
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Asserts Windows-style attachment paths (E:\\...); Zotero stores raw OS paths, so the assertion is platform-specific.",
+    )
     def test_get_candidates_with_pdf(self):
         """测试获取带 PDF 的候选论文"""
         mock_client = Mock()
@@ -221,6 +226,10 @@ class TestZoteroSourceAdapter:
         with pytest.raises(httpx.HTTPStatusError):
             adapter.get_candidates(collection_key="INVALID_COLL")
 
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Asserts Windows-style attachment paths (C:\\...); Zotero stores raw OS paths, so the assertion is platform-specific.",
+    )
     def test_resolve_local_pdf_path(self):
         """测试解析本地 PDF 路径"""
         mock_client = Mock()

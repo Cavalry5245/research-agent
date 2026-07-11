@@ -4,7 +4,7 @@ Tests for MVP Gate Report Script
 
 import json
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -149,7 +149,7 @@ def create_completed_run(test_db: str, duration_seconds: float = 120.0, paper_co
     )
 
     # Set started_at timestamp
-    started_at = datetime.utcnow() - timedelta(seconds=duration_seconds)
+    started_at = datetime.now(timezone.utc) - timedelta(seconds=duration_seconds)
     import sqlite3
     conn = sqlite3.connect(test_db)
     cursor = conn.cursor()

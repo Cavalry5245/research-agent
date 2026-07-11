@@ -12,8 +12,8 @@ from app.services.llm_client import LLMClient
 @pytest.fixture
 def real_llm_client():
     """真实 LLM 客户端 fixture - 从 .env 读取配置"""
-    if not settings.llm_api_key:
-        pytest.skip("未配置 LLM_API_KEY，跳过真实调用测试")
+    if not settings.llm_api_key or settings.llm_api_key.startswith("sk-ci-dummy"):
+        pytest.skip("未配置真实 LLM_API_KEY（或为 CI dummy key），跳过真实调用测试")
     return LLMClient()
 
 
