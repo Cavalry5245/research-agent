@@ -402,7 +402,7 @@ def test_production_app_includes_research_pipeline_router():
     """Test main app includes research pipeline router."""
     from app.main import app
 
-    route_paths = {getattr(route, "path", None) for route in app.routes}
+    route_paths = set(app.openapi()["paths"].keys())
 
     # Check that research pipeline routes are registered
     assert "/research-pipeline/runs" in route_paths

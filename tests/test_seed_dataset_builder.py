@@ -27,6 +27,11 @@ def _read_jsonl(path: Path) -> list[dict]:
 
 
 def test_build_seed_dataset_script_generates_minimal_eval_artifacts(tmp_path: Path):
+    # Depends on real parsed papers under app/storage/metadata/, which is
+    # gitignored and empty on CI. Skip when no parsed fixtures are present.
+    if not METADATA_DIR.exists() or not any(METADATA_DIR.glob("*_parsed.json")):
+        pytest.skip("no parsed metadata fixtures under app/storage/metadata/")
+
     output_dir = tmp_path / "datasets"
 
     result = subprocess.run(

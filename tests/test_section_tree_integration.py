@@ -22,14 +22,23 @@ def sample_pdf_path():
     if os.path.exists(test_pdf):
         return test_pdf
 
-    # Check upload directory
+    # Check upload directory — require a text-based PDF that passes profiling,
+    # since the shared storage dir can accumulate stub/fake PDFs from other tests
+    # (fail to open) or scanned/image PDFs (open but have no extractable text).
     upload_dir = "app/storage/papers"
     if os.path.exists(upload_dir):
         pdfs = [f for f in os.listdir(upload_dir) if f.lower().endswith(".pdf")]
-        if pdfs:
-            return os.path.join(upload_dir, pdfs[0])
+        for name in pdfs:
+            candidate = os.path.join(upload_dir, name)
+            try:
+                doc = fitz.open(candidate)
+                generate_pdf_profile(doc, "fixture_probe")
+                doc.close()
+            except Exception:
+                continue
+            return candidate
 
-    pytest.skip("No sample PDF found for integration testing")
+    pytest.skip("No valid text-based sample PDF found for integration testing")
 
 
 def test_full_pipeline_with_real_pdf(sample_pdf_path):

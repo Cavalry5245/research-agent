@@ -379,7 +379,7 @@ def test_research_run_tool_call_route_uses_qa_and_compare_backends(
 def test_production_app_import_registers_research_run_routes():
     from app.main import app as production_app
 
-    route_paths = {getattr(route, "path", None) for route in production_app.routes}
+    route_paths = set(production_app.openapi()["paths"].keys())
 
     assert "/research-runs" in route_paths
     assert "/research-runs/tools/health" in route_paths

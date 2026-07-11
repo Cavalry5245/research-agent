@@ -122,11 +122,11 @@ def test_zotero_local_http_client_normalizes_local_api_payload(monkeypatch):
 
     calls = []
 
-    def fake_get(url, timeout):
+    def fake_get(self, url, timeout=None):
         calls.append((url, timeout))
         return FakeResponse()
 
-    monkeypatch.setattr("httpx.get", fake_get)
+    monkeypatch.setattr("httpx.Client.get", fake_get)
     client = ZoteroLocalHttpClient(base_url="http://127.0.0.1:23119/api")
 
     items = client.list_collection_items("COLL123")
@@ -150,11 +150,11 @@ def test_zotero_local_http_client_uses_default_user_library_path(monkeypatch):
 
     calls = []
 
-    def fake_get(url, timeout):
+    def fake_get(self, url, timeout=None):
         calls.append(url)
         return FakeResponse()
 
-    monkeypatch.setattr("httpx.get", fake_get)
+    monkeypatch.setattr("httpx.Client.get", fake_get)
 
     ZoteroLocalHttpClient().list_collection_items("COLL123")
 
@@ -191,11 +191,11 @@ def test_zotero_local_http_client_lists_collections(monkeypatch):
 
     calls = []
 
-    def fake_get(url, timeout):
+    def fake_get(self, url, timeout=None):
         calls.append((url, timeout))
         return FakeResponse()
 
-    monkeypatch.setattr("httpx.get", fake_get)
+    monkeypatch.setattr("httpx.Client.get", fake_get)
 
     collections = ZoteroLocalHttpClient().list_collections(limit=25)
 
@@ -242,7 +242,7 @@ def test_zotero_local_http_client_collection_name_falls_back_to_key(monkeypatch)
         def json(self):
             return [{"key": "NO_NAME", "data": {"key": "NO_NAME"}}]
 
-    monkeypatch.setattr("httpx.get", lambda url, timeout: FakeResponse())
+    monkeypatch.setattr("httpx.Client.get", lambda self, url, timeout=None: FakeResponse())
 
     collections = ZoteroLocalHttpClient().list_collections()
 
@@ -263,7 +263,7 @@ def test_zotero_local_http_client_adds_pdf_child_attachments(monkeypatch):
 
     calls = []
 
-    def fake_get(url, timeout):
+    def fake_get(self, url, timeout=None):
         calls.append(url)
         if url.endswith("/users/0/collections/COLL123/items"):
             return FakeResponse(
@@ -293,7 +293,7 @@ def test_zotero_local_http_client_adds_pdf_child_attachments(monkeypatch):
             )
         raise AssertionError(f"Unexpected URL: {url}")
 
-    monkeypatch.setattr("httpx.get", fake_get)
+    monkeypatch.setattr("httpx.Client.get", fake_get)
 
     items = ZoteroLocalHttpClient().list_collection_items("COLL123")
 
@@ -316,7 +316,7 @@ def test_zotero_local_http_client_uses_enclosure_href_for_imported_pdf(monkeypat
         def json(self):
             return self.payload
 
-    def fake_get(url, timeout):
+    def fake_get(self, url, timeout=None):
         if url.endswith("/users/0/collections/COLL123/items"):
             return FakeResponse(
                 [
@@ -351,7 +351,7 @@ def test_zotero_local_http_client_uses_enclosure_href_for_imported_pdf(monkeypat
             )
         raise AssertionError(f"Unexpected URL: {url}")
 
-    monkeypatch.setattr("httpx.get", fake_get)
+    monkeypatch.setattr("httpx.Client.get", fake_get)
 
     items = ZoteroLocalHttpClient().list_collection_items("COLL123")
 

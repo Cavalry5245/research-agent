@@ -18,7 +18,7 @@ from app.services.pdf_parser import (
 )
 
 
-def test_with_pdf(pdf_path: str):
+def run_with_pdf(pdf_path: str):
     """Test section tree building with a specific PDF."""
     print(f"\n{'='*80}")
     print(f"Testing with PDF: {pdf_path}")
@@ -155,7 +155,7 @@ def main():
 
     success_count = 0
     for pdf_path in pdfs_to_test:
-        if test_with_pdf(pdf_path):
+        if run_with_pdf(pdf_path):
             success_count += 1
             break  # Stop after first successful test
 
