@@ -26,10 +26,11 @@ RUN pip install --no-cache-dir --retries 5 --timeout 180 -r requirements.txt
 COPY app/ ./app/
 COPY .env.example .env
 
-# Health check
+# Health check — respect the PORT injected by the platform (Railway), fall back to 8000 locally.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+    CMD python -c "import os,urllib.request; urllib.request.urlopen('http://localhost:%s/health' % os.environ.get('PORT','8000'))"
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so ${PORT} is expanded. Railway injects PORT; docker-compose has none, so it falls back to 8000.
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
