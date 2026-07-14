@@ -1,5 +1,6 @@
 """Tests for /api/conversations endpoints."""
 
+import json
 import os
 import sys
 import tempfile
@@ -60,6 +61,142 @@ def test_list_conversations_returns_items(client, memory_store):
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 2
+
+
+def test_list_conversations_filters_by_metadata_kind(client, memory_store):
+    qa_id = memory_store.create_conversation(
+        "QA thread", metadata=json.dumps({"kind": "qa_thread"})
+    )
+    memory_store.create_conversation(
+        "Regular chat", metadata=json.dumps({"kind": "chat"})
+    )
+    memory_store.create_conversation("No kind")
+
+    resp = client.get("/api/conversations?kind=qa_thread")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["conversations"][0]["id"] == qa_id
+    assert data["conversations"][0]["metadata"] == {"kind": "qa_thread"}
+
+
+def test_list_conversations_filters_by_metadata_kind_respects_offset(
+    client, memory_store
+):
+    qa_ids = [
+        memory_store.create_conversation(
+            f"QA thread {i}", metadata=json.dumps({"kind": "qa_thread"})
+        )
+        for i in range(5)
+    ]
+    memory_store.create_conversation(
+        "Regular chat", metadata=json.dumps({"kind": "chat"})
+    )
+    expected_ids = [
+        c["id"]
+        for c in memory_store.list_conversations(limit=20)
+        if json.loads(c["metadata"]).get("kind") == "qa_thread"
+    ][2:4]
+
+    resp = client.get("/api/conversations?kind=qa_thread&limit=2&offset=2")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    # total is the true match count, not the paged slice length
+    assert data["total"] == 5
+    assert len(data["conversations"]) == 2
+    assert [c["id"] for c in data["conversations"]] == expected_ids
+    assert set(expected_ids).issubset(set(qa_ids))
+
+
+def test_conversation_detail_returns_message_metadata(client, memory_store):
+    cid = memory_store.create_conversation(
+        "QA thread", metadata=json.dumps({"kind": "qa_thread"})
+    )
+    memory_store.add_message(
+        cid,
+        "assistant",
+        "Checked the failing test.",
+        metadata=json.dumps({"source": "qa", "status": "done"}),
+    )
+
+    resp = client.get(f"/api/conversations/{cid}")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["conversation"]["metadata"] == {"kind": "qa_thread"}
+    assert data["messages"][0]["metadata"] == {"source": "qa", "status": "done"}
+
+
+def test_memory_store_updates_conversation_metadata(memory_store):
+    cid = memory_store.create_conversation(
+        "QA thread", metadata=json.dumps({"kind": "qa_thread", "status": "open"})
+    )
+    before = memory_store.get_conversation(cid)["updated_at"]
+
+    updated = memory_store.update_conversation_metadata(
+        cid, {"status": "closed", "owner": "qa"}
+    )
+
+    conv = memory_store.get_conversation(cid)
+    assert updated is True
+    assert json.loads(conv["metadata"]) == {
+        "kind": "qa_thread",
+        "status": "closed",
+        "owner": "qa",
+    }
+    assert conv["updated_at"] >= before
+
+
+def test_memory_store_updates_conversation_metadata_accepts_json_string(memory_store):
+    cid = memory_store.create_conversation(
+        "QA thread", metadata=json.dumps({"kind": "qa_thread", "status": "open"})
+    )
+    before = memory_store.get_conversation(cid)["updated_at"]
+
+    updated = memory_store.update_conversation_metadata(
+        cid, json.dumps({"status": "closed", "owner": "qa"})
+    )
+
+    conv = memory_store.get_conversation(cid)
+    assert updated is True
+    assert json.loads(conv["metadata"]) == {
+        "kind": "qa_thread",
+        "status": "closed",
+        "owner": "qa",
+    }
+    assert conv["updated_at"] >= before
+
+
+def test_memory_store_update_conversation_metadata_returns_false_when_missing(
+    memory_store,
+):
+    updated = memory_store.update_conversation_metadata(
+        "missing-conversation", json.dumps({"status": "closed"})
+    )
+
+    assert updated is False
+
+
+def test_memory_store_updates_conversation_title(memory_store):
+    cid = memory_store.create_conversation("Draft title")
+    before = memory_store.get_conversation(cid)["updated_at"]
+
+    updated = memory_store.update_conversation_title(cid, "Final title")
+
+    conv = memory_store.get_conversation(cid)
+    assert updated is True
+    assert conv["title"] == "Final title"
+    assert conv["updated_at"] >= before
+
+
+def test_memory_store_update_conversation_title_returns_false_when_missing(
+    memory_store,
+):
+    updated = memory_store.update_conversation_title("missing-conversation", "Title")
+
+    assert updated is False
 
 
 def test_delete_conversation(client, memory_store):

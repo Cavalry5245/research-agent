@@ -12,12 +12,15 @@ RUN npm run build
 # Stage 2: Serve with nginx
 FROM nginx:alpine
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# nginx.conf is rendered from a template at container start so PORT and the api
+# upstream can be injected per environment (docker-compose defaults vs Railway).
+COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

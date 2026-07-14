@@ -2,7 +2,7 @@ import logging
 import time
 from typing import Protocol
 
-from app.prompts.qa_prompt import build_qa_prompt
+from app.prompts.qa_prompt import build_contextual_qa_prompt, build_qa_prompt
 from app.services.embedding_client import EmbeddingClient
 from app.services.llm_client import LLMClient
 from app.services.parent_doc_store import ParentDocumentStore
@@ -106,6 +106,9 @@ def answer_question(
     recall_top_k: int | None = None,
     retriever: RetrieverProtocol | None = None,
     parent_store: ParentDocumentStore | None = None,
+    conversation_summary: str = "",
+    recent_turns: str = "",
+    original_question: str | None = None,
 ) -> dict:
     """
     回答问题，使用父子文档架构。
@@ -153,6 +156,8 @@ def answer_question(
             "question": question,
             "answer": "当前知识库中没有检索到相关内容。请先上传并索引论文。",
             "sources": [],
+            "retrieval_time": retrieval_seconds,
+            "llm_time": 0.0,
         }
 
     results = _apply_reranker(
@@ -193,7 +198,16 @@ def answer_question(
         logger.debug("No parent_ids found in results, using child chunks directly")
 
     context = _build_context(results)
-    prompt = build_qa_prompt(question, context)
+    if conversation_summary or recent_turns or original_question:
+        prompt = build_contextual_qa_prompt(
+            question=original_question or question,
+            rewritten_question=question,
+            context=context,
+            conversation_summary=conversation_summary,
+            recent_turns=recent_turns,
+        )
+    else:
+        prompt = build_qa_prompt(question, context)
 
     llm_start = time.perf_counter()
     try:

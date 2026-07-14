@@ -7,6 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from app.prompts import qa_prompt
 from app.prompts.qa_prompt import build_qa_prompt
 from app.schemas import Chunk
 from app.services.paper_qa import _build_context, answer_question
@@ -62,6 +63,71 @@ def test_build_qa_prompt():
     assert "[片段 1]" in prompt
     assert "不要使用上下文之外的知识" in prompt
     assert "根据当前论文片段无法判断" in prompt
+
+
+def test_build_query_rewrite_prompt_contains_memory_boundaries():
+    prompt = qa_prompt.build_query_rewrite_prompt(
+        question="它和 CLIP 比如何？",
+        conversation_summary="用户在对比红外小目标的 VLM 检测器。",
+        recent_turns="user: 核心方法是什么？\nassistant: 使用 VLM 引导。",
+        paper_id="paper_001",
+        previous_rewritten_question="Grounding DINO 的核心方法是什么？",
+    )
+
+    assert "它和 CLIP 比如何？" in prompt
+    assert "用户在对比红外小目标的 VLM 检测器。" in prompt
+    assert "user: 核心方法是什么？" in prompt
+    assert "会话摘要" in prompt
+    assert "最近对话" in prompt
+    assert "当前论文范围" in prompt
+    assert "paper_001" in prompt
+    assert "上一轮改写问题" in prompt
+    assert "Grounding DINO 的核心方法是什么？" in prompt
+    assert "当前问题" in prompt
+    assert "不要回答问题" in prompt
+    assert "只输出改写后的检索问题" in prompt
+    assert "保持用户语言" in prompt
+
+
+def test_build_contextual_qa_prompt_keeps_history_out_of_facts():
+    prompt = qa_prompt.build_contextual_qa_prompt(
+        question="消融实验呢？",
+        rewritten_question="VLM 红外检测器的消融实验结果",
+        context="[片段 1] 消融去掉了语言引导。",
+        conversation_summary="用户关心方法细节。",
+        recent_turns="user: 讲下架构。\nassistant: ...",
+    )
+
+    assert "消融实验呢？" in prompt
+    assert "VLM 红外检测器的消融实验结果" in prompt
+    assert "[片段 1] 消融去掉了语言引导。" in prompt
+    assert "用户关心方法细节。" in prompt
+    assert "user: 讲下架构。" in prompt
+    assert "会话摘要" in prompt
+    assert "最近对话" in prompt
+    assert "用户原始问题" in prompt
+    assert "用于检索的改写问题" in prompt
+    assert "本轮检索到的论文证据" in prompt
+    assert "不能作为论文事实依据" in prompt
+
+
+def test_build_summary_update_prompt_warns_against_fact_memory():
+    prompt = qa_prompt.build_summary_update_prompt(
+        previous_summary="用户偏好带证据片段的简洁回答。",
+        recent_turns="user: 准确率多少？\nassistant: 论文报告 91%。",
+        rewritten_question="VLM 红外检测器的准确率",
+        source_notes="paper_001 Results p.2",
+    )
+
+    assert "用户偏好带证据片段的简洁回答。" in prompt
+    assert "user: 准确率多少？" in prompt
+    assert "VLM 红外检测器的准确率" in prompt
+    assert "paper_001 Results p.2" in prompt
+    assert "旧会话状态摘要" in prompt
+    assert "最近对话" in prompt
+    assert "本轮改写问题" in prompt
+    assert "本轮来源提示" in prompt
+    assert "不要把 assistant answer 改写成无来源的长期事实" in prompt
 
 
 def test_build_context():

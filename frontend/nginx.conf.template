@@ -1,6 +1,6 @@
 server {
-    listen 80;
-    server_name localhost;
+    listen ${PORT};
+    server_name _;
 
     root /usr/share/nginx/html;
     index index.html;
@@ -13,13 +13,17 @@ server {
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
     add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self' data:;" always;
 
-    # API proxy — forward all backend paths to the api service
+    # API proxy — forward all backend paths to the api service.
+    # ${API_UPSTREAM} / ${API_HOST} are injected at container start by docker-entrypoint.sh
+    # (defaults keep docker-compose working: http://api:8000). On Railway they point at
+    # the api service's public URL so the SPA and its backend share one origin in the browser.
     location ~ ^/(api|agent|health|kb|library|papers|qa|research-pipeline|research-runs|system|tasks) {
-        proxy_pass http://api:8000;
-        proxy_set_header Host $host;
+        proxy_pass ${API_UPSTREAM};
+        proxy_set_header Host ${API_HOST};
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_ssl_server_name on;
     }
 
     # SPA fallback — serve index.html for all other routes (React Router)

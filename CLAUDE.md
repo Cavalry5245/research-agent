@@ -119,10 +119,10 @@ All models/providers are swappable via `.env`:
 
 When implementing a plan, Claude must:
 
-1. Read `.claude/plans/current-plan.md` and `.claude/tasks/current-tasks.md` before editing.
+1. Read the active plan and task checklist before editing (e.g. under `docs/superpowers/plans/` or a plan file named in the current request). Agent-local scratch dirs (`.claude/`, `.codex/`) are gitignored and not authoritative.
 2. Work on exactly one task at a time.
 3. After each task:
-   - update the checkbox in `.claude/tasks/current-tasks.md`
+   - update the checkbox in the active task checklist
    - write a short completion note
    - run the task-specific verification command
    - inspect `git diff`

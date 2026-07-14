@@ -87,6 +87,16 @@ result = agent.execute_supervisor(task, context=ctx, conversation_id="conv-123")
 # 同样自动管理对话历史
 ```
 
+## QA Thread Memory
+
+`QAMemoryService`（`app/services/qa_memory.py`）在 `/qa` 同步问答之上叠加会话记忆，复用同一个 `MemoryStore`：
+
+- **会话与消息**：每轮问答在 `kind="qa"` 的 conversation 下追加一条 user、一条 assistant message；assistant metadata 记录 `status`、`sources`、`rewritten_question`、`rewrite_failed`、`retrieval_time`/`llm_time`。
+- **查询改写**：结合会话摘要、最近若干轮、当前 paper 范围与上一轮改写问题，把追问改写成独立检索查询（`build_query_rewrite_prompt`）。改写失败时回退原问题并标记 `rewrite_failed`。
+- **摘要更新**：消息数超过阈值且有足够新消息时，用 `build_summary_update_prompt` 增量更新 conversation metadata 的 `summary`，供后续改写复用。
+- **会话级 metadata**：`summary`、`summary_message_count`、`summary_updated_at`、`default_paper_id`、`last_rewritten_question`。无 paper 范围的追问不会覆盖已存的 `default_paper_id`。
+- **kind 过滤**：`GET /api/conversations?kind=qa` 经 `list_conversations_by_kind`（SQL `json_extract` 过滤）返回 QA 会话，`total` 为该 kind 的真实总数。
+
 ## Storage
 
 默认路径: `app/storage/memory.db`

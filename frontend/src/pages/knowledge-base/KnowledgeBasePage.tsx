@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GitCompare, MessageSquare, Plus, Workflow, X } from "lucide-react";
+import { GitCompare, Plus, Workflow, X } from "lucide-react";
 import {
   addPapersToKnowledgeBase,
   createKnowledgeBase,
@@ -195,10 +195,6 @@ export function KnowledgeBasePage() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <a className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface" href={`/qa?scope=kb&kb_id=${encodeURIComponent(kb.id)}`}>
-                    <MessageSquare className="h-4 w-4" aria-hidden="true" />
-                    Ask
-                  </a>
                   <a className="inline-flex items-center gap-2 rounded-md border border-line px-3 py-2 text-sm font-medium text-muted hover:bg-surface" href={`/compare?kb_id=${encodeURIComponent(kb.id)}`}>
                     <GitCompare className="h-4 w-4" aria-hidden="true" />
                     Compare

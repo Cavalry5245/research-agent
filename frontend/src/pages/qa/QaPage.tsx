@@ -1,16 +1,19 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SendHorizontal, X } from "lucide-react";
 import { askQuestion } from "../../api/qa";
+import { deleteConversation, getConversation, listConversations } from "../../api/conversations";
 import { getPapers } from "../../api/papers";
-import type { SourceItem } from "../../api/types";
+import { ApiError } from "../../api/client";
+import type { ConversationDetail, ConversationMessage, SourceItem } from "../../api/types";
 import { EmptyState } from "../../components/empty-state/EmptyState";
 import { ErrorState } from "../../components/error-state/ErrorState";
 import { PaperSelector } from "../../components/papers/PaperSelector";
 import { MarkdownContent } from "../../components/common/MarkdownContent";
 
-const QA_STORAGE_KEY = "research-agent:qa:conversation:v1";
-const MAX_STORED_MESSAGES = 30;
+const QA_CONVERSATION_ID_KEY = "research-agent:qa:conversation-id:v1";
+const MAX_VISIBLE_MESSAGES = 30;
+const CONVERSATION_PAGE_SIZE = 8;
 
 type QaMessage =
   | {
@@ -28,6 +31,7 @@ type QaMessage =
       status: "thinking" | "done" | "error";
       created_at: string;
       sources: SourceItem[];
+      rewritten_question?: string | null;
       error?: string;
       request: {
         question: string;
@@ -36,12 +40,6 @@ type QaMessage =
       };
     };
 
-interface StoredQaState {
-  messages: QaMessage[];
-  paperId: string;
-  topK: number;
-}
-
 function createMessageId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}_${crypto.randomUUID()}`;
@@ -49,48 +47,168 @@ function createMessageId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
-function loadStoredQaState(): StoredQaState | null {
+function loadStoredConversationId() {
   try {
-    const raw = localStorage.getItem(QA_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StoredQaState) : null;
+    return localStorage.getItem(QA_CONVERSATION_ID_KEY);
   } catch {
     return null;
   }
 }
 
+function storeConversationId(conversationId: string | null) {
+  try {
+    if (conversationId) {
+      localStorage.setItem(QA_CONVERSATION_ID_KEY, conversationId);
+    } else {
+      localStorage.removeItem(QA_CONVERSATION_ID_KEY);
+    }
+  } catch {
+    // Browser storage is a convenience cache only.
+  }
+}
+
+function stringMetadataValue(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" ? value : null;
+}
+
+function numberMetadataValue(metadata: Record<string, unknown>, key: string, fallback: number) {
+  const value = metadata[key];
+  return typeof value === "number" ? value : fallback;
+}
+
+function sourcesMetadataValue(metadata: Record<string, unknown>) {
+  const value = metadata.sources;
+  return Array.isArray(value) ? (value as SourceItem[]) : [];
+}
+
+function mapConversationMessage(message: ConversationMessage): QaMessage | null {
+  const createdAt = new Date(message.created_at * 1000).toISOString();
+  if (message.role === "user") {
+    return {
+      id: message.id,
+      role: "user",
+      content: message.content,
+      created_at: createdAt,
+      paper_id: stringMetadataValue(message.metadata, "paper_id"),
+      top_k: numberMetadataValue(message.metadata, "top_k", 5)
+    };
+  }
+
+  if (message.role === "assistant") {
+    const status = stringMetadataValue(message.metadata, "status") === "error" ? "error" : "done";
+    return {
+      id: message.id,
+      role: "assistant",
+      content: message.content,
+      status,
+      created_at: createdAt,
+      sources: sourcesMetadataValue(message.metadata),
+      rewritten_question: stringMetadataValue(message.metadata, "rewritten_question"),
+      error: stringMetadataValue(message.metadata, "error") ?? undefined,
+      request: {
+        question: stringMetadataValue(message.metadata, "rewritten_question") ?? message.content,
+        paper_id: stringMetadataValue(message.metadata, "paper_id"),
+        top_k: numberMetadataValue(message.metadata, "top_k", 5)
+      }
+    };
+  }
+
+  return null;
+}
+
+function mapConversationDetail(detail: ConversationDetail) {
+  return detail.messages
+    .map(mapConversationMessage)
+    .filter((message): message is QaMessage => message !== null)
+    .slice(-MAX_VISIBLE_MESSAGES);
+}
+
 export function QaPage() {
-  const storedState = useMemo(() => loadStoredQaState(), []);
+  const queryClient = useQueryClient();
+  const skipNextConversationLoad = useRef(false);
   const [question, setQuestion] = useState("");
-  const [paperId, setPaperId] = useState(storedState?.paperId ?? "");
-  const [topK, setTopK] = useState(storedState?.topK ?? 5);
-  const [messages, setMessages] = useState<QaMessage[]>(storedState?.messages ?? []);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(() => loadStoredConversationId());
+  const [paperId, setPaperId] = useState("");
+  const [topK, setTopK] = useState(5);
+  const [messages, setMessages] = useState<QaMessage[]>([]);
   const [sourcePanel, setSourcePanel] = useState<{
     title: string;
     sources: SourceItem[];
   } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [conversationLimit, setConversationLimit] = useState(CONVERSATION_PAGE_SIZE);
 
   const papersQuery = useQuery({
     queryKey: ["papers"],
     queryFn: getPapers
   });
 
+  const conversationsQuery = useQuery({
+    queryKey: ["qa-conversations", conversationLimit],
+    queryFn: () => listConversations("qa", conversationLimit)
+  });
+
   const qaMutation = useMutation({
     mutationFn: askQuestion
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteConversation,
+    onMutate: () => {
+      setDeleteError(null);
+    },
+    onSuccess: () => {
+      setActiveConversationId(null);
+      setMessages([]);
+      setSourcePanel(null);
+      queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
+    },
+    onError: (error) => {
+      // 404 = already deleted server-side; mirror success so the UI clears.
+      if (error instanceof ApiError && error.status === 404) {
+        setActiveConversationId(null);
+        setMessages([]);
+        setSourcePanel(null);
+      } else {
+        setDeleteError(error instanceof Error ? error.message : "Failed to clear conversation");
+      }
+      queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
+    }
+  });
+
   useEffect(() => {
-    if (messages.length === 0) {
-      localStorage.removeItem(QA_STORAGE_KEY);
+    if (!activeConversationId) return;
+    if (skipNextConversationLoad.current) {
+      skipNextConversationLoad.current = false;
       return;
     }
-
-    const payload: StoredQaState = {
-      messages: messages.slice(-MAX_STORED_MESSAGES),
-      paperId,
-      topK
+    let cancelled = false;
+    getConversation(activeConversationId)
+      .then((detail) => {
+        if (cancelled) return;
+        setMessages(mapConversationDetail(detail));
+        const lastUser = [...detail.messages].reverse().find((message) => message.role === "user");
+        if (lastUser) {
+          const paper = stringMetadataValue(lastUser.metadata, "paper_id");
+          const restoredTopK = numberMetadataValue(lastUser.metadata, "top_k", 5);
+          setPaperId(paper ?? "");
+          setTopK(restoredTopK);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setActiveConversationId(null);
+        setMessages([]);
+      });
+    return () => {
+      cancelled = true;
     };
-    localStorage.setItem(QA_STORAGE_KEY, JSON.stringify(payload));
-  }, [messages, paperId, topK]);
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    storeConversationId(activeConversationId);
+  }, [activeConversationId]);
 
   const submitQuestion = (content: string, scopePaperId: string | null, scopeTopK: number) => {
     const trimmedQuestion = content.trim();
@@ -119,16 +237,22 @@ export function QaPage() {
       }
     };
 
-    setMessages((current) => [...current, userMessage, assistantMessage].slice(-MAX_STORED_MESSAGES));
+    setMessages((current) => [...current, userMessage, assistantMessage].slice(-MAX_VISIBLE_MESSAGES));
     setQuestion("");
     qaMutation.mutate(
       {
         question: trimmedQuestion,
         paper_id: scopePaperId,
-        top_k: scopeTopK
+        top_k: scopeTopK,
+        conversation_id: activeConversationId
       },
       {
         onSuccess: (result) => {
+          if (result.conversation_id) {
+            skipNextConversationLoad.current = result.conversation_id !== activeConversationId;
+            setActiveConversationId(result.conversation_id);
+          }
+          queryClient.invalidateQueries({ queryKey: ["qa-conversations"] });
           setMessages((current) =>
             current.map((message) =>
               message.id === assistantMessageId && message.role === "assistant"
@@ -136,7 +260,12 @@ export function QaPage() {
                     ...message,
                     content: result.answer,
                     status: "done",
-                    sources: result.sources
+                    sources: result.sources,
+                    rewritten_question: result.rewritten_question,
+                    request: {
+                      ...message.request,
+                      question: result.question
+                    }
                   }
                 : message
             )
@@ -166,10 +295,25 @@ export function QaPage() {
     submitQuestion(question, paperId || null, topK);
   };
 
-  const clearConversation = () => {
+  const startNewChat = () => {
+    skipNextConversationLoad.current = false;
+    setActiveConversationId(null);
     setMessages([]);
     setSourcePanel(null);
-    localStorage.removeItem(QA_STORAGE_KEY);
+  };
+
+  const clearConversation = () => {
+    if (activeConversationId) {
+      deleteMutation.mutate(activeConversationId);
+      return;
+    }
+    startNewChat();
+  };
+
+  const loadConversation = (conversationId: string) => {
+    skipNextConversationLoad.current = false;
+    setActiveConversationId(conversationId);
+    setSourcePanel(null);
   };
 
   if (papersQuery.error) {
@@ -188,15 +332,63 @@ export function QaPage() {
             Ask questions against the indexed library or scope retrieval to one paper.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={clearConversation}
-          disabled={!hasMessages || qaMutation.isPending}
-          className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium text-muted hover:bg-surface hover:text-ink disabled:opacity-60"
-        >
-          Clear conversation
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={startNewChat}
+            disabled={qaMutation.isPending}
+            className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium text-muted hover:bg-surface hover:text-ink disabled:opacity-60"
+          >
+            New chat
+          </button>
+          <button
+            type="button"
+            onClick={clearConversation}
+            disabled={!hasMessages || qaMutation.isPending || deleteMutation.isPending}
+            className="rounded-md border border-line bg-panel px-3 py-2 text-sm font-medium text-muted hover:bg-surface hover:text-ink disabled:opacity-60"
+          >
+            Clear conversation
+          </button>
+        </div>
       </section>
+
+      {conversationsQuery.error ? (
+        <ErrorState
+          title="Unable to load conversations"
+          message={(conversationsQuery.error as Error).message}
+        />
+      ) : conversationsQuery.data?.conversations.length ? (
+        <section className="flex flex-wrap items-center gap-2">
+          {conversationsQuery.data.conversations.map((conversation) => (
+            <button
+              key={conversation.id}
+              type="button"
+              onClick={() => loadConversation(conversation.id)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                conversation.id === activeConversationId
+                  ? "border-accent bg-accent text-white"
+                  : "border-line bg-panel text-muted hover:bg-surface hover:text-ink"
+              }`}
+            >
+              {conversation.title || "QA conversation"}
+            </button>
+          ))}
+          {conversationsQuery.data.conversations.length < conversationsQuery.data.total ? (
+            <button
+              type="button"
+              onClick={() => setConversationLimit((n) => n + CONVERSATION_PAGE_SIZE)}
+              disabled={conversationsQuery.isFetching}
+              className="rounded-full border border-dashed border-line px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface hover:text-ink disabled:opacity-60"
+            >
+              Show more ({conversationsQuery.data.total - conversationsQuery.data.conversations.length})
+            </button>
+          ) : null}
+        </section>
+      ) : null}
+
+      {deleteError ? (
+        <ErrorState title="Failed to clear conversation" message={deleteError} />
+      ) : null}
 
       <div className="flex flex-1 flex-col gap-4 xl:flex-row xl:items-start">
         {hasMessages ? (
@@ -224,7 +416,15 @@ export function QaPage() {
                   ) : message.status === "thinking" ? (
                     <p className="mt-3 text-sm text-muted">The model is retrieving sources and composing an answer...</p>
                   ) : (
-                    <MarkdownContent content={message.content} className="mt-3" />
+                    <>
+                      <MarkdownContent content={message.content} className="mt-3" />
+                      {message.rewritten_question && (
+                        <details className="mt-4 rounded-md border border-line bg-surface px-3 py-2 text-xs text-muted">
+                          <summary className="cursor-pointer font-medium text-ink">Rewritten query</summary>
+                          <p className="mt-2 whitespace-pre-wrap">{message.rewritten_question}</p>
+                        </details>
+                      )}
+                    </>
                   )}
 
                   {message.status === "done" && (
@@ -333,7 +533,6 @@ export function QaPage() {
           </button>
         </div>
       </form>
-
     </div>
   );
 }

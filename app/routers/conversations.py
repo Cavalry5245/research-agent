@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+import json
+from typing import Any
 
-from app.services.memory_store import MemoryStore
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from app.services.memory_store import MemoryStore, parse_metadata
 
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
 
@@ -29,6 +32,7 @@ class ConversationOut(BaseModel):
     title: str
     created_at: float
     updated_at: float
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class MessageOut(BaseModel):
@@ -36,6 +40,7 @@ class MessageOut(BaseModel):
     role: str
     content: str
     created_at: float
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ConversationDetail(BaseModel):
@@ -49,9 +54,14 @@ class ConversationListResponse(BaseModel):
 
 
 @router.get("", response_model=ConversationListResponse)
-def list_conversations(limit: int = 50, offset: int = 0):
+def list_conversations(limit: int = 50, offset: int = 0, kind: str | None = None):
     store = get_memory_store()
-    convs = store.list_conversations(limit=limit, offset=offset)
+    if kind is not None:
+        convs = store.list_conversations_by_kind(kind, limit=limit, offset=offset)
+        total = store.count_conversations_by_kind(kind)
+    else:
+        convs = store.list_conversations(limit=limit, offset=offset)
+        total = store.count_conversations()
     return ConversationListResponse(
         conversations=[
             ConversationOut(
@@ -59,10 +69,11 @@ def list_conversations(limit: int = 50, offset: int = 0):
                 title=c["title"],
                 created_at=c["created_at"],
                 updated_at=c["updated_at"],
+                metadata=parse_metadata(c.get("metadata")),
             )
             for c in convs
         ],
-        total=len(convs),
+        total=total,
     )
 
 
@@ -79,6 +90,7 @@ def get_conversation(conversation_id: str):
             title=conv["title"],
             created_at=conv["created_at"],
             updated_at=conv["updated_at"],
+            metadata=parse_metadata(conv.get("metadata")),
         ),
         messages=[
             MessageOut(
@@ -86,6 +98,7 @@ def get_conversation(conversation_id: str):
                 role=m["role"],
                 content=m["content"],
                 created_at=m["created_at"],
+                metadata=parse_metadata(m.get("metadata")),
             )
             for m in messages
         ],
