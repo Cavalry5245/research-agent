@@ -81,7 +81,11 @@ def fake_cli(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "EmbeddingClient", FakeEmbeddingClient)
     monkeypatch.setattr(cli, "ChromaIndexRebuilder", FakeRebuilder)
     monkeypatch.setattr(cli, "git_head", lambda: "abc123")
-    monkeypatch.setattr(cli, "preflight_rebuild", lambda **_kwargs: ([], {}))
+    monkeypatch.setattr(
+        cli,
+        "preflight_rebuild",
+        lambda **kwargs: ([], {} if kwargs.get("require_manifest") else None),
+    )
     monkeypatch.setattr(cli, "validate_existing_chroma_store", lambda _path: None)
     return settings
 
@@ -121,7 +125,7 @@ def test_cli_modes_print_only_configuration_presence(
 
 
 @pytest.mark.parametrize("missing_field", ["embedding_base_url", "embedding_api_key"])
-def test_cli_rejects_missing_api_configuration_before_opening_backend(
+def test_cli_build_rejects_missing_api_configuration_before_opening_backend(
     fake_cli, missing_field, monkeypatch, capsys
 ):
     setattr(fake_cli, missing_field, "")
@@ -131,11 +135,25 @@ def test_cli_rejects_missing_api_configuration_before_opening_backend(
         lambda **_kwargs: pytest.fail("backend must not be opened"),
     )
 
-    assert cli.main(["--verify-only"]) == 2
+    assert cli.main(["--canary-only"]) == 2
     captured = capsys.readouterr()
     assert "requires nonempty EMBEDDING_BASE_URL and EMBEDDING_API_KEY" in captured.err
     assert "embedding_base_url_configured=" in captured.out
     assert "embedding_api_key_configured=" in captured.out
+
+
+def test_cli_verify_allows_missing_credentials_and_does_not_create_embedding_client(
+    fake_cli, monkeypatch
+):
+    fake_cli.embedding_base_url = ""
+    fake_cli.embedding_api_key = ""
+    monkeypatch.setattr(
+        cli,
+        "EmbeddingClient",
+        lambda **_kwargs: pytest.fail("verify-only must not create embedding client"),
+    )
+
+    assert cli.main(["--verify-only"]) == 0
 
 
 def test_cli_default_runs_canary_then_full(fake_cli):
@@ -147,6 +165,66 @@ def test_cli_default_runs_canary_then_full(fake_cli):
         "schema_version": 1,
     }
     assert FakeBackend.created[0]["create_if_missing"] is True
+
+
+def test_cli_default_existing_manifest_runs_full_directly(fake_cli, monkeypatch):
+    monkeypatch.setattr(
+        cli, "preflight_rebuild", lambda **_kwargs: ([], {"status": "failed"})
+    )
+
+    assert cli.main([]) == 0
+    assert FakeRebuilder.calls == [("full",)]
+
+
+def test_cli_default_rerun_skips_canary_after_prior_full_failure(fake_cli, monkeypatch):
+    manifests = iter([None, {"status": "failed"}])
+    monkeypatch.setattr(
+        cli, "preflight_rebuild", lambda **_kwargs: ([], next(manifests))
+    )
+
+    class FailOnceRebuilder(FakeRebuilder):
+        full_attempts = 0
+
+        def run_all(self):
+            self.calls.append(("full",))
+            type(self).full_attempts += 1
+            if type(self).full_attempts == 1:
+                raise RuntimeError("second source failed")
+            return {"status": "ready", "paper_count": 53, "chunk_count": 100}
+
+    monkeypatch.setattr(cli, "ChromaIndexRebuilder", FailOnceRebuilder)
+
+    assert cli.main([]) == 1
+    assert cli.main([]) == 0
+    assert FakeRebuilder.calls == [("canary",), ("full",), ("full",)]
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--collection", ""],
+        ["--expected-source-count", "0"],
+        ["--batch-size", "0"],
+        ["--max-attempts", "-1"],
+        ["--base-delay", "nan"],
+        ["--max-delay", "-1"],
+    ],
+)
+def test_cli_rejects_invalid_scalar_arguments_before_preflight_or_backend(
+    fake_cli, monkeypatch, arguments
+):
+    monkeypatch.setattr(
+        cli,
+        "preflight_rebuild",
+        lambda **_kwargs: pytest.fail("preflight must not run"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "ChromaVectorBackend",
+        lambda **_kwargs: pytest.fail("backend must not be opened"),
+    )
+
+    assert cli.main(arguments) == 2
 
 
 def test_cli_verify_rejects_empty_building_state(fake_cli, monkeypatch):

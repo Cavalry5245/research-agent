@@ -120,8 +120,19 @@ class EmbeddingClient:
                 model=self.model_name,
                 input=batch,
             )
-            # Response data may come back out of order; sort by index.
-            for item in sorted(resp.data, key=lambda d: getattr(d, "index", 0)):
+            items = list(resp.data)
+            indices = [getattr(item, "index", None) for item in items]
+            if (
+                any(type(index) is not int for index in indices)
+                or len(indices) != len(batch)
+                or set(indices) != set(range(len(batch)))
+            ):
+                raise ValueError(
+                    "Embedding API response indices must be unique built-in ints "
+                    "covering exactly the requested batch"
+                )
+            # Response data may come back out of order; sort only after validation.
+            for item in sorted(items, key=lambda item: item.index):
                 out.append(list(item.embedding))
         return out
 

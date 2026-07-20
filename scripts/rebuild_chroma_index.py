@@ -4,6 +4,7 @@ import argparse
 import json
 import subprocess
 import sys
+from math import isfinite
 from pathlib import Path
 
 if __package__ in {None, ""}:
@@ -48,10 +49,26 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=settings.embedding_batch_size)
     parser.add_argument("--max-attempts", type=int, default=5)
     parser.add_argument("--base-delay", type=float, default=1.0)
+    parser.add_argument("--max-delay", type=float, default=60.0)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--canary-only", action="store_true")
     modes.add_argument("--verify-only", action="store_true")
     return parser
+
+
+def _validate_scalar_arguments(args) -> None:
+    if not isinstance(args.collection, str) or not args.collection.strip():
+        raise ValueError("collection must be a nonempty string")
+    for field in ("expected_source_count", "batch_size", "max_attempts"):
+        value = getattr(args, field)
+        if type(value) is not int or value <= 0:
+            raise ValueError(f"{field} must be a positive built-in int")
+    for field in ("base_delay", "max_delay"):
+        value = getattr(args, field)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{field} must be a finite nonnegative number")
+        if not isfinite(float(value)) or float(value) < 0:
+            raise ValueError(f"{field} must be a finite nonnegative number")
 
 
 def _print_configuration_presence() -> None:
@@ -61,6 +78,11 @@ def _print_configuration_presence() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    try:
+        _validate_scalar_arguments(args)
+    except ValueError as exc:
+        print(f"Invalid rebuild arguments: {exc}", file=sys.stderr)
+        return 2
     if settings.embedding_provider != "api" or settings.embedding_model != "bge-m3":
         print(
             "Rebuild requires EMBEDDING_PROVIDER=api and EMBEDDING_MODEL=bge-m3",
@@ -69,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     _print_configuration_presence()
-    if not (
+    if not args.verify_only and not (
         isinstance(settings.embedding_base_url, str)
         and settings.embedding_base_url.strip()
         and isinstance(settings.embedding_api_key, str)
@@ -97,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
             schema_version=1,
             chunk_settings=chunk_settings,
         )
-        preflight_rebuild(
+        _, existing_manifest = preflight_rebuild(
             metadata_dir=Path(args.metadata_dir),
             manifest_path=manifest_path,
             contract=contract,
@@ -122,9 +144,11 @@ def main(argv: list[str] | None = None) -> int:
                 else None
             ),
         )
-        embedding_client = EmbeddingClient(
-            model_name="bge-m3", batch_size=args.batch_size
-        )
+        embedding_client = None
+        if not args.verify_only:
+            embedding_client = EmbeddingClient(
+                model_name="bge-m3", batch_size=args.batch_size
+            )
         rebuilder = ChromaIndexRebuilder(
             metadata_dir=Path(args.metadata_dir),
             manifest_path=persist_dir / f"{args.collection}.rebuild-manifest.json",
@@ -133,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
             batch_size=args.batch_size,
             max_attempts=args.max_attempts,
             base_delay=args.base_delay,
+            max_delay=args.max_delay,
             git_head=requested_git_head,
             chunk_settings=chunk_settings,
             expected_source_count=args.expected_source_count,
@@ -155,7 +180,8 @@ def main(argv: list[str] | None = None) -> int:
             result = rebuilder.run_canary()
             success = result.get("completed_paper_count", 0) >= 1
         else:
-            rebuilder.run_canary()
+            if existing_manifest is None:
+                rebuilder.run_canary()
             result = rebuilder.run_all()
             success = result.get("status") == "ready"
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))

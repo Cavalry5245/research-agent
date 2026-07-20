@@ -548,12 +548,14 @@ def embed_batch_with_retry(
     *,
     max_attempts: int,
     base_delay: float,
+    max_delay: float = 60.0,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> list[list[float]]:
     """Embed one batch with bounded retry for transient provider failures."""
     _positive_int(max_attempts, "max_attempts")
     base_delay = _nonnegative_finite(base_delay, "base_delay")
+    max_delay = _nonnegative_finite(max_delay, "max_delay")
     for attempt in range(1, max_attempts + 1):
         try:
             return client.embed_texts(texts)
@@ -562,7 +564,11 @@ def embed_batch_with_retry(
                 raise
             delay = _retry_after_seconds(exc, now=now)
             if delay is None:
-                delay = base_delay * 2 ** (attempt - 1)
+                try:
+                    delay = base_delay * 2 ** (attempt - 1)
+                except OverflowError:
+                    delay = max_delay
+            delay = min(delay, max_delay)
             sleep(delay)
     raise AssertionError("retry loop exited unexpectedly")
 
@@ -696,6 +702,7 @@ class ChromaIndexRebuilder:
         git_head: str,
         chunk_settings: dict,
         expected_source_count: int,
+        max_delay: float = 60.0,
         sleep: Callable[[float], None] = time.sleep,
         lock_timeout: float = _MANIFEST_LOCK_TIMEOUT_SECONDS,
     ):
@@ -706,6 +713,7 @@ class ChromaIndexRebuilder:
         self.batch_size = _positive_int(batch_size, "batch_size")
         self.max_attempts = _positive_int(max_attempts, "max_attempts")
         self.base_delay = _nonnegative_finite(base_delay, "base_delay")
+        self.max_delay = _nonnegative_finite(max_delay, "max_delay")
         self.expected_source_count = _positive_int(
             expected_source_count, "expected_source_count"
         )
@@ -720,10 +728,11 @@ class ChromaIndexRebuilder:
         collection = getattr(backend, "collection_name", None)
         if not isinstance(collection, str) or not collection.strip():
             raise ValueError("backend collection_name must be a nonempty string")
-        if getattr(embedding_client, "provider", None) != "api":
-            raise ValueError("embedding provider must be api")
-        if getattr(embedding_client, "model_name", None) != "bge-m3":
-            raise ValueError("embedding model must be bge-m3")
+        if embedding_client is not None:
+            if getattr(embedding_client, "provider", None) != "api":
+                raise ValueError("embedding provider must be api")
+            if getattr(embedding_client, "model_name", None) != "bge-m3":
+                raise ValueError("embedding model must be bge-m3")
         collection_metadata = backend.metadata()
         if (
             collection_metadata.get("embedding_model") != "bge-m3"
@@ -825,6 +834,8 @@ class ChromaIndexRebuilder:
     def _process_source(self, manifest: dict, source: Path) -> None:
         paper_id: str | None = None
         try:
+            if self.embedding_client is None:
+                raise RuntimeError("Embedding client is required to process sources")
             payload, digest = _captured_source(source)
             parsed = PaperParseResult.model_validate_json(payload.decode("utf-8"))
             paper_id = parsed.paper_id
@@ -847,6 +858,7 @@ class ChromaIndexRebuilder:
                     [chunk.content for chunk in batch],
                     max_attempts=self.max_attempts,
                     base_delay=self.base_delay,
+                    max_delay=self.max_delay,
                     sleep=self.sleep,
                 )
                 dimension = validate_embeddings(

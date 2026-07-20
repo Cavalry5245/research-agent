@@ -155,6 +155,47 @@ def test_api_embedding_sends_exact_configured_bge_m3_wire_model():
     assert requested == [("bge-m3", ["text"])]
 
 
+@pytest.mark.parametrize(
+    "indices",
+    [
+        [0],
+        [0, 0],
+        [0, 2],
+        [False, 1],
+        [None, 1],
+    ],
+)
+def test_api_embedding_rejects_invalid_provider_batch_indices(indices):
+    class Embeddings:
+        def create(self, *, model, input):
+            data = [
+                type("Item", (), {"index": index, "embedding": [1.0, 2.0]})()
+                for index in indices
+            ]
+            return type("Response", (), {"data": data})()
+
+    client = EmbeddingClient(model_name="bge-m3", batch_size=8)
+    client._provider = "api"
+    client._api_client = type("Api", (), {"embeddings": Embeddings()})()
+
+    with pytest.raises(ValueError, match="indices"):
+        client.embed_texts(["first", "second"])
+
+
+def test_api_embedding_orders_complete_provider_batch_by_index():
+    class Embeddings:
+        def create(self, *, model, input):
+            first = type("Item", (), {"index": 1, "embedding": [2.0]})()
+            second = type("Item", (), {"index": 0, "embedding": [1.0]})()
+            return type("Response", (), {"data": [first, second]})()
+
+    client = EmbeddingClient(model_name="bge-m3", batch_size=8)
+    client._provider = "api"
+    client._api_client = type("Api", (), {"embeddings": Embeddings()})()
+
+    assert client.embed_texts(["first", "second"]) == [[1.0], [2.0]]
+
+
 def test_api_client_setup_logs_only_endpoint_and_key_presence(monkeypatch, caplog):
     constructed = []
 

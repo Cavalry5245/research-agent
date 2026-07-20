@@ -731,6 +731,58 @@ def test_embed_batch_treats_past_rfc_http_date_retry_after_as_zero():
     assert sleeps == [0.0]
 
 
+@pytest.mark.parametrize("header_kind", ["numeric", "date"])
+def test_embed_batch_caps_retry_after_to_max_delay(header_kind: str):
+    now = datetime(2026, 7, 21, 4, 0, 0, tzinfo=timezone.utc)
+    retry_after = (
+        "31536000"
+        if header_kind == "numeric"
+        else (now + timedelta(days=365)).strftime("%a, %d %b %Y %H:%M:%S GMT")
+    )
+
+    class LongRetry(RetryableEmbeddingError):
+        headers = {"Retry-After": retry_after}
+
+    sleeps = []
+    embed_batch_with_retry(
+        FakeEmbeddingClient(failures=1, error_factory=LongRetry),
+        ["a"],
+        max_attempts=2,
+        base_delay=0.5,
+        max_delay=60,
+        sleep=sleeps.append,
+        now=lambda: now,
+    )
+
+    assert sleeps == [60.0]
+
+
+@pytest.mark.parametrize("max_delay", [-1, float("nan"), float("inf"), True])
+def test_embed_batch_rejects_invalid_max_delay(max_delay):
+    with pytest.raises(ValueError, match="max_delay"):
+        embed_batch_with_retry(
+            FakeEmbeddingClient(),
+            ["a"],
+            max_attempts=2,
+            base_delay=0.5,
+            max_delay=max_delay,
+        )
+
+
+def test_embed_batch_caps_exponential_fallback_to_max_delay():
+    sleeps = []
+    embed_batch_with_retry(
+        FakeEmbeddingClient(failures=1),
+        ["a"],
+        max_attempts=2,
+        base_delay=100,
+        max_delay=60,
+        sleep=sleeps.append,
+    )
+
+    assert sleeps == [60.0]
+
+
 def test_rebuild_canary_full_run_and_no_cost_resume(tmp_path: Path):
     metadata_dir = tmp_path / "metadata"
     metadata_dir.mkdir()
@@ -773,6 +825,59 @@ def test_rebuild_canary_full_run_and_no_cost_resume(tmp_path: Path):
     ).run_canary()
     assert ready_canary["status"] == "ready"
     assert third_client.calls == 0
+
+
+def test_run_all_resumes_failed_non_canary_without_reembedding_completed_paper(
+    tmp_path: Path,
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=20)
+    _write_parsed_fixture(metadata_dir, "paper_2", repeat=100)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="failed_resume_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+
+    class FailPaperOne(FakeEmbeddingClient):
+        def embed_texts(self, texts):
+            if any("paper_1" in text for text in texts):
+                raise RuntimeError("injected non-canary failure")
+            return super().embed_texts(texts)
+
+    with pytest.raises(RuntimeError, match="non-canary failure"):
+        _rebuilder(tmp_path, metadata_dir, backend, FailPaperOne()).run_all()
+    failed_manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    assert failed_manifest["status"] == "failed"
+    assert failed_manifest["papers"]["paper_2"]["status"] == "completed"
+
+    canary_retry_client = FakeEmbeddingClient()
+    with pytest.raises(RuntimeError, match="not verifiable"):
+        _rebuilder(tmp_path, metadata_dir, backend, canary_retry_client).run_canary()
+    assert canary_retry_client.calls == 0
+
+    class RecordingClient(FakeEmbeddingClient):
+        def __init__(self):
+            super().__init__()
+            self.texts = []
+
+        def embed_texts(self, texts):
+            self.texts.extend(texts)
+            return super().embed_texts(texts)
+
+    resumed_client = RecordingClient()
+    result = _rebuilder(tmp_path, metadata_dir, backend, resumed_client).run_all()
+
+    assert result["status"] == "ready"
+    assert any("paper_1" in text for text in resumed_client.texts)
+    assert all("paper_2" not in text for text in resumed_client.texts)
 
 
 def test_partial_verify_returns_building_status_after_consistent_canary(tmp_path: Path):
@@ -1193,6 +1298,7 @@ def test_manifest_replace_retries_windows_sharing_violation(
         ({"max_attempts": 0}, "max_attempts"),
         ({"expected_source_count": -1}, "expected_source_count"),
         ({"base_delay": float("nan")}, "base_delay"),
+        ({"max_delay": float("inf")}, "max_delay"),
     ],
 )
 def test_rebuilder_rejects_invalid_constructor_arguments(tmp_path: Path, kwargs, match):
@@ -1213,6 +1319,7 @@ def test_rebuilder_rejects_invalid_constructor_arguments(tmp_path: Path, kwargs,
         batch_size=2,
         max_attempts=3,
         base_delay=0.1,
+        max_delay=60,
         git_head="head",
         chunk_settings={"size": 500},
         expected_source_count=1,
