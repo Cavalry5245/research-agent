@@ -212,7 +212,7 @@ def test_cli_default_rerun_skips_canary_after_prior_full_failure(fake_cli, monke
         ["--collection", "论文abc"],
         ["--collection", "abc..def"],
         ["--collection", "127.0.0.1"],
-        ["--collection", "a" * 64],
+        ["--collection", "a" * 513],
         ["--expected-source-count", "0"],
         ["--batch-size", "0"],
         ["--max-attempts", "-1"],

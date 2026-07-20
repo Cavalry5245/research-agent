@@ -40,6 +40,9 @@ def backend(request, tmp_path: Path):
         "abc",
         "A0._-z",
         "a" + ("x" * 61) + "z",
+        "a" + ("x" * 62) + "z",
+        "a" + ("x" * 510) + "z",
+        "999.999.999.999",
     ],
 )
 def test_chroma_collection_name_validator_accepts_exact_valid_names(
@@ -56,7 +59,7 @@ def test_chroma_collection_name_validator_accepts_exact_valid_names(
         7,
         "",
         "ab",
-        "a" * 64,
+        "a" * 513,
         "../escape",
         "a/b",
         r"a\b",
@@ -72,7 +75,6 @@ def test_chroma_collection_name_validator_accepts_exact_valid_names(
         "ａｂｃ",
         "abc..def",
         "127.0.0.1",
-        "999.999.999.999",
     ],
 )
 def test_chroma_collection_name_validator_rejects_invalid_names(collection_name):
@@ -82,7 +84,7 @@ def test_chroma_collection_name_validator_rejects_invalid_names(collection_name)
 
 @pytest.mark.parametrize(
     "collection_name",
-    ["../escape", "论文abc", "a" * 64, "127.0.0.1"],
+    ["../escape", "论文abc", "a" * 513, "127.0.0.1"],
 )
 def test_chroma_backend_rejects_invalid_name_without_persist_artifacts(
     tmp_path: Path, collection_name

@@ -6,6 +6,7 @@ import re
 import threading
 import time
 from contextlib import contextmanager
+from ipaddress import IPv4Address, ip_address
 from pathlib import Path
 from typing import Any, BinaryIO, Iterator
 
@@ -39,18 +40,15 @@ CHROMA_DATABASE_FILENAME = "chroma.sqlite3"
 _CHROMA_COLLECTION_NAME_RE = re.compile(
     r"^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$"
 )
-_CHROMA_IPV4_LIKE_RE = re.compile(
-    r"^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
-)
 
 
 def validate_chroma_collection_name(collection_name: object) -> str:
-    """Mirror the collection-name rules enforced by pinned Chroma 1.5.9."""
+    """Mirror the collection-name rules enforced by Chroma 1.5.9 runtime."""
     if type(collection_name) is not str:
         raise ValueError("Chroma collection name must be a built-in string")
-    if not 3 <= len(collection_name) <= 63:
+    if not 3 <= len(collection_name) <= 512:
         raise ValueError(
-            "Chroma collection name must contain between 3 and 63 characters"
+            "Chroma collection name must contain between 3 and 512 characters"
         )
     if _CHROMA_COLLECTION_NAME_RE.fullmatch(collection_name) is None:
         raise ValueError(
@@ -62,8 +60,15 @@ def validate_chroma_collection_name(collection_name: object) -> str:
         raise ValueError(
             "Chroma collection name must not contain two consecutive dots"
         )
-    if _CHROMA_IPV4_LIKE_RE.fullmatch(collection_name) is not None:
-        raise ValueError("Chroma collection name must not be an IPv4-like address")
+    try:
+        parsed_address = ip_address(collection_name)
+    except ValueError:
+        pass
+    else:
+        if isinstance(parsed_address, IPv4Address):
+            raise ValueError(
+                "Chroma collection name must not be a valid IPv4 address"
+            )
     return collection_name
 
 
