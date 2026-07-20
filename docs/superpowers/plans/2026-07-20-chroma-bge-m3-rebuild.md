@@ -51,7 +51,7 @@ Use `D:\Hcworkspace\Anoconda3\envs\research_agent\python.exe` for every Python a
 - Modify: `.env.example`
 - Create: `tests/test_vector_store_factory.py`
 
-- [ ] **Step 1: Add a failing configuration test**
+- [x] **Step 1: Add a failing configuration test**
 
 Create `tests/test_vector_store_factory.py` with:
 
@@ -72,7 +72,7 @@ def test_vector_store_settings_have_versioned_chroma_collection():
     assert configured.chroma_collection_name == "research_papers_bge_m3_v1"
 ```
 
-- [ ] **Step 2: Run the test and confirm the missing field**
+- [x] **Step 2: Run the test and confirm the missing field**
 
 Run:
 
@@ -82,7 +82,7 @@ Run:
 
 Expected: FAIL because `Settings` has no `chroma_collection_name` field.
 
-- [ ] **Step 3: Add the minimal settings**
+- [x] **Step 3: Add the minimal settings**
 
 Add these fields under the vector-store block in `app/config.py`:
 
@@ -108,13 +108,13 @@ CHROMA_COLLECTION_NAME=research_papers_bge_m3_v1
 CHROMA_REQUIRE_READY=true
 ```
 
-- [ ] **Step 4: Run the configuration test**
+- [x] **Step 4: Run the configuration test**
 
 Run the Step 2 command.
 
 Expected: PASS.
 
-- [ ] **Step 5: Inspect the diff and commit**
+- [x] **Step 5: Inspect the diff and commit**
 
 Run:
 
@@ -125,6 +125,8 @@ git commit -m "config: define versioned Chroma collection"
 ```
 
 Expected: the commit contains only settings, the dependency pin, environment documentation, and the new test.
+
+Completion note (2026-07-20): implemented in `750827ab`; strengthened the default contract test in `a93411e`. RED failed on the missing collection field; GREEN passed with 2 focused tests. Independent spec and quality reviews approved with no remaining Critical or Important issues.
 
 ### Task 2: Extract a strict JSON backend behind a common contract
 
