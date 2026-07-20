@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import time
 from datetime import datetime, timezone
@@ -187,6 +188,99 @@ def _paper_not_found(paper_id: str):
 # ── Health ───────────────────────────────────────────────────────────────────
 
 
+_SAFE_VECTOR_STRING_FIELDS = (
+    "backend",
+    "store_path",
+    "collection_name",
+    "build_status",
+    "embedding_model",
+    "persist_dir",
+)
+_STATUS_SECRET_RE = re.compile(
+    r"(?i)(?P<name>api[_ -]?key|authorization|access[_ -]?token|"
+    r"client[_ -]?secret)\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+)
+_STATUS_TOKEN_RE = re.compile(r"(?i)sk-[a-z0-9_-]+")
+_STATUS_URL_RE = re.compile(r"(?i)https?://[^\s,;]+")
+
+
+def _safe_vector_error(exc: Exception) -> str:
+    message = str(exc)
+    message = _STATUS_SECRET_RE.sub(r"\g<name>=[REDACTED]", message)
+    message = _STATUS_TOKEN_RE.sub("[REDACTED]", message)
+    return _STATUS_URL_RE.sub("[REDACTED_URL]", message)
+
+
+def _vector_store_status_payload() -> dict:
+    payload = {
+        "available": False,
+        "backend": None,
+        "store_path": None,
+        "collection_name": None,
+        "build_status": None,
+        "embedding_dimension": None,
+        "embedding_model": None,
+        "schema_version": None,
+        "chunk_count": 0,
+        "paper_count": None,
+        "persist_dir": None,
+        "error": None,
+    }
+    try:
+        vector_store = _get_vector_store()
+        vector_meta = vector_store.metadata()
+        if not isinstance(vector_meta, dict):
+            raise RuntimeError("vector store metadata must be a mapping")
+
+        backend_name = vector_store.backend_name()
+        chunk_count = vector_store.count()
+        if type(chunk_count) is not int or chunk_count < 0:
+            raise RuntimeError("vector store count must be a non-negative integer")
+
+        for field in _SAFE_VECTOR_STRING_FIELDS:
+            value = vector_meta.get(field)
+            if type(value) is str:
+                payload[field] = value
+        for field in ("embedding_dimension", "schema_version"):
+            value = vector_meta.get(field)
+            if type(value) is int and value > 0:
+                payload[field] = value
+        paper_count = vector_meta.get("paper_count")
+        if type(paper_count) is int and paper_count >= 0:
+            payload["paper_count"] = paper_count
+        payload["chunk_count"] = chunk_count
+
+        metadata_backend = vector_meta.get("backend")
+        available = (
+            type(backend_name) is str
+            and backend_name in {"json", "chroma"}
+            and metadata_backend == backend_name
+        )
+        if backend_name == "json":
+            for field in ("load_failed", "degraded"):
+                value = vector_meta.get(field, False)
+                available = available and type(value) is bool and not value
+        elif backend_name == "chroma":
+            dimension = vector_meta.get("embedding_dimension")
+            schema_version = vector_meta.get("schema_version")
+            available = available and all(
+                (
+                    vector_meta.get("collection_name")
+                    == settings.chroma_collection_name,
+                    vector_meta.get("build_status") == "ready",
+                    type(dimension) is int and dimension > 0,
+                    vector_meta.get("embedding_model") == settings.embedding_model,
+                    type(schema_version) is int and schema_version == 1,
+                )
+            )
+        payload["available"] = available
+        if not available:
+            payload["error"] = "vector store is not ready"
+    except Exception as exc:
+        payload["error"] = _safe_vector_error(exc)
+    return payload
+
+
 @app.get("/health", response_model=HealthResponse, summary="Health check")
 async def health_check():
     storage_dirs = [_resolve_upload_dir(), _resolve_note_dir(), _resolve_metadata_dir()]
@@ -202,12 +296,7 @@ async def health_check():
             storage_writable = False
             break
 
-    try:
-        vector_store_available = (
-            _get_vector_store().metadata().get("backend") is not None
-        )
-    except Exception:
-        vector_store_available = False
+    vector_store_available = _vector_store_status_payload()["available"]
 
     status = "ok" if storage_writable and vector_store_available else "degraded"
     return HealthResponse(
@@ -228,34 +317,7 @@ async def system_status():
     storage_root = Path(settings.metadata_dir).parent
     storage_writable = _storage_is_writable()
 
-    vector_payload = {
-        "available": True,
-        "backend": None,
-        "store_path": None,
-        "chunk_count": 0,
-        "error": None,
-    }
-    try:
-        vector_store = _get_vector_store()
-        vector_meta = vector_store.metadata()
-        vector_payload.update(
-            {
-                "available": True,
-                "backend": vector_meta.get("backend"),
-                "store_path": vector_meta.get("store_path"),
-                "chunk_count": int(vector_store.count()),
-            }
-        )
-    except Exception as exc:
-        vector_payload.update(
-            {
-                "available": False,
-                "backend": None,
-                "store_path": None,
-                "chunk_count": 0,
-                "error": str(exc),
-            }
-        )
+    vector_payload = _vector_store_status_payload()
 
     try:
         paper_count = len(list_papers(_resolve_metadata_dir()))

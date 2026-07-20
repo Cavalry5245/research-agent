@@ -78,3 +78,16 @@ def test_vector_store_forwards_chroma_open_settings(tmp_path):
         collection_name="configured_collection",
         require_ready=True,
     )
+
+
+def test_vector_store_does_not_disable_required_chroma_readiness(tmp_path):
+    with (
+        patch("app.services.vector_store.settings.vector_store", "chroma"),
+        patch("app.services.vector_store.settings.chroma_require_ready", True),
+        patch(
+            "app.services.vector_backends.chroma_backend.ChromaVectorBackend",
+            side_effect=RuntimeError("collection is not ready"),
+        ),
+    ):
+        with pytest.raises(RuntimeError, match="not ready"):
+            VectorStore(persist_dir=str(tmp_path))

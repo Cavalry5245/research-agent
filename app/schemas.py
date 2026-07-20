@@ -31,7 +31,14 @@ class SystemStatusVectorStore(BaseModel):
     available: bool
     backend: str | None = None
     store_path: str | None = None
+    collection_name: str | None = None
+    build_status: str | None = None
+    embedding_dimension: int | None = None
+    embedding_model: str | None = None
+    schema_version: int | None = None
     chunk_count: int = 0
+    paper_count: int | None = None
+    persist_dir: str | None = None
     error: str | None = None
 
 
