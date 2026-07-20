@@ -40,12 +40,14 @@ class ChromaVectorBackend(VectorBackend):
         self.collection_name = collection_name
         self._client = chromadb.PersistentClient(path=persist_dir)
         if create_if_missing:
-            self._collection = self._client.get_or_create_collection(
-                name=collection_name,
-                configuration={"hnsw": {"space": "cosine"}},
-                metadata=initial_metadata or {},
-                embedding_function=None,
-            )
+            create_kwargs: dict[str, Any] = {
+                "name": collection_name,
+                "configuration": {"hnsw": {"space": "cosine"}},
+                "embedding_function": None,
+            }
+            if initial_metadata:
+                create_kwargs["metadata"] = initial_metadata
+            self._collection = self._client.get_or_create_collection(**create_kwargs)
         else:
             self._collection = self._client.get_collection(
                 name=collection_name,

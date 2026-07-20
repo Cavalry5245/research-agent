@@ -163,6 +163,21 @@ def test_chroma_ready_open_rejects_building_collection(tmp_path: Path):
         ChromaVectorBackend(**kwargs, require_ready=True)
 
 
+def test_chroma_creates_cosine_collection_without_initial_metadata(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="default_metadata_collection",
+        create_if_missing=True,
+        require_ready=False,
+    )
+
+    assert backend.count() == 0
+    assert backend.metadata()["backend"] == "chroma"
+    assert backend._collection.configuration_json["hnsw"]["space"] == "cosine"
+
+
 def test_chroma_sets_first_embedding_dimension_and_reports_metadata(tmp_path: Path):
     from app.services.vector_backends import ChromaVectorBackend
 
