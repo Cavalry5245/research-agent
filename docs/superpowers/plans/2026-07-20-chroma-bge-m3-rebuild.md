@@ -1297,7 +1297,7 @@ Completion note (2026-07-20): implemented in `ab9f3674`; hardened endpoint error
 - Runtime output only: `app/storage/vector_db/` Chroma files and rebuild manifest
 - No source files should change during this task
 
-- [ ] **Step 1: Verify secret-safe configuration**
+- [x] **Step 1: Verify secret-safe configuration**
 
 Run:
 
@@ -1307,7 +1307,7 @@ Run:
 
 Expected: provider `api`, model `bge-m3`, both booleans `True`, and collection `research_papers_bge_m3_v1`. The key value must not appear.
 
-- [ ] **Step 2: Run the canary only**
+- [x] **Step 2: Run the canary only**
 
 Run:
 
@@ -1317,7 +1317,7 @@ Run:
 
 Expected: one paper completes, actual embedding dimension is recorded, ID-set verification succeeds, collection remains `building`, and the command exits 0.
 
-- [ ] **Step 3: Inspect canary state without printing secrets**
+- [x] **Step 3: Inspect canary state without printing secrets**
 
 Run:
 
@@ -1327,7 +1327,7 @@ Run:
 
 Expected: verification reports one completed paper and `building`; it does not claim full readiness.
 
-- [ ] **Step 4: Resume into the full rebuild**
+- [x] **Step 4: Resume into the full rebuild**
 
 Run:
 
@@ -1337,7 +1337,7 @@ Run:
 
 Expected: the canary paper is skipped after hash/ID verification, the remaining 52 papers are processed, and final status is `ready`.
 
-- [ ] **Step 5: Perform final collection verification**
+- [x] **Step 5: Perform final collection verification**
 
 Run:
 
@@ -1347,7 +1347,7 @@ Run:
 
 Expected: 53 completed papers, collection and manifest chunk totals match, IDs are unique, dimension is uniform, and status is `ready`.
 
-- [ ] **Step 6: Confirm runtime files are not staged**
+- [x] **Step 6: Confirm runtime files are not staged**
 
 Run:
 
@@ -1357,6 +1357,8 @@ git check-ignore -v app/storage/vector_db/chroma.sqlite3
 ```
 
 Expected: generated Chroma data and manifest are ignored or remain deliberately unstaged. Do not add database files or the manifest to Git.
+
+Completion note (2026-07-21): the first real canary correctly failed safe with 0 chunks because the provider rejected the naked wire ID `bge-m3`. The provider model catalog confirmed `BAAI/bge-m3`; the deterministic logical-to-wire mapping was restored in `04494051` and independently reviewed. The failed 0-chunk manifest was preserved as an ignored diagnostic backup. Retrying with the actual `.env` key completed the canary at 1 paper / 129 chunks / dimension 1024, then resumed to 53 papers / 8,182 unique verified chunks with status `ready` in both manifest and collection. Final verify-only passed. Runtime files and both manifests are ignored and unstaged; exact secret scans confirmed neither the actual key nor base URL appears in either manifest.
 
 ### Task 9: Activate Chroma and run application smoke tests
 
