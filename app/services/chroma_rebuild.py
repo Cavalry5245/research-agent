@@ -557,6 +557,102 @@ def _captured_source(path: Path) -> tuple[bytes, str]:
     return payload, hashlib.sha256(payload).hexdigest()
 
 
+def _resolve_manifest_source(metadata_dir: Path, relative: object) -> Path:
+    if not isinstance(relative, str) or not relative.strip():
+        raise ValueError("manifest source path must be a nonempty relative path")
+    candidate = Path(relative)
+    if candidate.is_absolute() or candidate.drive or ".." in candidate.parts:
+        raise ValueError(
+            f"manifest source path escapes metadata directory: {relative!r}"
+        )
+    root = metadata_dir.resolve()
+    resolved = (root / candidate).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(
+            f"manifest source path escapes metadata directory: {relative!r}"
+        ) from exc
+    return resolved
+
+
+def _validate_manifest_source_records(
+    *,
+    manifest: dict,
+    metadata_dir: Path,
+    sources: list[Path],
+    expected_source_count: int,
+) -> None:
+    records = manifest.get("sources")
+    if not isinstance(records, list) or len(records) != expected_source_count:
+        raise ValueError("manifest sources do not match expected source count")
+    if manifest.get("source_count") != expected_source_count:
+        raise ValueError("manifest source_count does not match expected source count")
+    resolved = []
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError("manifest source record must be an object")
+        digest = record.get("sha256")
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or re.fullmatch(r"[0-9a-fA-F]{64}", digest) is None
+        ):
+            raise ValueError(
+                "manifest source record sha256 must be a hexadecimal digest"
+            )
+        resolved.append(_resolve_manifest_source(metadata_dir, record.get("path")))
+    if len(set(resolved)) != len(resolved):
+        raise ValueError("manifest source paths must be unique")
+    if {path.resolve() for path in sources} != set(resolved):
+        raise ValueError("manifest sources do not match discovered parsed sources")
+    if type(manifest.get("papers")) is not dict:
+        raise ValueError("manifest papers must be an object")
+
+
+def _discover_expected_sources(
+    metadata_dir: Path, expected_source_count: int
+) -> list[Path]:
+    sources = discover_parsed_sources(metadata_dir)
+    if len(sources) != expected_source_count:
+        raise ValueError(
+            f"Expected exactly {expected_source_count} parsed sources; found {len(sources)}"
+        )
+    return sources
+
+
+def preflight_rebuild(
+    *,
+    metadata_dir: Path,
+    manifest_path: Path,
+    contract: dict,
+    expected_source_count: int,
+    require_manifest: bool = False,
+) -> tuple[list[Path], dict | None]:
+    """Validate sources and resume state without creating or changing artifacts."""
+    expected_source_count = _positive_int(
+        expected_source_count, "expected_source_count"
+    )
+    _validate_build_contract(contract, label="contract")
+    metadata_dir = Path(metadata_dir)
+    sources = _discover_expected_sources(metadata_dir, expected_source_count)
+    manifest = load_manifest(Path(manifest_path))
+    if manifest is None:
+        if require_manifest:
+            raise FileNotFoundError(
+                f"Required rebuild manifest does not exist: {Path(manifest_path).name}"
+            )
+        return sources, None
+    validate_resume_contract(manifest, contract)
+    _validate_manifest_source_records(
+        manifest=manifest,
+        metadata_dir=metadata_dir,
+        sources=sources,
+        expected_source_count=expected_source_count,
+    )
+    return sources, manifest
+
+
 class ChromaIndexRebuilder:
     """Build and verify a versioned Chroma collection with resumable state."""
 
@@ -624,56 +720,39 @@ class ChromaIndexRebuilder:
         )
 
     def _validated_sources(self) -> list[Path]:
-        sources = discover_parsed_sources(self.metadata_dir)
-        if len(sources) != self.expected_source_count:
-            raise ValueError(
-                f"Expected exactly {self.expected_source_count} parsed sources; found {len(sources)}"
-            )
-        return sources
+        return _discover_expected_sources(self.metadata_dir, self.expected_source_count)
 
     def _resolve_source_path(self, relative: object) -> Path:
-        if not isinstance(relative, str) or not relative.strip():
-            raise ValueError("manifest source path must be a nonempty relative path")
-        candidate = Path(relative)
-        if candidate.is_absolute() or candidate.drive or ".." in candidate.parts:
-            raise ValueError(
-                f"manifest source path escapes metadata directory: {relative!r}"
-            )
-        root = self.metadata_dir.resolve()
-        resolved = (root / candidate).resolve()
-        try:
-            resolved.relative_to(root)
-        except ValueError as exc:
-            raise ValueError(
-                f"manifest source path escapes metadata directory: {relative!r}"
-            ) from exc
-        return resolved
+        return _resolve_manifest_source(self.metadata_dir, relative)
 
     def _validate_manifest_sources(self, manifest: dict, sources: list[Path]) -> None:
-        records = manifest.get("sources")
-        if not isinstance(records, list) or len(records) != self.expected_source_count:
-            raise ValueError("manifest sources do not match expected source count")
-        resolved = []
-        for record in records:
-            if not isinstance(record, dict):
-                raise ValueError("manifest source record must be an object")
-            resolved.append(self._resolve_source_path(record.get("path")))
-        if {path.resolve() for path in sources} != set(resolved):
-            raise ValueError("manifest sources do not match discovered parsed sources")
+        _validate_manifest_source_records(
+            manifest=manifest,
+            metadata_dir=self.metadata_dir,
+            sources=sources,
+            expected_source_count=self.expected_source_count,
+        )
 
-    def _load_or_create_manifest(self, sources: list[Path]) -> dict:
-        manifest = load_manifest(self.manifest_path)
+    def _load_or_create_manifest(
+        self, sources: list[Path], *, require_manifest: bool = False
+    ) -> dict:
+        preflight_sources, manifest = preflight_rebuild(
+            metadata_dir=self.metadata_dir,
+            manifest_path=self.manifest_path,
+            contract=self.contract,
+            expected_source_count=self.expected_source_count,
+            require_manifest=require_manifest,
+        )
+        if {path.resolve() for path in preflight_sources} != {
+            path.resolve() for path in sources
+        }:
+            raise RuntimeError("Parsed sources changed during rebuild preflight")
         if manifest is None:
             manifest = create_build_manifest(
                 metadata_dir=self.metadata_dir, contract=self.contract
             )
             write_manifest(self.manifest_path, manifest)
-        else:
-            validate_resume_contract(manifest, self.contract)
         self._validate_manifest_sources(manifest, sources)
-        papers = manifest.get("papers")
-        if type(papers) is not dict:
-            raise ValueError("manifest papers must be an object")
         return manifest
 
     @staticmethod
@@ -931,7 +1010,7 @@ class ChromaIndexRebuilder:
     def verify(self, *, require_complete: bool = True) -> dict:
         with manifest_write_lock(self.manifest_path, timeout=self.lock_timeout):
             sources = self._validated_sources()
-            manifest = self._load_or_create_manifest(sources)
+            manifest = self._load_or_create_manifest(sources, require_manifest=True)
             result = self._verify(manifest, require_complete=require_complete)
             if require_complete and manifest.get("status") != "ready":
                 raise RuntimeError("Manifest is not ready")

@@ -1,8 +1,10 @@
 from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 
 import scripts.rebuild_chroma_index as cli
+from app.services.chroma_rebuild import preflight_rebuild as real_preflight_rebuild
 
 
 class FakeBackend:
@@ -33,7 +35,12 @@ class FakeRebuilder:
 
     def verify(self, *, require_complete=True):
         self.calls.append(("verify", require_complete))
-        return {"status": "building", "paper_count": 1, "chunk_count": 2}
+        return {
+            "status": "building",
+            "completed_paper_count": 1,
+            "paper_count": 1,
+            "chunk_count": 2,
+        }
 
     def run_canary(self):
         self.calls.append(("canary",))
@@ -66,6 +73,7 @@ def fake_cli(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "EmbeddingClient", FakeEmbeddingClient)
     monkeypatch.setattr(cli, "ChromaIndexRebuilder", FakeRebuilder)
     monkeypatch.setattr(cli, "git_head", lambda: "abc123")
+    monkeypatch.setattr(cli, "preflight_rebuild", lambda **_kwargs: ([], {}))
     return settings
 
 
@@ -99,6 +107,8 @@ def test_cli_modes_print_only_configuration_presence(
     assert "embedding_api_key_configured=True" in captured.out
     assert fake_cli.embedding_base_url not in captured.out
     assert fake_cli.embedding_api_key not in captured.out
+    if flag == "--verify-only":
+        assert FakeBackend.created[0]["create_if_missing"] is False
 
 
 @pytest.mark.parametrize("missing_field", ["embedding_base_url", "embedding_api_key"])
@@ -127,6 +137,89 @@ def test_cli_default_runs_canary_then_full(fake_cli):
         "embedding_model": "bge-m3",
         "schema_version": 1,
     }
+    assert FakeBackend.created[0]["create_if_missing"] is True
+
+
+def test_cli_verify_rejects_empty_building_state(fake_cli, monkeypatch):
+    monkeypatch.setattr(
+        FakeRebuilder,
+        "verify",
+        lambda self, require_complete=False: {
+            "status": "building",
+            "completed_paper_count": 0,
+            "paper_count": 0,
+            "chunk_count": 0,
+        },
+    )
+
+    assert cli.main(["--verify-only"]) == 1
+
+
+def test_cli_verify_rejects_incomplete_ready_state(fake_cli, monkeypatch):
+    monkeypatch.setattr(
+        FakeRebuilder,
+        "verify",
+        lambda self, require_complete=False: {
+            "status": "ready",
+            "completed_paper_count": 52,
+            "paper_count": 52,
+            "chunk_count": 100,
+        },
+    )
+
+    assert cli.main(["--verify-only"]) == 1
+
+
+@pytest.mark.parametrize("arguments", [["--verify-only"], ["--canary-only"], []])
+def test_cli_preflight_failure_happens_before_backend_instantiation(
+    fake_cli, monkeypatch, arguments
+):
+    monkeypatch.setattr(
+        cli,
+        "preflight_rebuild",
+        lambda **_kwargs: (_ for _ in ()).throw(ValueError("preflight rejected")),
+    )
+    monkeypatch.setattr(
+        cli,
+        "ChromaVectorBackend",
+        lambda **_kwargs: pytest.fail("backend must not be opened or created"),
+    )
+
+    assert cli.main(arguments) == 1
+
+
+def test_cli_verify_missing_collection_opens_without_creation(fake_cli, monkeypatch):
+    opened = []
+
+    def missing_collection(**kwargs):
+        opened.append(kwargs)
+        raise RuntimeError("collection does not exist")
+
+    monkeypatch.setattr(cli, "ChromaVectorBackend", missing_collection)
+
+    assert cli.main(["--verify-only"]) == 1
+    assert opened[0]["create_if_missing"] is False
+    assert opened[0]["initial_metadata"] is None
+
+
+def test_cli_invalid_source_count_creates_no_backend_or_manifest_artifacts(
+    fake_cli, monkeypatch
+):
+    metadata_dir = Path(fake_cli.metadata_dir)
+    metadata_dir.mkdir()
+    persist_dir = Path(fake_cli.chroma_persist_dir)
+    monkeypatch.setattr(cli, "preflight_rebuild", real_preflight_rebuild)
+    monkeypatch.setattr(
+        cli,
+        "ChromaVectorBackend",
+        lambda **_kwargs: pytest.fail("backend must not be created"),
+    )
+
+    assert cli.main(["--expected-source-count", "1"]) == 1
+    assert not persist_dir.exists()
+    assert not (
+        persist_dir / "research_papers_bge_m3_v1.rebuild-manifest.json"
+    ).exists()
 
 
 def test_cli_returns_nonzero_when_requested_terminal_state_is_not_reached(

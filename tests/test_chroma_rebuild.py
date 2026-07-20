@@ -12,6 +12,7 @@ from app.services.chroma_rebuild import (
     discover_parsed_sources,
     embed_batch_with_retry,
     load_manifest,
+    preflight_rebuild,
     redact_error,
     source_sha256,
     update_manifest_locked,
@@ -212,6 +213,87 @@ def test_create_build_manifest_has_documented_deterministic_schema(tmp_path: Pat
         "source_count": 2,
         "chunk_count": 0,
     }
+
+
+def test_preflight_rejects_source_count_without_creating_manifest(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    manifest_path = tmp_path / "manifest.json"
+
+    with pytest.raises(ValueError, match="Expected exactly 1 parsed sources"):
+        preflight_rebuild(
+            metadata_dir=metadata_dir,
+            manifest_path=manifest_path,
+            contract=_valid_contract(),
+            expected_source_count=1,
+        )
+
+    assert not manifest_path.exists()
+
+
+def test_verify_preflight_requires_existing_manifest_without_creating_it(
+    tmp_path: Path,
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1")
+    manifest_path = tmp_path / "manifest.json"
+
+    with pytest.raises(FileNotFoundError, match="manifest"):
+        preflight_rebuild(
+            metadata_dir=metadata_dir,
+            manifest_path=manifest_path,
+            contract=_valid_contract(),
+            expected_source_count=1,
+            require_manifest=True,
+        )
+
+    assert not manifest_path.exists()
+
+
+def test_preflight_rejects_resume_contract_before_any_mutation(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1")
+    manifest_path = tmp_path / "manifest.json"
+    stale = create_build_manifest(metadata_dir=metadata_dir, contract=_valid_contract())
+    stale["model"] = "wrong-model"
+    write_manifest(manifest_path, stale)
+    before = manifest_path.read_bytes()
+
+    with pytest.raises(ValueError, match="Resume contract mismatch: model"):
+        preflight_rebuild(
+            metadata_dir=metadata_dir,
+            manifest_path=manifest_path,
+            contract=_valid_contract(),
+            expected_source_count=1,
+        )
+
+    assert manifest_path.read_bytes() == before
+
+
+def test_preflight_rejects_unsafe_manifest_source_path_read_only(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1")
+    manifest_path = tmp_path / "manifest.json"
+    manifest = create_build_manifest(
+        metadata_dir=metadata_dir, contract=_valid_contract()
+    )
+    manifest["sources"][0]["path"] = "../escape_parsed.json"
+    write_manifest(manifest_path, manifest)
+    before = manifest_path.read_bytes()
+
+    with pytest.raises(ValueError, match="source path"):
+        preflight_rebuild(
+            metadata_dir=metadata_dir,
+            manifest_path=manifest_path,
+            contract=_valid_contract(),
+            expected_source_count=1,
+            require_manifest=True,
+        )
+
+    assert manifest_path.read_bytes() == before
 
 
 def test_atomic_write_failure_preserves_prior_manifest_and_cleans_temp(

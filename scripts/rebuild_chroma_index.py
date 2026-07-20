@@ -10,7 +10,12 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import settings
-from app.services.chroma_rebuild import ChromaIndexRebuilder, redact_error
+from app.services.chroma_rebuild import (
+    ChromaIndexRebuilder,
+    build_contract,
+    preflight_rebuild,
+    redact_error,
+)
 from app.services.embedding_client import EmbeddingClient
 from app.services.vector_backends.chroma_backend import ChromaVectorBackend
 
@@ -74,16 +79,43 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         persist_dir = Path(args.persist_dir)
+        manifest_path = persist_dir / f"{args.collection}.rebuild-manifest.json"
+        requested_git_head = git_head()
+        chunk_settings = {
+            "strategy": settings.chunk_strategy,
+            "size": settings.child_chunk_size,
+            "overlap": settings.child_chunk_overlap,
+        }
+        contract = build_contract(
+            collection=args.collection,
+            provider="api",
+            model="bge-m3",
+            git_head=requested_git_head,
+            schema_version=1,
+            chunk_settings=chunk_settings,
+        )
+        preflight_rebuild(
+            metadata_dir=Path(args.metadata_dir),
+            manifest_path=manifest_path,
+            contract=contract,
+            expected_source_count=args.expected_source_count,
+            require_manifest=args.verify_only,
+        )
+        create_if_missing = not args.verify_only
         backend = ChromaVectorBackend(
             persist_dir=str(persist_dir),
             collection_name=args.collection,
-            create_if_missing=True,
+            create_if_missing=create_if_missing,
             require_ready=False,
-            initial_metadata={
-                "build_status": "building",
-                "embedding_model": "bge-m3",
-                "schema_version": 1,
-            },
+            initial_metadata=(
+                {
+                    "build_status": "building",
+                    "embedding_model": "bge-m3",
+                    "schema_version": 1,
+                }
+                if create_if_missing
+                else None
+            ),
         )
         embedding_client = EmbeddingClient(
             model_name="bge-m3", batch_size=args.batch_size
@@ -96,17 +128,24 @@ def main(argv: list[str] | None = None) -> int:
             batch_size=args.batch_size,
             max_attempts=args.max_attempts,
             base_delay=args.base_delay,
-            git_head=git_head(),
-            chunk_settings={
-                "strategy": settings.chunk_strategy,
-                "size": settings.child_chunk_size,
-                "overlap": settings.child_chunk_overlap,
-            },
+            git_head=requested_git_head,
+            chunk_settings=chunk_settings,
             expected_source_count=args.expected_source_count,
         )
         if args.verify_only:
             result = rebuilder.verify(require_complete=False)
-            success = result.get("status") in {"building", "ready"}
+            if result.get("status") == "building":
+                success = (
+                    result.get("completed_paper_count", 0) >= 1
+                    and result.get("paper_count", 0) >= 1
+                )
+            else:
+                success = (
+                    result.get("status") == "ready"
+                    and result.get("completed_paper_count")
+                    == args.expected_source_count
+                    and result.get("paper_count") == args.expected_source_count
+                )
         elif args.canary_only:
             result = rebuilder.run_canary()
             success = result.get("completed_paper_count", 0) >= 1
