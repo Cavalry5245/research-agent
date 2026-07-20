@@ -1367,7 +1367,7 @@ Completion note (2026-07-21): the first real canary correctly failed safe with 0
 - Local environment only: `.env`
 - Test: existing application endpoint and retrieval tests
 
-- [ ] **Step 1: Confirm activation configuration**
+- [x] **Step 1: Confirm activation configuration**
 
 Ensure the local `.env` contains these non-secret selections:
 
@@ -1382,7 +1382,7 @@ EMBEDDING_MODEL=bge-m3
 
 Do not print or commit `.env`.
 
-- [ ] **Step 2: Run a direct store smoke test**
+- [x] **Step 2: Run a direct store smoke test**
 
 Run:
 
@@ -1392,13 +1392,13 @@ Run:
 
 Expected: backend `chroma`, correct collection, ready status, one embedding dimension, and 53 papers.
 
-- [ ] **Step 3: Run a real embedding retrieval smoke test**
+- [x] **Step 3: Run a real embedding retrieval smoke test**
 
 Run a small script through `EmbeddingClient.embed_query` and `VectorStore.query` using a general research query. Print only chunk ID, paper ID, section, and score for the top three results. Assert three results are returned and all required result keys exist.
 
 Expected: API query embedding dimension matches the collection and Chroma returns ranked results without fallback.
 
-- [ ] **Step 4: Run endpoint smoke tests**
+- [x] **Step 4: Run endpoint smoke tests**
 
 Run:
 
@@ -1408,11 +1408,13 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Exercise explicit rollback without deleting data**
+- [x] **Step 5: Exercise explicit rollback without deleting data**
 
 Temporarily set `VECTOR_STORE=json` in the process environment only and instantiate `VectorStore`. Assert `backend_name()=="json"` and inspect metadata. Restore the process environment after the command. Because the legacy JSON file has mixed dimensions, do not claim that arbitrary `bge-m3` queries can use it; the purpose of this check is to prove explicit backend selection and preserve the file for forensic rollback.
 
 Expected: JSON backend opens and reports mixed dimensions clearly; no file or collection is removed.
+
+Completion note (2026-07-21): all six non-secret `.env` activation selections matched. Direct store smoke reported Chroma `ready`, 53 papers, 8,182 chunks, and dimension 1024. A real API `bge-m3` query returned three ranked Chroma results with the required fields and no fallback. Endpoint smoke suite: 80 passed. Process-only `VECTOR_STORE=json` rollback opened the preserved legacy store successfully (4 chunks, 1 paper, uniform dimension 3, not the mixed dimensions anticipated by the plan); it remains incompatible with 1024-dimensional bge-m3 queries, so no such query was attempted and no data was deleted.
 
 ### Task 10: Update project evidence and run final verification
 
