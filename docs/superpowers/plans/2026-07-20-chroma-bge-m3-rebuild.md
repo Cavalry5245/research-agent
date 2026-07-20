@@ -1227,7 +1227,7 @@ Completion note (2026-07-20): implemented in `b7a9e85b` and hardened through `f9
 - Modify: `tests/test_system_status_endpoint.py`
 - Modify: `tests/test_agent_tools.py`
 
-- [ ] **Step 1: Write failing readiness assertions**
+- [x] **Step 1: Write failing readiness assertions**
 
 Update the system-status stub metadata to include:
 
@@ -1245,7 +1245,7 @@ return {
 
 Assert the endpoint returns those fields. Add a health test whose stub returns `build_status="building"` and assert the service is degraded rather than healthy.
 
-- [ ] **Step 2: Run and confirm readiness is not enforced**
+- [x] **Step 2: Run and confirm readiness is not enforced**
 
 Run:
 
@@ -1255,7 +1255,7 @@ Run:
 
 Expected: at least the building-status health assertion FAILS.
 
-- [ ] **Step 3: Update health and system status**
+- [x] **Step 3: Update health and system status**
 
 Change vector availability to require a usable backend:
 
@@ -1269,7 +1269,7 @@ vector_store_available = vector_meta.get("backend") is not None and (
 
 Return the full safe metadata dict from system status. Do not expose API base URL or key. Preserve the existing degraded response when vector-store initialization raises.
 
-- [ ] **Step 4: Run endpoint tests and a facade smoke test**
+- [x] **Step 4: Run endpoint tests and a facade smoke test**
 
 Run:
 
@@ -1279,7 +1279,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -1287,6 +1287,8 @@ Run:
 git add app/main.py tests/test_health_endpoint.py tests/test_system_status_endpoint.py tests/test_agent_tools.py
 git commit -m "feat: report Chroma collection readiness"
 ```
+
+Completion note (2026-07-20): implemented in `ab9f3674`; hardened endpoint error redaction in `b47fb968` and extracted the stdlib-only redactor in `6d8747cb` so explicit JSON mode remains importable without ChromaDB. Chroma readiness now requires the exact ready collection/model/schema/dimension contract, malformed or unavailable states degrade safely, and system status emits only allowlisted metadata. Final independent spec suite: 67 passed; quality suite: 163 passed, 1 skipped. Independent spec and quality reviews approved with no remaining Critical, Important, or Minor findings.
 
 ### Task 8: Run the real canary and 53-paper rebuild
 
