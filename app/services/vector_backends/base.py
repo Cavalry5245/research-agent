@@ -2,25 +2,39 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from math import isfinite
+from numbers import Real
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.schemas import Chunk
 
 
-def validate_embeddings(
+def normalize_vector(vector: list[float], *, label: str = "embedding") -> list[float]:
+    if not isinstance(vector, (list, tuple)) or not vector:
+        raise ValueError(f"{label} vector must have a non-empty dimension")
+    if any(isinstance(value, bool) or not isinstance(value, Real) for value in vector):
+        raise ValueError(f"{label} vector must contain only real numeric values")
+
+    normalized = [float(value) for value in vector]
+    if any(not isfinite(value) for value in normalized):
+        raise ValueError(f"{label} vector must contain only finite real numeric values")
+    return normalized
+
+
+def normalize_embeddings(
     chunks: list[Chunk],
     embeddings: list[list[float]],
     *,
     expected_dimension: int | None = None,
-) -> int | None:
+) -> tuple[list[list[float]], int | None]:
     if len(chunks) != len(embeddings):
         raise ValueError("chunks and embeddings must have the same length")
     if not embeddings:
-        return expected_dimension
+        return [], expected_dimension
 
-    dimensions = {len(vector) for vector in embeddings}
-    if 0 in dimensions or len(dimensions) != 1:
+    normalized = [normalize_vector(vector) for vector in embeddings]
+    dimensions = {len(vector) for vector in normalized}
+    if len(dimensions) != 1:
         raise ValueError("all embeddings must have one non-zero dimension")
 
     dimension = dimensions.pop()
@@ -30,14 +44,18 @@ def validate_embeddings(
             f"{expected_dimension}"
         )
 
-    try:
-        finite = all(
-            isfinite(float(value)) for vector in embeddings for value in vector
-        )
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError("embeddings must contain only finite numeric values") from exc
-    if not finite:
-        raise ValueError("embeddings must contain only finite numeric values")
+    return normalized, dimension
+
+
+def validate_embeddings(
+    chunks: list[Chunk],
+    embeddings: list[list[float]],
+    *,
+    expected_dimension: int | None = None,
+) -> int | None:
+    _, dimension = normalize_embeddings(
+        chunks, embeddings, expected_dimension=expected_dimension
+    )
     return dimension
 
 

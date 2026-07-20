@@ -4,9 +4,14 @@ import json
 import logging
 import math
 import os
+import tempfile
 
 from app.schemas import Chunk
-from app.services.vector_backends.base import VectorBackend, validate_embeddings
+from app.services.vector_backends.base import (
+    VectorBackend,
+    normalize_embeddings,
+    normalize_vector,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +53,7 @@ class JsonVectorBackend(VectorBackend):
         self._store: list[tuple[str, Chunk, list[float]]] = []
         self._dimension: int | None = None
         self._dimensions: list[int] = []
+        self._load_failed = False
         self._load()
 
     def _refresh_dimensions(self) -> None:
@@ -61,20 +67,31 @@ class JsonVectorBackend(VectorBackend):
             with open(self._store_path, "r", encoding="utf-8") as handle:
                 records = json.load(handle)
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            self._load_failed = True
             logger.warning(
                 "Failed to load vector store from %s: %s", self._store_path, exc
             )
             return
 
         if not isinstance(records, list):
-            logger.warning("Skipping invalid vector store payload: expected a list")
+            self._load_failed = True
+            logger.warning("Failed to load vector store payload: expected a list")
             return
 
         loaded: list[tuple[str, Chunk, list[float]]] = []
         for record in records:
             try:
                 chunk = Chunk(**record["chunk"])
-                embedding = [float(value) for value in record["embedding"]]
+                raw_embedding = record["embedding"]
+                if not isinstance(raw_embedding, (list, tuple)) or any(
+                    isinstance(value, bool) for value in raw_embedding
+                ):
+                    raise ValueError(
+                        "embedding vector must contain only real numeric values"
+                    )
+                embedding = normalize_vector(
+                    [float(value) for value in raw_embedding]
+                )
                 loaded.append((chunk.chunk_id, chunk, embedding))
             except (KeyError, TypeError, ValueError, OverflowError) as exc:
                 logger.warning("Skipping invalid vector store record: %s", exc)
@@ -82,7 +99,14 @@ class JsonVectorBackend(VectorBackend):
         self._refresh_dimensions()
         logger.info("Loaded %d chunks from vector store", len(self._store))
 
+    def _ensure_writable(self) -> None:
+        if self._load_failed:
+            raise RuntimeError(
+                "JSON vector store load failed; refusing to modify the original file"
+            )
+
     def _persist(self) -> None:
+        self._ensure_writable()
         records = [
             {
                 "chunk_id": chunk_id,
@@ -91,11 +115,25 @@ class JsonVectorBackend(VectorBackend):
             }
             for chunk_id, chunk, embedding in self._store
         ]
-        with open(self._store_path, "w", encoding="utf-8") as handle:
-            json.dump(records, handle, ensure_ascii=False)
+        descriptor, temporary_path = tempfile.mkstemp(
+            dir=self.persist_dir,
+            prefix=f".{STORE_FILENAME}.",
+            suffix=".tmp",
+        )
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+                json.dump(records, handle, ensure_ascii=False, allow_nan=False)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary_path, self._store_path)
+        except Exception:
+            if os.path.exists(temporary_path):
+                os.remove(temporary_path)
+            raise
 
     def add_chunks(self, chunks: list[Chunk], embeddings: list[list[float]]) -> int:
-        dimension = validate_embeddings(
+        self._ensure_writable()
+        normalized_embeddings, dimension = normalize_embeddings(
             chunks, embeddings, expected_dimension=self._dimension
         )
         if not chunks:
@@ -110,7 +148,7 @@ class JsonVectorBackend(VectorBackend):
         self._store = [row for row in self._store if row[0] not in replacement_ids]
         replacements = {
             chunk.chunk_id: (chunk.chunk_id, chunk, embedding)
-            for chunk, embedding in zip(chunks, embeddings)
+            for chunk, embedding in zip(chunks, normalized_embeddings)
         }
         self._store.extend(replacements.values())
         self._dimension = dimension
@@ -125,6 +163,7 @@ class JsonVectorBackend(VectorBackend):
         top_k: int = 5,
         paper_id: str | None = None,
     ) -> list[dict]:
+        normalized_query = normalize_vector(query_embedding, label="query embedding")
         candidates = [
             (chunk_id, chunk, embedding)
             for chunk_id, chunk, embedding in self._store
@@ -133,16 +172,16 @@ class JsonVectorBackend(VectorBackend):
         candidate_dimensions = {
             len(embedding) for _, _, embedding in candidates
         }
-        if candidate_dimensions and candidate_dimensions != {len(query_embedding)}:
+        if candidate_dimensions and candidate_dimensions != {len(normalized_query)}:
             raise ValueError(
                 "query embedding dimension does not match JSON candidate dimensions: "
-                f"query={len(query_embedding)}, "
+                f"query={len(normalized_query)}, "
                 f"candidates={sorted(candidate_dimensions)}"
             )
 
         scored = sorted(
             (
-                (_cosine_similarity(query_embedding, embedding), chunk_id, chunk)
+                (_cosine_similarity(normalized_query, embedding), chunk_id, chunk)
                 for chunk_id, chunk, embedding in candidates
             ),
             key=lambda row: -row[0],
@@ -155,6 +194,7 @@ class JsonVectorBackend(VectorBackend):
         return output
 
     def delete_paper(self, paper_id: str) -> int:
+        self._ensure_writable()
         before = len(self._store)
         self._store = [
             (chunk_id, chunk, embedding)
@@ -169,6 +209,7 @@ class JsonVectorBackend(VectorBackend):
         return deleted
 
     def delete_chunks(self, chunk_ids: list[str]) -> int:
+        self._ensure_writable()
         if not chunk_ids:
             return 0
         target = set(chunk_ids)
@@ -196,6 +237,8 @@ class JsonVectorBackend(VectorBackend):
             "persist_dir": self.persist_dir,
             "embedding_dimension": self._dimension,
             "mixed_dimensions": list(self._dimensions),
+            "load_failed": self._load_failed,
+            "degraded": self._load_failed,
         }
 
     def count(self) -> int:
