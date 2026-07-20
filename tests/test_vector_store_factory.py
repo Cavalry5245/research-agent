@@ -1,3 +1,7 @@
+import os
+from pathlib import Path
+import subprocess
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -91,3 +95,41 @@ def test_vector_store_does_not_disable_required_chroma_readiness(tmp_path):
     ):
         with pytest.raises(RuntimeError, match="not ready"):
             VectorStore(persist_dir=str(tmp_path))
+
+
+def test_json_mode_imports_main_without_chromadb(tmp_path):
+    project_root = Path(__file__).resolve().parents[1]
+    script = """
+import importlib.abc
+import sys
+
+class BlockChroma(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "chromadb" or fullname.startswith("chromadb."):
+            raise ImportError("synthetic incompatible chromadb")
+        return None
+
+sys.meta_path.insert(0, BlockChroma())
+import app.main
+assert app.main.settings.vector_store == "json"
+assert "chromadb" not in sys.modules
+"""
+    environment = {
+        "PYTHONPATH": str(project_root),
+        "PYTHONIOENCODING": "utf-8",
+        "VECTOR_STORE": "json",
+    }
+    if os.name == "nt" and os.environ.get("SYSTEMROOT"):
+        environment["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr

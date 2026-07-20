@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import time
 from datetime import datetime, timezone
@@ -81,7 +80,7 @@ from app.research_workflow.zotero_intake import (
     resolve_first_existing_pdf,
 )
 from app.services.chunker import chunk_paper
-from app.services.chroma_rebuild import redact_error
+from app.services.error_redaction import redact_error
 from app.services.embedding_client import EmbeddingClient
 from app.services.job_store import FileJobStore, InMemoryJobStore, utc_now_iso
 from app.services.llm_client import LLMClient
@@ -197,14 +196,10 @@ _SAFE_VECTOR_STRING_FIELDS = (
     "embedding_model",
     "persist_dir",
 )
-_STATUS_URL_RE = re.compile(r"(?i)https?://[^\s,;]+")
-
-
 def _safe_vector_error(exc: Exception) -> str:
     # Preserve the endpoint's historical plain-message shape while applying the
     # rebuild pipeline's adversarially tested credential redaction.
-    redacted = redact_error(str(exc))
-    return _STATUS_URL_RE.sub("[REDACTED_URL]", redacted)
+    return redact_error(str(exc))
 
 
 def _vector_store_status_payload() -> dict:

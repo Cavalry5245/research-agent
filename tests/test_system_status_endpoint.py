@@ -304,6 +304,13 @@ def test_system_status_endpoint_redacts_secrets_from_vector_errors(monkeypatch):
             "request https://synthetic.invalid/embed?access_token=query-synthetic&mode=batch failed",
             "query-synthetic",
         ),
+        (
+            "request https%3A%2F%2Fencoded.synthetic.invalid%2Fembed failed",
+            "encoded.synthetic.invalid",
+        ),
+        ("request api.synthetic.invalid/v1 failed", "api.synthetic.invalid"),
+        ("request localhost:8080/v1 failed", "localhost:8080"),
+        ("request 192.0.2.10:9000/v1 failed", "192.0.2.10:9000"),
     ],
 )
 def test_vector_status_error_redaction_uses_hardened_redactor(message, secret):
@@ -315,7 +322,6 @@ def test_vector_status_error_redaction_uses_hardened_redactor(message, secret):
     assert "[REDACTED" in redacted
     if "context=kept" in message:
         assert "context=kept" in redacted
-    if "https://" in message:
-        assert "synthetic.invalid" not in redacted
+    if "request" in message:
         assert "request" in redacted
         assert "failed" in redacted
