@@ -765,7 +765,7 @@ Completion note (2026-07-20): implemented in `92365012`; fixed empty metadata cr
 - Create: `app/services/chroma_rebuild.py`
 - Create: `tests/test_chroma_rebuild.py`
 
-- [ ] **Step 1: Write failing manifest tests**
+- [x] **Step 1: Write failing manifest tests**
 
 Create `tests/test_chroma_rebuild.py`:
 
@@ -814,7 +814,7 @@ def test_error_redaction_removes_credentials():
     assert "sk-example" not in redacted
 ```
 
-- [ ] **Step 2: Run and confirm the rebuild module is absent**
+- [x] **Step 2: Run and confirm the rebuild module is absent**
 
 Run:
 
@@ -824,7 +824,7 @@ Run:
 
 Expected: collection ERROR because `app.services.chroma_rebuild` does not exist.
 
-- [ ] **Step 3: Implement deterministic discovery and manifest I/O**
+- [x] **Step 3: Implement deterministic discovery and manifest I/O**
 
 Create `app/services/chroma_rebuild.py` with:
 
@@ -877,7 +877,7 @@ def redact_error(message: str) -> str:
 
 Add helpers that create a new manifest with collection contract, Git HEAD, chunk settings, relative source paths and hashes. Reject resume when collection, model, Git HEAD, schema version, or chunk settings differ. The error must name the mismatched fields without including credentials.
 
-- [ ] **Step 4: Add resume-contract tests**
+- [x] **Step 4: Add resume-contract tests**
 
 Add tests that assert:
 
@@ -896,7 +896,7 @@ def test_resume_rejects_changed_build_contract():
         validate_resume_contract(existing, requested)
 ```
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run:
 
@@ -907,6 +907,8 @@ git commit -m "feat: add Chroma rebuild manifest primitives"
 ```
 
 Expected: manifest and contract tests pass; the manifest contains no secret value.
+
+Completion note (2026-07-20): implemented in `c06054b2`; hardened atomic persistence, strict contracts, path containment, and structured credential redaction in `a4e1ced3` and `6e0c3093`. Final Task 5 suite: 51 passed, 1 skipped because Windows symlink creation was unavailable; vector backend regressions: 83 passed. Independent spec and repeated quality reviews approved with no remaining Critical, Important, or Minor findings.
 
 ### Task 6: Implement canary, retries, full rebuild, and resume
 
