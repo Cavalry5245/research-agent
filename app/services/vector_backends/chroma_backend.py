@@ -373,7 +373,7 @@ class ChromaVectorBackend(VectorBackend):
                 if paper_id is not None:
                     paper_ids.add(paper_id)
             offset += len(ids)
-        return {
+        result = {
             "backend": self.backend_name(),
             "collection_name": self.collection_name,
             "build_status": collection_metadata.get("build_status"),
@@ -384,6 +384,10 @@ class ChromaVectorBackend(VectorBackend):
             "paper_count": len(paper_ids),
             "persist_dir": self.persist_dir,
         }
+        for field in ("embedding_model", "schema_version"):
+            if field in collection_metadata:
+                result[field] = collection_metadata[field]
+        return result
 
     def update_build_metadata(self, values: dict) -> None:
         with _metadata_write_lock(self.persist_dir, self.collection_name):

@@ -1,5 +1,6 @@
 import json
 import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -597,6 +598,52 @@ def test_embed_batch_rejects_invalid_retry_arguments_and_retry_after():
     assert sleeps == [0.5]
 
 
+def test_embed_batch_honors_rfc_http_date_retry_after():
+    now = datetime(2026, 7, 21, 4, 0, 0, tzinfo=timezone.utc)
+
+    class DatedRetry(RetryableEmbeddingError):
+        headers = {
+            "Retry-After": (now + timedelta(seconds=7)).strftime(
+                "%a, %d %b %Y %H:%M:%S GMT"
+            )
+        }
+
+    sleeps = []
+    embed_batch_with_retry(
+        FakeEmbeddingClient(failures=1, error_factory=DatedRetry),
+        ["a"],
+        max_attempts=2,
+        base_delay=0.5,
+        sleep=sleeps.append,
+        now=lambda: now,
+    )
+
+    assert sleeps == [7.0]
+
+
+def test_embed_batch_treats_past_rfc_http_date_retry_after_as_zero():
+    now = datetime(2026, 7, 21, 4, 0, 0, tzinfo=timezone.utc)
+
+    class PastDatedRetry(RetryableEmbeddingError):
+        headers = {
+            "Retry-After": (now - timedelta(seconds=7)).strftime(
+                "%a, %d %b %Y %H:%M:%S GMT"
+            )
+        }
+
+    sleeps = []
+    embed_batch_with_retry(
+        FakeEmbeddingClient(failures=1, error_factory=PastDatedRetry),
+        ["a"],
+        max_attempts=2,
+        base_delay=0.5,
+        sleep=sleeps.append,
+        now=lambda: now,
+    )
+
+    assert sleeps == [0.0]
+
+
 def test_rebuild_canary_full_run_and_no_cost_resume(tmp_path: Path):
     metadata_dir = tmp_path / "metadata"
     metadata_dir.mkdir()
@@ -632,6 +679,177 @@ def test_rebuild_canary_full_run_and_no_cost_resume(tmp_path: Path):
     ).run_all()
     assert resumed_result["status"] == "ready"
     assert second_client.calls == 0
+
+    third_client = FakeEmbeddingClient()
+    ready_canary = _rebuilder(
+        tmp_path, metadata_dir, backend, third_client
+    ).run_canary()
+    assert ready_canary["status"] == "ready"
+    assert third_client.calls == 0
+
+
+def test_partial_verify_returns_building_status_after_consistent_canary(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=20)
+    _write_parsed_fixture(metadata_dir, "paper_2", repeat=80)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="partial_verify_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+    rebuilder = _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient())
+    rebuilder.run_canary()
+
+    result = rebuilder.verify(require_complete=False)
+
+    assert result["status"] == "building"
+    assert result["completed_paper_count"] == 1
+
+
+def test_partial_verify_rejects_completed_paper_dimension_mismatch(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=20)
+    _write_parsed_fixture(metadata_dir, "paper_2", repeat=80)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="partial_dimension_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+    rebuilder = _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient())
+    rebuilder.run_canary()
+    manifest_path = tmp_path / "rebuild_manifest.json"
+    manifest = load_manifest(manifest_path)
+    completed_record = next(iter(manifest["papers"].values()))
+    completed_record["embedding_dimension"] = 999
+    write_manifest(manifest_path, manifest)
+
+    with pytest.raises(RuntimeError, match="dimension"):
+        rebuilder.verify(require_complete=False)
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"build_status": "building", "embedding_model": "wrong", "schema_version": 1},
+        {"build_status": "building", "embedding_model": "bge-m3", "schema_version": 2},
+    ],
+)
+def test_rebuilder_preflights_existing_collection_contract_before_manifest_or_upsert(
+    tmp_path: Path, metadata: dict
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1")
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="preflight_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata=metadata,
+    )
+
+    with pytest.raises(ValueError, match="collection metadata"):
+        _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1)
+
+    assert backend.count() == 0
+    assert not (tmp_path / "rebuild_manifest.json").exists()
+
+
+def test_first_batch_locks_dimension_before_later_batch_mismatch(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=100)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="dimension_lock_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+
+    class MismatchedBatches(FakeEmbeddingClient):
+        def embed_texts(self, texts):
+            self.calls += 1
+            dimension = 3 if self.calls == 1 else 2
+            return [[1.0] * dimension for _ in texts]
+
+    rebuilder = ChromaIndexRebuilder(
+        metadata_dir=metadata_dir,
+        manifest_path=tmp_path / "rebuild_manifest.json",
+        backend=backend,
+        embedding_client=MismatchedBatches(),
+        batch_size=1,
+        max_attempts=2,
+        base_delay=0,
+        git_head="test-head",
+        chunk_settings={
+            "strategy": "parent_child_sliding_window",
+            "size": 100,
+            "overlap": 10,
+        },
+        expected_source_count=1,
+        sleep=lambda _: None,
+    )
+
+    with pytest.raises(ValueError, match="dimension"):
+        rebuilder.run_all()
+
+    assert backend.count() == 0
+    assert backend.metadata()["embedding_dimension"] == 3
+    assert backend.metadata()["build_status"] == "building"
+
+
+@pytest.mark.parametrize("corruption", ["duplicate_source", "wrong_hash"])
+def test_final_verify_requires_source_to_completed_paper_bijection(
+    tmp_path: Path, corruption: str
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=25)
+    _write_parsed_fixture(metadata_dir, "paper_2", repeat=45)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="bijection_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+    rebuilder = _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient())
+    rebuilder.run_all()
+    manifest_path = tmp_path / "rebuild_manifest.json"
+    manifest = load_manifest(manifest_path)
+    if corruption == "duplicate_source":
+        manifest["papers"]["paper_2"]["source_path"] = manifest["papers"]["paper_1"][
+            "source_path"
+        ]
+    else:
+        manifest["papers"]["paper_2"]["sha256"] = "0" * 64
+    write_manifest(manifest_path, manifest)
+
+    with pytest.raises(RuntimeError, match="source"):
+        rebuilder.verify(require_complete=True)
 
 
 def test_verify_complete_requires_ready_collection_metadata(tmp_path: Path):

@@ -9,6 +9,8 @@ import threading
 import time
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from math import isfinite
 from pathlib import Path
 from typing import BinaryIO
@@ -451,7 +453,9 @@ def _nonnegative_finite(value: object, label: str) -> float:
     return normalized
 
 
-def _retry_after_seconds(exc: Exception) -> float | None:
+def _retry_after_seconds(
+    exc: Exception, *, now: Callable[[], datetime]
+) -> float | None:
     candidate = getattr(exc, "retry_after", None)
     if candidate is None:
         headers = getattr(exc, "headers", None)
@@ -479,7 +483,16 @@ def _retry_after_seconds(exc: Exception) -> float | None:
     try:
         delay = float(candidate)
     except (TypeError, ValueError):
-        return None
+        try:
+            retry_at = parsedate_to_datetime(str(candidate))
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=timezone.utc)
+        current = now()
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        delay = max(0.0, (retry_at - current).total_seconds())
     return delay if isfinite(delay) and delay >= 0 else None
 
 
@@ -509,6 +522,7 @@ def embed_batch_with_retry(
     max_attempts: int,
     base_delay: float,
     sleep: Callable[[float], None] = time.sleep,
+    now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> list[list[float]]:
     """Embed one batch with bounded retry for transient provider failures."""
     _positive_int(max_attempts, "max_attempts")
@@ -519,7 +533,7 @@ def embed_batch_with_retry(
         except Exception as exc:
             if not _retryable_embedding_error(exc) or attempt == max_attempts:
                 raise
-            delay = _retry_after_seconds(exc)
+            delay = _retry_after_seconds(exc, now=now)
             if delay is None:
                 delay = base_delay * 2 ** (attempt - 1)
             sleep(delay)
@@ -587,6 +601,18 @@ class ChromaIndexRebuilder:
             raise ValueError("embedding provider must be api")
         if getattr(embedding_client, "model_name", None) != "bge-m3":
             raise ValueError("embedding model must be bge-m3")
+        collection_metadata = backend.metadata()
+        if (
+            collection_metadata.get("embedding_model") != "bge-m3"
+            or type(collection_metadata.get("schema_version")) is not int
+            or collection_metadata.get("schema_version") != 1
+            or collection_metadata.get("build_status")
+            not in {"building", "ready", "failed"}
+        ):
+            raise ValueError(
+                "collection metadata must specify embedding_model='bge-m3', "
+                "schema_version=1, and a valid build_status"
+            )
         self.sleep = sleep
         self.contract = build_contract(
             collection=collection,
@@ -689,7 +715,6 @@ class ChromaIndexRebuilder:
                 "error": safe_error,
             }
         write_manifest(self.manifest_path, manifest)
-        self.backend.update_build_metadata({"build_status": "failed"})
 
     def _process_source(self, manifest: dict, source: Path) -> None:
         paper_id: str | None = None
@@ -708,20 +733,29 @@ class ChromaIndexRebuilder:
             if len(expected_ids) != len(set(expected_ids)):
                 raise ValueError(f"Paper {paper_id!r} produced duplicate chunk IDs")
             embeddings: list[list[float]] = []
+            locked_dimension = self.backend.metadata().get("embedding_dimension")
             for offset in range(0, len(chunks), self.batch_size):
                 batch = chunks[offset : offset + self.batch_size]
-                embeddings.extend(
-                    embed_batch_with_retry(
-                        self.embedding_client,
-                        [chunk.content for chunk in batch],
-                        max_attempts=self.max_attempts,
-                        base_delay=self.base_delay,
-                        sleep=self.sleep,
-                    )
+                batch_embeddings = embed_batch_with_retry(
+                    self.embedding_client,
+                    [chunk.content for chunk in batch],
+                    max_attempts=self.max_attempts,
+                    base_delay=self.base_delay,
+                    sleep=self.sleep,
                 )
-            current_dimension = self.backend.metadata().get("embedding_dimension")
+                dimension = validate_embeddings(
+                    batch,
+                    batch_embeddings,
+                    expected_dimension=locked_dimension,
+                )
+                if locked_dimension is None:
+                    locked_dimension = dimension
+                    self.backend.update_build_metadata(
+                        {"embedding_dimension": locked_dimension}
+                    )
+                embeddings.extend(batch_embeddings)
             dimension = validate_embeddings(
-                chunks, embeddings, expected_dimension=current_dimension
+                chunks, embeddings, expected_dimension=locked_dimension
             )
             if source_sha256(source) != digest:
                 raise RuntimeError(f"Source {source.name!r} changed during processing")
@@ -766,6 +800,10 @@ class ChromaIndexRebuilder:
     def _verify(self, manifest: dict, *, require_complete: bool) -> dict:
         sources = self._validated_sources()
         self._validate_manifest_sources(manifest, sources)
+        status = manifest.get("status")
+        if status not in {"building", "ready"}:
+            raise RuntimeError(f"Manifest status {status!r} is not verifiable")
+        source_records = {record["path"]: record for record in manifest["sources"]}
         completed = {
             paper_id: record
             for paper_id, record in manifest["papers"].items()
@@ -776,7 +814,24 @@ class ChromaIndexRebuilder:
                 f"Rebuild incomplete: {len(completed)}/{self.expected_source_count} papers"
             )
         expected_ids: set[str] = set()
+        completed_source_paths: set[str] = set()
         for paper_id, record in completed.items():
+            source_path = record.get("source_path")
+            if source_path not in source_records:
+                raise RuntimeError(
+                    f"Completed paper {paper_id!r} has no current source record"
+                )
+            if source_path in completed_source_paths:
+                raise RuntimeError(
+                    f"Completed papers have duplicate source association {source_path!r}"
+                )
+            completed_source_paths.add(source_path)
+            source_digest = source_records[source_path].get("sha256")
+            _, current_digest = _captured_source(self._resolve_source_path(source_path))
+            if record.get("sha256") != source_digest or source_digest != current_digest:
+                raise RuntimeError(
+                    f"Completed paper {paper_id!r} source hash is not current"
+                )
             ids = record.get("expected_ids")
             if not isinstance(ids, list) or len(ids) != len(set(ids)):
                 raise RuntimeError(f"Manifest IDs for {paper_id!r} are invalid")
@@ -785,6 +840,10 @@ class ChromaIndexRebuilder:
             if expected_ids.intersection(ids):
                 raise RuntimeError("Chunk IDs are not unique across papers")
             expected_ids.update(ids)
+        if require_complete and completed_source_paths != set(source_records):
+            raise RuntimeError(
+                "Completed papers are not a bijection with current source records"
+            )
 
         rows = self.backend.list_chunks()
         live_ids = [row["chunk_id"] for row in rows]
@@ -798,11 +857,23 @@ class ChromaIndexRebuilder:
         if rows and (len(dimensions) != 1 or next(iter(dimensions)) <= 0):
             raise RuntimeError("Chroma embeddings do not have one valid dimension")
         metadata = self.backend.metadata()
+        if metadata.get("build_status") != status:
+            raise RuntimeError(
+                "Chroma collection is not ready or its build status is inconsistent "
+                "with the manifest"
+            )
         dimension = metadata.get("embedding_dimension")
         if rows and dimensions != {dimension}:
             raise RuntimeError("Chroma embedding dimension does not match metadata")
+        for paper_id, record in completed.items():
+            if record.get("embedding_dimension") != dimension:
+                raise RuntimeError(
+                    f"Completed paper {paper_id!r} embedding dimension does not "
+                    "match Chroma metadata"
+                )
         paper_ids = {row.get("paper_id") for row in rows}
         result = {
+            "status": status,
             "completed_paper_count": len(completed),
             "paper_count": len(paper_ids),
             "chunk_count": len(rows),
@@ -814,17 +885,21 @@ class ChromaIndexRebuilder:
             != sum(r["chunk_count"] for r in completed.values())
         ):
             raise RuntimeError("Verified paper or chunk counts do not match manifest")
+        if status == "ready" and len(completed) != self.expected_source_count:
+            raise RuntimeError("Ready manifest does not cover every source")
         return result
 
     def run_canary(self) -> dict:
         with manifest_write_lock(self.manifest_path, timeout=self.lock_timeout):
             sources = self._validated_sources()
             manifest = self._load_or_create_manifest(sources)
-            self.backend.update_build_metadata({"build_status": "building"})
             canary = sorted(sources, key=lambda path: (path.stat().st_size, path.name))[
                 len(sources) // 2
             ]
             if not self._should_skip(manifest, canary):
+                manifest["status"] = "building"
+                write_manifest(self.manifest_path, manifest)
+                self.backend.update_build_metadata({"build_status": "building"})
                 self._process_source(manifest, canary)
             return self._verify(manifest, require_complete=False)
 
@@ -847,8 +922,8 @@ class ChromaIndexRebuilder:
                 if not self._should_skip(manifest, source):
                     self._process_source(manifest, source)
             result = self._verify(manifest, require_complete=True)
-            manifest["status"] = "ready"
             manifest.update(result)
+            manifest["status"] = "ready"
             write_manifest(self.manifest_path, manifest)
             self.backend.update_build_metadata({"build_status": "ready"})
             return {**result, "status": "ready"}

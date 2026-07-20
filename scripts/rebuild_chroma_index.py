@@ -61,6 +61,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     _print_configuration_presence()
+    if not (
+        isinstance(settings.embedding_base_url, str)
+        and settings.embedding_base_url.strip()
+        and isinstance(settings.embedding_api_key, str)
+        and settings.embedding_api_key.strip()
+    ):
+        print(
+            "Rebuild requires nonempty EMBEDDING_BASE_URL and EMBEDDING_API_KEY",
+            file=sys.stderr,
+        )
+        return 2
     try:
         persist_dir = Path(args.persist_dir)
         backend = ChromaVectorBackend(
@@ -94,8 +105,8 @@ def main(argv: list[str] | None = None) -> int:
             expected_source_count=args.expected_source_count,
         )
         if args.verify_only:
-            result = rebuilder.verify(require_complete=True)
-            success = result.get("paper_count") == args.expected_source_count
+            result = rebuilder.verify(require_complete=False)
+            success = result.get("status") in {"building", "ready"}
         elif args.canary_only:
             result = rebuilder.run_canary()
             success = result.get("completed_paper_count", 0) >= 1

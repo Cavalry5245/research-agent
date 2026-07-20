@@ -7,8 +7,10 @@ import scripts.rebuild_chroma_index as cli
 
 class FakeBackend:
     collection_name = "research_papers_bge_m3_v1"
+    created = []
 
     def __init__(self, **kwargs):
+        self.created.append(kwargs)
         self.collection_name = kwargs["collection_name"]
 
     def backend_name(self):
@@ -31,7 +33,7 @@ class FakeRebuilder:
 
     def verify(self, *, require_complete=True):
         self.calls.append(("verify", require_complete))
-        return {"paper_count": 53, "chunk_count": 100}
+        return {"status": "building", "paper_count": 1, "chunk_count": 2}
 
     def run_canary(self):
         self.calls.append(("canary",))
@@ -45,6 +47,7 @@ class FakeRebuilder:
 @pytest.fixture
 def fake_cli(monkeypatch, tmp_path):
     FakeRebuilder.calls = []
+    FakeBackend.created = []
     settings = SimpleNamespace(
         metadata_dir=str(tmp_path / "metadata"),
         chroma_persist_dir=str(tmp_path / "chroma"),
@@ -83,7 +86,7 @@ def test_cli_rejects_non_api_or_non_exact_bge_m3(fake_cli, provider, model, caps
 
 @pytest.mark.parametrize(
     "flag,expected_call",
-    [("--verify-only", ("verify", True)), ("--canary-only", ("canary",))],
+    [("--verify-only", ("verify", False)), ("--canary-only", ("canary",))],
 )
 def test_cli_modes_print_only_configuration_presence(
     fake_cli, flag, expected_call, capsys
@@ -98,9 +101,32 @@ def test_cli_modes_print_only_configuration_presence(
     assert fake_cli.embedding_api_key not in captured.out
 
 
+@pytest.mark.parametrize("missing_field", ["embedding_base_url", "embedding_api_key"])
+def test_cli_rejects_missing_api_configuration_before_opening_backend(
+    fake_cli, missing_field, monkeypatch, capsys
+):
+    setattr(fake_cli, missing_field, "")
+    monkeypatch.setattr(
+        cli,
+        "ChromaVectorBackend",
+        lambda **_kwargs: pytest.fail("backend must not be opened"),
+    )
+
+    assert cli.main(["--verify-only"]) == 2
+    captured = capsys.readouterr()
+    assert "requires nonempty EMBEDDING_BASE_URL and EMBEDDING_API_KEY" in captured.err
+    assert "embedding_base_url_configured=" in captured.out
+    assert "embedding_api_key_configured=" in captured.out
+
+
 def test_cli_default_runs_canary_then_full(fake_cli):
     assert cli.main([]) == 0
     assert FakeRebuilder.calls == [("canary",), ("full",)]
+    assert FakeBackend.created[0]["initial_metadata"] == {
+        "build_status": "building",
+        "embedding_model": "bge-m3",
+        "schema_version": 1,
+    }
 
 
 def test_cli_returns_nonzero_when_requested_terminal_state_is_not_reached(

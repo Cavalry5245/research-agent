@@ -105,9 +105,9 @@ class EmbeddingClient:
             api_key=settings.embedding_api_key,
         )
         logger.info(
-            "Embedding API client ready: base_url=%s, model=%s",
-            settings.embedding_base_url,
-            self._resolved_model_name,
+            "Embedding API client ready: base_url_configured=%s, model=%s",
+            bool(settings.embedding_base_url),
+            self.model_name,
         )
 
     def _api_embed(self, texts: list[str]) -> list[list[float]]:
@@ -117,7 +117,7 @@ class EmbeddingClient:
         for i in range(0, len(texts), self.batch_size):
             batch = texts[i : i + self.batch_size]
             resp = self._api_client.embeddings.create(
-                model=self._resolved_model_name,
+                model=self.model_name,
                 input=batch,
             )
             # Response data may come back out of order; sort by index.

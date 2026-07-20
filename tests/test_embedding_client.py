@@ -1,5 +1,7 @@
 import os
 import sys
+import logging
+import types
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -104,6 +106,8 @@ def test_embedding_client_rebuilds_model_when_encode_hits_closed_client_error():
     loader = MagicMock(side_effect=[first_model, second_model])
     with patch(
         "app.services.embedding_client._check_available", return_value=True
+    ), patch(
+        "app.services.embedding_client.settings.embedding_provider", "local"
     ), patch.dict(
         sys.modules,
         {"sentence_transformers": fake_sentence_transformers_module(loader)},
@@ -132,3 +136,48 @@ def test_embedding_client_wraps_model_lookup_error_with_clear_message():
         client = EmbeddingClient(model_name="missing-model")
         with pytest.raises(RuntimeError, match="Embedding 模型加载失败"):
             client._ensure_model()
+
+
+def test_api_embedding_sends_exact_configured_bge_m3_wire_model():
+    requested = []
+
+    class Embeddings:
+        def create(self, *, model, input):
+            requested.append((model, input))
+            item = type("Item", (), {"index": 0, "embedding": [1.0, 2.0]})()
+            return type("Response", (), {"data": [item]})()
+
+    client = EmbeddingClient(model_name="bge-m3", batch_size=8)
+    client._provider = "api"
+    client._api_client = type("Api", (), {"embeddings": Embeddings()})()
+
+    assert client.embed_texts(["text"]) == [[1.0, 2.0]]
+    assert requested == [("bge-m3", ["text"])]
+
+
+def test_api_client_setup_logs_only_endpoint_and_key_presence(monkeypatch, caplog):
+    constructed = []
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            constructed.append(kwargs)
+
+    monkeypatch.setattr(
+        "app.services.embedding_client.settings.embedding_base_url",
+        "https://synthetic.invalid/v1",
+    )
+    monkeypatch.setattr(
+        "app.services.embedding_client.settings.embedding_api_key",
+        "sk-synthetic-never-log",
+    )
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(OpenAI=FakeOpenAI))
+    client = EmbeddingClient(model_name="bge-m3")
+    client._provider = "api"
+
+    with caplog.at_level(logging.INFO, logger="app.services.embedding_client"):
+        client._ensure_api_client()
+
+    assert constructed
+    assert "https://synthetic.invalid/v1" not in caplog.text
+    assert "sk-synthetic-never-log" not in caplog.text
+    assert "base_url_configured=True" in caplog.text
