@@ -566,7 +566,7 @@ Completion note (2026-07-20): implemented in `bf5ff1e7`. Factory tests: 5 passed
 - Modify: `tests/test_vector_backend_contract.py`
 - Modify: `tests/test_vector_store_factory.py`
 
-- [ ] **Step 1: Extend the shared contract tests to Chroma**
+- [x] **Step 1: Extend the shared contract tests to Chroma**
 
 Add this fixture and parameterized core cases to `tests/test_vector_backend_contract.py`:
 
@@ -626,7 +626,7 @@ def test_chroma_backend_refuses_non_ready_collection(tmp_path):
         )
 ```
 
-- [ ] **Step 2: Run and confirm the Chroma module is absent**
+- [x] **Step 2: Run and confirm the Chroma module is absent**
 
 Run:
 
@@ -636,7 +636,7 @@ Run:
 
 Expected: collection ERROR for the missing Chroma backend.
 
-- [ ] **Step 3: Implement metadata conversion helpers**
+- [x] **Step 3: Implement metadata conversion helpers**
 
 Create `app/services/vector_backends/chroma_backend.py` with helpers that omit `None` on write and restore optional fields on read:
 
@@ -686,7 +686,7 @@ def _query_result(
     return result
 ```
 
-- [ ] **Step 4: Implement open, readiness, and mutation operations**
+- [x] **Step 4: Implement open, readiness, and mutation operations**
 
 Implement `ChromaVectorBackend(VectorBackend)` with these constructor semantics:
 
@@ -737,7 +737,7 @@ Implement:
 
 Do not let application code create a missing collection. Only the rebuild path passes `create_if_missing=True`.
 
-- [ ] **Step 5: Run contract and factory tests**
+- [x] **Step 5: Run contract and factory tests**
 
 Run:
 
@@ -747,7 +747,7 @@ Run:
 
 Expected: JSON and Chroma contract cases pass, cosine score for an identical vector is approximately `1.0`, and a building collection is rejected by the application path.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -755,6 +755,8 @@ Run:
 git add app/services/vector_backends/chroma_backend.py app/services/vector_backends/__init__.py tests/test_vector_backend_contract.py tests/test_vector_store_factory.py
 git commit -m "feat: add persistent Chroma vector backend"
 ```
+
+Completion note (2026-07-20): implemented in `92365012`; fixed empty metadata creation in `12bc6d0b`; enforced distance/dimension/locking/efficient metadata contracts in `4590e019`; validated lifecycle metadata in `d237f1de`. Final real ChromaDB 1.5.9 contract/factory suite: 83 passed. Independent spec and quality reviews approved with no remaining Critical or Important issues.
 
 ### Task 5: Build manifest and source-validation primitives
 
