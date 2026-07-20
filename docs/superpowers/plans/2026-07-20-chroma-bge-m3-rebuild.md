@@ -138,7 +138,7 @@ Completion note (2026-07-20): implemented in `750827ab`; strengthened the defaul
 - Create: `tests/test_vector_backend_contract.py`
 - Modify: `app/services/vector_store.py:1-196`
 
-- [ ] **Step 1: Write failing backend validation tests**
+- [x] **Step 1: Write failing backend validation tests**
 
 Create `tests/test_vector_backend_contract.py` with the JSON cases first:
 
@@ -206,7 +206,7 @@ def test_json_backend_returns_complete_dense_result(tmp_path: Path):
     }
 ```
 
-- [ ] **Step 2: Run the tests and confirm the backend modules are absent**
+- [x] **Step 2: Run the tests and confirm the backend modules are absent**
 
 Run:
 
@@ -216,7 +216,7 @@ Run:
 
 Expected: collection ERROR because `app.services.vector_backends` does not exist.
 
-- [ ] **Step 3: Define the backend contract and shared validation**
+- [x] **Step 3: Define the backend contract and shared validation**
 
 Create `app/services/vector_backends/base.py` with this public contract:
 
@@ -298,7 +298,7 @@ class VectorBackend(ABC):
         raise NotImplementedError
 ```
 
-- [ ] **Step 4: Extract the JSON implementation**
+- [x] **Step 4: Extract the JSON implementation**
 
 Create `app/services/vector_backends/json_backend.py`. Move the current JSON load/persist logic into `JsonVectorBackend(VectorBackend)`, rename `query` to `query_dense`, remove hybrid reranking, and apply strict dimension checks:
 
@@ -382,7 +382,7 @@ Retain the current implementations of `_persist`, `delete_paper`, `delete_chunks
 
 Export `VectorBackend` and `JsonVectorBackend` from `app/services/vector_backends/__init__.py`.
 
-- [ ] **Step 5: Make `VectorStore` a temporary JSON facade**
+- [x] **Step 5: Make `VectorStore` a temporary JSON facade**
 
 Replace storage logic in `app/services/vector_store.py` with delegation while preserving shared reranking:
 
@@ -411,7 +411,7 @@ class VectorStore:
 
 Use explicit forwarding methods instead of `__getattr__` before committing if static type checking or tests require method discovery; the required public names are `delete_paper`, `delete_chunks`, `has_paper`, `backend_name`, `metadata`, `count`, and `list_chunks`.
 
-- [ ] **Step 6: Run legacy and new JSON tests**
+- [x] **Step 6: Run legacy and new JSON tests**
 
 Run:
 
@@ -421,7 +421,7 @@ Run:
 
 Expected: PASS. If the real project `.env` changes test selection, construct `JsonVectorBackend` explicitly in tests instead of weakening production configuration.
 
-- [ ] **Step 7: Inspect and commit**
+- [x] **Step 7: Inspect and commit**
 
 Run:
 
@@ -432,6 +432,8 @@ git commit -m "refactor: extract JSON vector backend"
 ```
 
 Expected: the application still uses JSON at this checkpoint and all existing behavior tests pass, except invalid mixed-dimension operations now fail clearly.
+
+Completion note (2026-07-20): implemented in `949d5fa4`, hardened validation/degraded loading/atomic persistence in `6e7179f6`, and made mutations transactional in `1d36ef5e`. RED covered missing modules, duplicate IDs, invalid vectors, corrupt stores, and injected persistence failures. Final backend contract: 27 passed; independent spec and quality reviews approved with no remaining Critical or Important issues.
 
 ### Task 3: Add configuration-driven facade selection
 
