@@ -138,7 +138,7 @@ def test_embedding_client_wraps_model_lookup_error_with_clear_message():
             client._ensure_model()
 
 
-def test_api_embedding_sends_exact_configured_bge_m3_wire_model():
+def test_api_embedding_resolves_bge_m3_wire_model_but_keeps_logical_name():
     requested = []
 
     class Embeddings:
@@ -152,7 +152,8 @@ def test_api_embedding_sends_exact_configured_bge_m3_wire_model():
     client._api_client = type("Api", (), {"embeddings": Embeddings()})()
 
     assert client.embed_texts(["text"]) == [[1.0, 2.0]]
-    assert requested == [("bge-m3", ["text"])]
+    assert client.model_name == "bge-m3"
+    assert requested == [("BAAI/bge-m3", ["text"])]
 
 
 @pytest.mark.parametrize(

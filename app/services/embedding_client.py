@@ -117,7 +117,10 @@ class EmbeddingClient:
         for i in range(0, len(texts), self.batch_size):
             batch = texts[i : i + self.batch_size]
             resp = self._api_client.embeddings.create(
-                model=self.model_name,
+                # Keep model_name logical for collection/manifest compatibility.
+                # The rebuild contract's git_head prevents resuming across alias
+                # mapping/code changes, while providers receive the resolved wire ID.
+                model=self._resolved_model_name,
                 input=batch,
             )
             items = list(resp.data)
