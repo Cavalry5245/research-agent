@@ -1,18 +1,24 @@
 import json
+import threading
 from pathlib import Path
 
 import pytest
 
 from app.services.chroma_rebuild import (
+    ChromaIndexRebuilder,
     build_contract,
     create_build_manifest,
     discover_parsed_sources,
+    embed_batch_with_retry,
     load_manifest,
     redact_error,
     source_sha256,
+    update_manifest_locked,
     validate_resume_contract,
     write_manifest,
 )
+from app.schemas import PaperParseResult, Section
+from app.services.vector_backends.chroma_backend import ChromaVectorBackend
 
 
 def test_discover_parsed_sources_returns_only_matching_files_sorted_by_name(
@@ -467,3 +473,369 @@ def test_validate_resume_contract_accepts_nested_strict_json_chunk_settings():
     }
 
     validate_resume_contract(contract, json.loads(json.dumps(contract)))
+
+
+class RetryableEmbeddingError(RuntimeError):
+    status_code = 429
+
+
+class FakeEmbeddingClient:
+    provider = "api"
+    model_name = "bge-m3"
+
+    def __init__(self, failures: int = 0, error_factory=None):
+        self.failures = failures
+        self.error_factory = error_factory or (
+            lambda: RetryableEmbeddingError("rate limited")
+        )
+        self.calls = 0
+
+    def embed_texts(self, texts):
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise self.error_factory()
+        return [[float(index + 1), 0.0, 1.0] for index, _ in enumerate(texts)]
+
+
+def _write_parsed_fixture(
+    metadata_dir: Path, paper_id: str, *, repeat: int = 80
+) -> Path:
+    parsed = PaperParseResult(
+        paper_id=paper_id,
+        title=f"Title {paper_id}",
+        abstract=f"Abstract for {paper_id}",
+        sections=[Section(heading="Methods", content="method details " * repeat)],
+        full_text=f"Abstract for {paper_id}\n" + "method details " * repeat,
+    )
+    path = metadata_dir / f"{paper_id}_parsed.json"
+    path.write_text(parsed.model_dump_json(), encoding="utf-8")
+    return path
+
+
+def _rebuilder(tmp_path: Path, metadata_dir: Path, backend, client, *, expected=2):
+    return ChromaIndexRebuilder(
+        metadata_dir=metadata_dir,
+        manifest_path=tmp_path / "rebuild_manifest.json",
+        backend=backend,
+        embedding_client=client,
+        batch_size=2,
+        max_attempts=3,
+        base_delay=0.01,
+        git_head="test-head",
+        chunk_settings={
+            "strategy": "parent_child_sliding_window",
+            "size": 500,
+            "overlap": 100,
+        },
+        expected_source_count=expected,
+        sleep=lambda _delay: None,
+    )
+
+
+def test_embed_batch_retries_429_with_retry_after_then_exponential_delay():
+    class WithHeaders(RetryableEmbeddingError):
+        headers = {"Retry-After": "0.75"}
+
+    client = FakeEmbeddingClient(failures=2, error_factory=WithHeaders)
+    sleeps = []
+
+    vectors = embed_batch_with_retry(
+        client, ["a", "b"], max_attempts=3, base_delay=0.25, sleep=sleeps.append
+    )
+
+    assert len(vectors) == 2
+    assert client.calls == 3
+    assert sleeps == [0.75, 0.75]
+
+
+@pytest.mark.parametrize("status", [500, 502, 503, 504])
+def test_embed_batch_retries_transient_provider_statuses(status):
+    error_type = type("ProviderError", (RuntimeError,), {"status_code": status})
+    client = FakeEmbeddingClient(
+        failures=1, error_factory=lambda: error_type("secret token=hidden")
+    )
+
+    assert embed_batch_with_retry(
+        client, ["a"], max_attempts=2, base_delay=0, sleep=lambda _: None
+    )
+    assert client.calls == 2
+
+
+def test_embed_batch_retries_generic_provider_timeout_type():
+    class TimeoutException(RuntimeError):
+        pass
+
+    client = FakeEmbeddingClient(failures=1, error_factory=TimeoutException)
+
+    assert embed_batch_with_retry(
+        client, ["a"], max_attempts=2, base_delay=0, sleep=lambda _: None
+    )
+    assert client.calls == 2
+
+
+def test_embed_batch_rejects_invalid_retry_arguments_and_retry_after():
+    class InvalidRetryAfter(RetryableEmbeddingError):
+        retry_after = "NaN"
+
+    with pytest.raises(ValueError, match="max_attempts"):
+        embed_batch_with_retry(
+            FakeEmbeddingClient(), ["a"], max_attempts=True, base_delay=0
+        )
+    with pytest.raises(ValueError, match="base_delay"):
+        embed_batch_with_retry(
+            FakeEmbeddingClient(), ["a"], max_attempts=2, base_delay=float("inf")
+        )
+
+    sleeps = []
+    embed_batch_with_retry(
+        FakeEmbeddingClient(failures=1, error_factory=InvalidRetryAfter),
+        ["a"],
+        max_attempts=2,
+        base_delay=0.5,
+        sleep=sleeps.append,
+    )
+    assert sleeps == [0.5]
+
+
+def test_rebuild_canary_full_run_and_no_cost_resume(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=20)
+    _write_parsed_fixture(metadata_dir, "paper_2", repeat=100)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="rebuild_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+    first_client = FakeEmbeddingClient()
+    rebuilder = _rebuilder(tmp_path, metadata_dir, backend, first_client)
+
+    canary = rebuilder.run_canary()
+    result = rebuilder.run_all()
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+
+    assert canary["completed_paper_count"] == 1
+    assert result["status"] == "ready"
+    assert result["paper_count"] == 2
+    assert backend.count() == result["chunk_count"]
+    assert {record["status"] for record in manifest["papers"].values()} == {"completed"}
+
+    second_client = FakeEmbeddingClient()
+    resumed_result = _rebuilder(
+        tmp_path, metadata_dir, backend, second_client
+    ).run_all()
+    assert resumed_result["status"] == "ready"
+    assert second_client.calls == 0
+
+
+def test_verify_complete_requires_ready_collection_metadata(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=30)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="readiness_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+    rebuilder = _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    )
+    rebuilder.run_all()
+    backend.update_build_metadata({"build_status": "failed"})
+
+    with pytest.raises(RuntimeError, match="collection is not ready"):
+        rebuilder.verify(require_complete=True)
+
+
+def test_source_hash_change_replaces_only_changed_paper(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    changed = _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    _write_parsed_fixture(metadata_dir, "paper_2", repeat=40)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="changed_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+    _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient()).run_all()
+    paper_2_ids = backend.ids_for_paper("paper_2")
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=120)
+
+    _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient()).run_all()
+
+    assert backend.ids_for_paper("paper_2") == paper_2_ids
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    changed_record = next(
+        r for r in manifest["papers"].values() if r["source_path"] == changed.name
+    )
+    assert changed_record["sha256"] == source_sha256(changed)
+
+
+def test_source_mutation_during_processing_is_not_marked_completed(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    source = _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="mutation_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+
+    class MutatingClient(FakeEmbeddingClient):
+        def embed_texts(self, texts):
+            source.write_bytes(source.read_bytes() + b" ")
+            return super().embed_texts(texts)
+
+    with pytest.raises(RuntimeError, match="changed during processing"):
+        _rebuilder(
+            tmp_path, metadata_dir, backend, MutatingClient(), expected=1
+        ).run_all()
+
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    assert all(
+        record["status"] != "completed" for record in manifest["papers"].values()
+    )
+
+
+@pytest.mark.parametrize(
+    "relative",
+    ["../outside_parsed.json", "/absolute_parsed.json", "C:/escape_parsed.json"],
+)
+def test_manifest_source_paths_must_stay_beneath_metadata_dir(
+    tmp_path: Path, relative: str
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    source = _write_parsed_fixture(metadata_dir, "paper_1")
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="path_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+    rebuilder = _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    )
+    rebuilder.run_canary()
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    manifest["sources"][0]["path"] = relative
+    write_manifest(tmp_path / "rebuild_manifest.json", manifest)
+
+    with pytest.raises(ValueError, match="source path"):
+        rebuilder.verify(require_complete=False)
+
+    assert source.exists()
+
+
+def test_locked_manifest_updates_do_not_lose_concurrent_writers(tmp_path: Path):
+    path = tmp_path / "manifest.json"
+    write_manifest(path, {"counter": 0})
+
+    def increment():
+        for _ in range(10):
+            update_manifest_locked(
+                path, lambda data: {**data, "counter": data["counter"] + 1}
+            )
+
+    threads = [threading.Thread(target=increment) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert load_manifest(path) == {"counter": 40}
+
+
+def test_manifest_replace_retries_windows_sharing_violation(
+    tmp_path: Path, monkeypatch
+):
+    path = tmp_path / "manifest.json"
+    calls = 0
+    real_replace = __import__("os").replace
+
+    def flaky_replace(source, destination):
+        nonlocal calls
+        calls += 1
+        if calls < 3:
+            error = PermissionError("sharing violation")
+            error.winerror = 32
+            raise error
+        return real_replace(source, destination)
+
+    monkeypatch.setattr("app.services.chroma_rebuild.os.replace", flaky_replace)
+    write_manifest(
+        path,
+        {"status": "new"},
+        replace_attempts=3,
+        replace_delay=0,
+        sleep=lambda _: None,
+    )
+
+    assert calls == 3
+    assert load_manifest(path) == {"status": "new"}
+
+
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        ({"batch_size": True}, "batch_size"),
+        ({"max_attempts": 0}, "max_attempts"),
+        ({"expected_source_count": -1}, "expected_source_count"),
+        ({"base_delay": float("nan")}, "base_delay"),
+    ],
+)
+def test_rebuilder_rejects_invalid_constructor_arguments(tmp_path: Path, kwargs, match):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+
+    class Backend:
+        collection_name = "collection"
+
+        def backend_name(self):
+            return "chroma"
+
+    arguments = dict(
+        metadata_dir=metadata_dir,
+        manifest_path=tmp_path / "manifest.json",
+        backend=Backend(),
+        embedding_client=FakeEmbeddingClient(),
+        batch_size=2,
+        max_attempts=3,
+        base_delay=0.1,
+        git_head="head",
+        chunk_settings={"size": 500},
+        expected_source_count=1,
+    )
+    arguments.update(kwargs)
+    with pytest.raises(ValueError, match=match):
+        ChromaIndexRebuilder(**arguments)
