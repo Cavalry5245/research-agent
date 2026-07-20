@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # Vector store
     vector_store: str = "chroma"
     chroma_persist_dir: str = "app/storage/vector_db"
+    chroma_collection_name: str = "research_papers_bge_m3_v1"
+    chroma_require_ready: bool = True
 
     # Storage paths
     upload_dir: str = "app/storage/papers"
