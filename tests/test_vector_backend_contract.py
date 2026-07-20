@@ -216,13 +216,18 @@ def test_chroma_update_build_metadata_merges_existing_values(tmp_path: Path):
         collection_name="metadata_collection",
         create_if_missing=True,
         require_ready=False,
-        initial_metadata={"build_status": "building", "schema_version": 1},
+        initial_metadata={
+            "build_status": "building",
+            "embedding_dimension": 2,
+            "schema_version": 1,
+        },
     )
 
     backend.update_build_metadata({"build_status": "ready"})
 
     assert backend._collection.metadata == {
         "build_status": "ready",
+        "embedding_dimension": 2,
         "schema_version": 1,
     }
 
@@ -242,6 +247,136 @@ def _raw_chroma_collection(
         embedding_function=None,
     )
     return client, collection
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        pytest.param({"build_status": "ready"}, id="ready-without-dimension"),
+        pytest.param(
+            {"build_status": "building", "embedding_dimension": True}, id="bool"
+        ),
+        pytest.param(
+            {"build_status": "building", "embedding_dimension": 2.5}, id="float"
+        ),
+        pytest.param(
+            {"build_status": "building", "embedding_dimension": "2"}, id="string"
+        ),
+        pytest.param(
+            {"build_status": "building", "embedding_dimension": 0}, id="zero"
+        ),
+        pytest.param(
+            {"build_status": "building", "embedding_dimension": -2}, id="negative"
+        ),
+        pytest.param({"build_status": "unknown"}, id="unknown-status"),
+        pytest.param({"build_status": 1}, id="non-string-status"),
+    ],
+)
+def test_chroma_rejects_invalid_initial_metadata_before_create(
+    tmp_path: Path, metadata: dict
+):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    persist_dir = str(tmp_path / "chroma")
+    client = chromadb.PersistentClient(path=persist_dir)
+
+    with pytest.raises(RuntimeError, match="build_status|embedding_dimension"):
+        ChromaVectorBackend(
+            persist_dir=persist_dir,
+            collection_name="invalid_initial_metadata",
+            create_if_missing=True,
+            require_ready=False,
+            initial_metadata=metadata,
+        )
+
+    assert client.list_collections() == []
+
+
+def test_chroma_allows_building_initial_metadata_without_dimension(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="building_without_dimension",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building"},
+    )
+
+    assert backend.count() == 0
+
+
+def test_chroma_rejects_ready_update_without_dimension_unchanged(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="invalid_ready_update",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building", "schema_version": 1},
+    )
+    before = dict(backend._collection.metadata)
+
+    with pytest.raises(RuntimeError, match="embedding_dimension"):
+        backend.update_build_metadata({"build_status": "ready"})
+
+    fresh = backend._client.get_collection(
+        "invalid_ready_update", embedding_function=None
+    )
+    assert fresh.metadata == before
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        pytest.param({"embedding_dimension": 2.5}, id="invalid-dimension"),
+        pytest.param({"build_status": "unknown"}, id="unknown-status"),
+    ],
+)
+def test_chroma_rejects_invalid_metadata_update_unchanged(
+    tmp_path: Path, update: dict
+):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="invalid_metadata_update",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building", "embedding_dimension": 2},
+    )
+    before = dict(backend._collection.metadata)
+
+    with pytest.raises(RuntimeError, match="build_status|embedding_dimension"):
+        backend.update_build_metadata(update)
+
+    fresh = backend._client.get_collection(
+        "invalid_metadata_update", embedding_function=None
+    )
+    assert fresh.metadata == before
+
+
+def test_chroma_valid_build_lifecycle_reopens_ready(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    kwargs = {
+        "persist_dir": str(tmp_path / "chroma"),
+        "collection_name": "valid_lifecycle",
+    }
+    backend = ChromaVectorBackend(
+        **kwargs,
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building", "schema_version": 1},
+    )
+
+    backend.update_build_metadata({"embedding_dimension": 2})
+    backend.update_build_metadata({"build_status": "ready"})
+
+    reopened = ChromaVectorBackend(**kwargs)
+    assert reopened.metadata()["build_status"] == "ready"
+    assert reopened.metadata()["embedding_dimension"] == 2
 
 
 @pytest.mark.parametrize("create_if_missing", [False, True])

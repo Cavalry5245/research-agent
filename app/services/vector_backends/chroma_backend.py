@@ -30,8 +30,39 @@ _CHUNK_METADATA_FIELDS = (
     "element_type",
 )
 _METADATA_LOCK_TIMEOUT_SECONDS = 10.0
+_BUILD_STATUSES = {"building", "ready", "failed"}
 _LOCAL_LOCKS: dict[str, threading.Lock] = {}
 _LOCAL_LOCKS_GUARD = threading.Lock()
+
+
+def _validate_lifecycle_metadata(metadata: dict | None) -> None:
+    if metadata is None:
+        return
+    if not isinstance(metadata, dict):
+        raise RuntimeError("Chroma collection metadata must be a mapping")
+    if not metadata:
+        return
+
+    status = metadata.get("build_status")
+    if "build_status" in metadata and (
+        type(status) is not str or status not in _BUILD_STATUSES
+    ):
+        raise RuntimeError(
+            f"Invalid Chroma build_status={status!r}; expected one of "
+            f"{sorted(_BUILD_STATUSES)}"
+        )
+
+    dimension = metadata.get("embedding_dimension")
+    valid_dimension = type(dimension) is int and dimension > 0
+    if "embedding_dimension" in metadata and not valid_dimension:
+        raise RuntimeError(
+            f"Invalid Chroma embedding_dimension={dimension!r}; expected a "
+            "positive integer"
+        )
+    if status == "ready" and not valid_dimension:
+        raise RuntimeError(
+            "Chroma build_status='ready' requires a valid embedding_dimension"
+        )
 
 
 def _local_lock(path: str) -> threading.Lock:
@@ -126,6 +157,8 @@ class ChromaVectorBackend(VectorBackend):
     ):
         self.persist_dir = persist_dir
         self.collection_name = collection_name
+        if create_if_missing:
+            _validate_lifecycle_metadata(initial_metadata)
         self._client = chromadb.PersistentClient(path=persist_dir)
         if create_if_missing:
             create_kwargs: dict[str, Any] = {
@@ -160,6 +193,7 @@ class ChromaVectorBackend(VectorBackend):
             )
 
         collection_metadata = self._collection.metadata or {}
+        _validate_lifecycle_metadata(collection_metadata)
         if require_ready and collection_metadata.get("build_status") != "ready":
             raise RuntimeError(
                 f"Chroma collection {self.collection_name!r} is not ready "
@@ -167,19 +201,10 @@ class ChromaVectorBackend(VectorBackend):
             )
 
         value = collection_metadata.get("embedding_dimension")
-        if value is None:
-            if (
-                collection_metadata.get("build_status") == "ready"
-                or self.count() > 0
-            ):
-                raise RuntimeError(
-                    f"Chroma collection {self.collection_name!r} has no valid "
-                    "embedding_dimension"
-                )
-        elif type(value) is not int or value <= 0:
+        if value is None and self.count() > 0:
             raise RuntimeError(
-                f"Chroma collection {self.collection_name!r} has invalid "
-                f"embedding_dimension={value!r}; expected a positive integer"
+                f"Chroma collection {self.collection_name!r} has no valid "
+                "embedding_dimension"
             )
 
     def _collection_metadata(self, *, refresh: bool = False) -> dict:
@@ -196,6 +221,7 @@ class ChromaVectorBackend(VectorBackend):
         if refresh:
             self._refresh_collection()
         metadata = self._collection_metadata()
+        _validate_lifecycle_metadata(metadata)
         value = metadata.get("embedding_dimension")
         if value is None:
             if (self.count() if chunk_count is None else chunk_count) > 0:
@@ -204,11 +230,6 @@ class ChromaVectorBackend(VectorBackend):
                     "embedding_dimension"
                 )
             return None
-        if type(value) is not int or value <= 0:
-            raise RuntimeError(
-                f"Chroma collection {self.collection_name!r} has invalid "
-                f"embedding_dimension={value!r}; expected a positive integer"
-            )
         return value
 
     @staticmethod
@@ -369,6 +390,7 @@ class ChromaVectorBackend(VectorBackend):
             collection = self._refresh_collection()
             merged = dict(collection.metadata or {})
             merged.update(values)
+            _validate_lifecycle_metadata(merged)
             collection.modify(metadata=merged)
             self._refresh_collection()
 
