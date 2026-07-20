@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+import hashlib
+import os
+import threading
+import time
+from contextlib import contextmanager
+from typing import Any, BinaryIO, Iterator
 
 import chromadb
 
@@ -24,6 +29,89 @@ _CHUNK_METADATA_FIELDS = (
     "page_range",
     "element_type",
 )
+_METADATA_LOCK_TIMEOUT_SECONDS = 10.0
+_LOCAL_LOCKS: dict[str, threading.Lock] = {}
+_LOCAL_LOCKS_GUARD = threading.Lock()
+
+
+def _local_lock(path: str) -> threading.Lock:
+    with _LOCAL_LOCKS_GUARD:
+        return _LOCAL_LOCKS.setdefault(path, threading.Lock())
+
+
+def _try_file_lock(handle: BinaryIO) -> bool:
+    handle.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        try:
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError:
+            return False
+        return True
+
+    import fcntl
+
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return False
+    return True
+
+
+def _release_file_lock(handle: BinaryIO) -> None:
+    handle.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+
+    import fcntl
+
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def _metadata_write_lock(
+    persist_dir: str, collection_name: str
+) -> Iterator[None]:
+    digest = hashlib.sha256(collection_name.encode("utf-8")).hexdigest()[:16]
+    lock_path = os.path.abspath(
+        os.path.join(persist_dir, f".chroma-metadata-{digest}.lock")
+    )
+    local_lock = _local_lock(lock_path)
+    if not local_lock.acquire(timeout=_METADATA_LOCK_TIMEOUT_SECONDS):
+        raise TimeoutError(f"Timed out locking Chroma metadata for {collection_name!r}")
+
+    handle: BinaryIO | None = None
+    file_locked = False
+    try:
+        handle = open(lock_path, "a+b")
+        handle.seek(0, os.SEEK_END)
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+
+        deadline = time.monotonic() + _METADATA_LOCK_TIMEOUT_SECONDS
+        while not _try_file_lock(handle):
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Timed out locking Chroma metadata for {collection_name!r}"
+                )
+            time.sleep(0.01)
+        file_locked = True
+        yield
+    finally:
+        try:
+            if handle is not None:
+                try:
+                    if file_locked:
+                        _release_file_lock(handle)
+                finally:
+                    handle.close()
+        finally:
+            local_lock.release()
 
 
 class ChromaVectorBackend(VectorBackend):
@@ -54,19 +142,74 @@ class ChromaVectorBackend(VectorBackend):
                 embedding_function=None,
             )
 
+        self._validate_collection_contract(require_ready=require_ready)
+
+    def _refresh_collection(self):
+        self._collection = self._client.get_collection(
+            name=self.collection_name,
+            embedding_function=None,
+        )
+        return self._collection
+
+    def _validate_collection_contract(self, *, require_ready: bool) -> None:
+        space = (self._collection.configuration_json.get("hnsw") or {}).get("space")
+        if space != "cosine":
+            raise RuntimeError(
+                f"Chroma collection {self.collection_name!r} must use cosine "
+                f"HNSW space (found {space!r})"
+            )
+
         collection_metadata = self._collection.metadata or {}
         if require_ready and collection_metadata.get("build_status") != "ready":
             raise RuntimeError(
-                f"Chroma collection {collection_name!r} is not ready "
+                f"Chroma collection {self.collection_name!r} is not ready "
                 f"(build_status={collection_metadata.get('build_status')!r})"
             )
 
-    def _collection_metadata(self) -> dict:
+        value = collection_metadata.get("embedding_dimension")
+        if value is None:
+            if (
+                collection_metadata.get("build_status") == "ready"
+                or self.count() > 0
+            ):
+                raise RuntimeError(
+                    f"Chroma collection {self.collection_name!r} has no valid "
+                    "embedding_dimension"
+                )
+        elif type(value) is not int or value <= 0:
+            raise RuntimeError(
+                f"Chroma collection {self.collection_name!r} has invalid "
+                f"embedding_dimension={value!r}; expected a positive integer"
+            )
+
+    def _collection_metadata(self, *, refresh: bool = False) -> dict:
+        if refresh:
+            self._refresh_collection()
         return dict(self._collection.metadata or {})
 
-    def _expected_dimension(self) -> int | None:
-        value = self._collection_metadata().get("embedding_dimension")
-        return int(value) if value is not None else None
+    def _expected_dimension(
+        self,
+        *,
+        chunk_count: int | None = None,
+        refresh: bool = True,
+    ) -> int | None:
+        if refresh:
+            self._refresh_collection()
+        metadata = self._collection_metadata()
+        value = metadata.get("embedding_dimension")
+        if value is None:
+            if (self.count() if chunk_count is None else chunk_count) > 0:
+                raise RuntimeError(
+                    f"Chroma collection {self.collection_name!r} has no valid "
+                    "embedding_dimension"
+                )
+            return None
+        if type(value) is not int or value <= 0:
+            raise RuntimeError(
+                f"Chroma collection {self.collection_name!r} has invalid "
+                f"embedding_dimension={value!r}; expected a positive integer"
+            )
+        return value
 
     @staticmethod
     def _chunk_metadata(chunk: Chunk) -> dict:
@@ -109,18 +252,23 @@ class ChromaVectorBackend(VectorBackend):
         paper_id: str | None = None,
     ) -> list[dict]:
         normalized = normalize_vector(query_embedding, label="query embedding")
-        expected_dimension = self._expected_dimension()
+        self._refresh_collection()
+        chunk_count = self.count()
+        expected_dimension = self._expected_dimension(
+            chunk_count=chunk_count,
+            refresh=False,
+        )
         if expected_dimension is not None and len(normalized) != expected_dimension:
             raise ValueError(
                 f"query embedding dimension {len(normalized)} does not match "
                 f"expected dimension {expected_dimension}"
             )
-        if top_k <= 0 or self.count() == 0:
+        if top_k <= 0 or chunk_count == 0:
             return []
 
         kwargs: dict[str, Any] = {
             "query_embeddings": [normalized],
-            "n_results": min(top_k, self.count()),
+            "n_results": min(top_k, chunk_count),
             "include": ["documents", "metadatas", "distances"],
         }
         if paper_id is not None:
@@ -185,8 +333,25 @@ class ChromaVectorBackend(VectorBackend):
         return "chroma"
 
     def metadata(self) -> dict:
-        collection_metadata = self._collection_metadata()
-        chunks = self.list_chunks()
+        collection_metadata = self._collection_metadata(refresh=True)
+        chunk_count = self.count()
+        paper_ids: set[str] = set()
+        offset = 0
+        page_size = 1000
+        while offset < chunk_count:
+            result = self._collection.get(
+                limit=page_size,
+                offset=offset,
+                include=["metadatas"],
+            )
+            ids = result.get("ids") or []
+            if not ids:
+                break
+            for metadata in result.get("metadatas") or []:
+                paper_id = (metadata or {}).get("paper_id")
+                if paper_id is not None:
+                    paper_ids.add(paper_id)
+            offset += len(ids)
         return {
             "backend": self.backend_name(),
             "collection_name": self.collection_name,
@@ -194,15 +359,18 @@ class ChromaVectorBackend(VectorBackend):
             "embedding_dimension": collection_metadata.get(
                 "embedding_dimension"
             ),
-            "chunk_count": len(chunks),
-            "paper_count": len({chunk["paper_id"] for chunk in chunks}),
+            "chunk_count": chunk_count,
+            "paper_count": len(paper_ids),
             "persist_dir": self.persist_dir,
         }
 
     def update_build_metadata(self, values: dict) -> None:
-        merged = self._collection_metadata()
-        merged.update(values)
-        self._collection.modify(metadata=merged)
+        with _metadata_write_lock(self.persist_dir, self.collection_name):
+            collection = self._refresh_collection()
+            merged = dict(collection.metadata or {})
+            merged.update(values)
+            collection.modify(metadata=merged)
+            self._refresh_collection()
 
     def count(self) -> int:
         return self._collection.count()

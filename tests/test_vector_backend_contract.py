@@ -1,7 +1,10 @@
 import json
 import os
+import threading
 from pathlib import Path
+from unittest.mock import Mock
 
+import chromadb
 import pytest
 
 from app.schemas import Chunk
@@ -222,6 +225,262 @@ def test_chroma_update_build_metadata_merges_existing_values(tmp_path: Path):
         "build_status": "ready",
         "schema_version": 1,
     }
+
+
+def _raw_chroma_collection(
+    tmp_path: Path,
+    name: str,
+    *,
+    space: str = "cosine",
+    metadata: dict | None = None,
+):
+    client = chromadb.PersistentClient(path=str(tmp_path / "chroma"))
+    collection = client.get_or_create_collection(
+        name=name,
+        configuration={"hnsw": {"space": space}},
+        metadata=metadata,
+        embedding_function=None,
+    )
+    return client, collection
+
+
+@pytest.mark.parametrize("create_if_missing", [False, True])
+def test_chroma_rejects_existing_l2_collection(tmp_path: Path, create_if_missing: bool):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    _raw_chroma_collection(
+        tmp_path,
+        "l2_collection",
+        space="l2",
+        metadata={"build_status": "ready", "embedding_dimension": 2},
+    )
+
+    with pytest.raises(RuntimeError, match="cosine|space"):
+        ChromaVectorBackend(
+            persist_dir=str(tmp_path / "chroma"),
+            collection_name="l2_collection",
+            create_if_missing=create_if_missing,
+            require_ready=True,
+        )
+
+
+def test_chroma_rejects_nonempty_ready_collection_without_dimension(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    _, collection = _raw_chroma_collection(
+        tmp_path,
+        "missing_dimension",
+        metadata={"build_status": "ready"},
+    )
+    collection.upsert(
+        ids=["c1"],
+        documents=["alpha"],
+        metadatas=[{"paper_id": "p1"}],
+        embeddings=[[1.0, 0.0]],
+    )
+
+    with pytest.raises(RuntimeError, match="embedding_dimension"):
+        ChromaVectorBackend(
+            persist_dir=str(tmp_path / "chroma"),
+            collection_name="missing_dimension",
+        )
+
+
+@pytest.mark.parametrize(
+    "dimension",
+    [
+        pytest.param(True, id="bool"),
+        pytest.param(2.5, id="float"),
+        pytest.param("2", id="string"),
+        pytest.param(0, id="zero"),
+        pytest.param(-2, id="negative"),
+    ],
+)
+def test_chroma_rejects_invalid_dimension_metadata(tmp_path: Path, dimension):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    _raw_chroma_collection(
+        tmp_path,
+        "invalid_dimension",
+        metadata={"build_status": "ready", "embedding_dimension": dimension},
+    )
+
+    with pytest.raises(RuntimeError, match="embedding_dimension"):
+        ChromaVectorBackend(
+            persist_dir=str(tmp_path / "chroma"),
+            collection_name="invalid_dimension",
+        )
+
+
+def test_chroma_accepts_positive_builtin_int_dimension(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    _raw_chroma_collection(
+        tmp_path,
+        "valid_dimension",
+        metadata={"build_status": "ready", "embedding_dimension": 2},
+    )
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="valid_dimension",
+    )
+
+    assert backend.metadata()["embedding_dimension"] == 2
+
+
+def test_chroma_metadata_merge_refreshes_stale_client(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    kwargs = {
+        "persist_dir": str(tmp_path / "chroma"),
+        "collection_name": "stale_metadata",
+        "require_ready": False,
+    }
+    first = ChromaVectorBackend(
+        **kwargs,
+        create_if_missing=True,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_dimension": 2,
+            "schema_version": 1,
+        },
+    )
+    second = ChromaVectorBackend(**kwargs)
+
+    second.update_build_metadata({"second_key": "second"})
+    first.update_build_metadata({"first_key": "first"})
+
+    fresh = ChromaVectorBackend(**kwargs)
+    assert fresh._collection.metadata == {
+        "build_status": "building",
+        "embedding_dimension": 2,
+        "schema_version": 1,
+        "second_key": "second",
+        "first_key": "first",
+    }
+
+
+def test_chroma_concurrent_metadata_merges_preserve_both_keys(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    kwargs = {
+        "persist_dir": str(tmp_path / "chroma"),
+        "collection_name": "concurrent_metadata",
+        "require_ready": False,
+    }
+    first = ChromaVectorBackend(
+        **kwargs,
+        create_if_missing=True,
+        initial_metadata={"build_status": "building", "embedding_dimension": 2},
+    )
+    second = ChromaVectorBackend(**kwargs)
+    barrier = threading.Barrier(3)
+    errors: list[Exception] = []
+
+    def update(backend, values):
+        try:
+            barrier.wait(timeout=5)
+            backend.update_build_metadata(values)
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=update, args=(first, {"first_key": "first"})),
+        threading.Thread(target=update, args=(second, {"second_key": "second"})),
+    ]
+    for thread in threads:
+        thread.start()
+    barrier.wait(timeout=5)
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert not any(thread.is_alive() for thread in threads)
+    assert errors == []
+    fresh = ChromaVectorBackend(**kwargs)
+    assert fresh._collection.metadata["first_key"] == "first"
+    assert fresh._collection.metadata["second_key"] == "second"
+    assert fresh._collection.metadata["build_status"] == "building"
+    assert fresh._collection.metadata["embedding_dimension"] == 2
+
+
+def test_chroma_metadata_paginates_only_metadatas(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    _, collection = _raw_chroma_collection(
+        tmp_path,
+        "metadata_efficiency",
+        metadata={"build_status": "ready", "embedding_dimension": 2},
+    )
+    size = 1001
+    collection.upsert(
+        ids=[f"c{index:04d}" for index in range(size)],
+        documents=["content"] * size,
+        metadatas=[{"paper_id": f"p{index % 3}"} for index in range(size)],
+        embeddings=[[1.0, 0.0]] * size,
+    )
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="metadata_efficiency",
+    )
+    instrumented_collection = backend._collection
+    instrumented_collection.get = Mock(wraps=instrumented_collection.get)
+    backend._client.get_collection = Mock(return_value=instrumented_collection)
+
+    result = backend.metadata()
+
+    assert result["chunk_count"] == size
+    assert result["paper_count"] == 3
+    assert instrumented_collection.get.call_count == 2
+    for call in instrumented_collection.get.call_args_list:
+        assert call.kwargs["include"] == ["metadatas"]
+
+
+def test_chroma_query_uses_one_count_snapshot(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="query_count",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building", "embedding_dimension": 2},
+    )
+    instrumented_collection = backend._collection
+    instrumented_collection.count = Mock(return_value=1)
+    instrumented_collection.query = Mock(
+        return_value={
+            "ids": [["c1"]],
+            "documents": [["alpha"]],
+            "metadatas": [[{"paper_id": "p1"}]],
+            "distances": [[0.0]],
+        }
+    )
+    backend._client.get_collection = Mock(return_value=instrumented_collection)
+
+    backend.query_dense([1.0, 0.0], top_k=5)
+
+    instrumented_collection.count.assert_called_once_with()
+    assert instrumented_collection.query.call_args.kwargs["n_results"] == 1
+
+
+def test_chroma_empty_building_query_uses_one_count_snapshot(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="empty_query_count",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building"},
+    )
+    instrumented_collection = backend._collection
+    instrumented_collection.count = Mock(return_value=0)
+    backend._client.get_collection = Mock(return_value=instrumented_collection)
+
+    assert backend.query_dense([1.0, 0.0], top_k=5) == []
+
+    instrumented_collection.count.assert_called_once_with()
 
 
 def test_json_backend_keeps_only_last_duplicate_id_in_batch(tmp_path: Path):
