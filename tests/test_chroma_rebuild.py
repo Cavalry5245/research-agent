@@ -95,6 +95,14 @@ def test_load_manifest_rejects_non_object_json(tmp_path: Path, payload: str):
         load_manifest(path)
 
 
+def test_load_manifest_rejects_non_finite_json_constant(tmp_path: Path):
+    path = tmp_path / "manifest.json"
+    path.write_text('{"score": NaN}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="non-finite JSON constant"):
+        load_manifest(path)
+
+
 def test_error_redaction_removes_credentials_and_preserves_context():
     message = (
         "request failed: Authorization: Bearer bearer-token-value; "
@@ -288,6 +296,51 @@ def test_error_redaction_recursively_sanitizes_structured_values():
     assert redacted.count("[REDACTED]") == 4
 
 
+@pytest.mark.parametrize(
+    ("message", "secret"),
+    [
+        ("X-API-Key: secret-value", "secret-value"),
+        ("X-LLM-API-Key: secret-value", "secret-value"),
+        ("OPENAI_API_KEY=secret-value", "secret-value"),
+        ("EMBEDDING_API_KEY=secret-value", "secret-value"),
+        ("LLM_API_KEY=secret-value", "secret-value"),
+        ("SEMANTIC_SCHOLAR_API_KEY=secret-value", "secret-value"),
+        ("Authorization: Basic dXNlcjpwYXNz", "dXNlcjpwYXNz"),
+    ],
+)
+def test_error_redaction_covers_provider_keys_and_any_authorization_scheme(
+    message: str, secret: str
+):
+    redacted = redact_error(message)
+
+    assert secret not in redacted
+    assert redacted.endswith("[REDACTED]")
+
+
+def test_error_redaction_keeps_json_shaped_context_well_formed():
+    redacted = redact_error('{"api_key": "secret-value"}')
+
+    assert redacted == '{"api_key": "[REDACTED]"}'
+    assert json.loads(redacted) == {"api_key": "[REDACTED]"}
+
+
+def test_error_redaction_normalizes_structured_key_suffixes_and_separators():
+    message = {
+        "X-API-Key": "secret-one",
+        "x.llm.api.key": "secret-two",
+        "OPENAI_API_KEY": "secret-three",
+        "Nested": [{"Semantic Scholar API Key": "secret-four"}],
+        "token_count": 23,
+    }
+
+    redacted = redact_error(message)
+
+    for secret in ("secret-one", "secret-two", "secret-three", "secret-four"):
+        assert secret not in redacted
+    assert "token_count" in redacted
+    assert "23" in redacted
+
+
 def test_error_redaction_retains_exception_class_status_and_context():
     error = RuntimeError(
         "status=503 request failed token=synthetic-secret; retry possible"
@@ -386,3 +439,31 @@ def test_build_contract_rejects_non_object_chunk_settings_before_coercion():
             schema_version=1,
             chunk_settings=[],
         )
+
+
+@pytest.mark.parametrize(
+    "chunk_settings",
+    [
+        {1: "non-string-key"},
+        {"nested": ("tuple", "changes-to-list")},
+    ],
+)
+def test_validate_resume_contract_requires_round_trip_stable_chunk_types(
+    chunk_settings,
+):
+    malformed = {**_valid_contract(), "chunk_settings": chunk_settings}
+
+    with pytest.raises(ValueError, match="chunk_settings"):
+        validate_resume_contract(malformed, malformed.copy())
+
+
+def test_validate_resume_contract_accepts_nested_strict_json_chunk_settings():
+    contract = {
+        **_valid_contract(),
+        "chunk_settings": {
+            "strategies": ["parent", None, True, 2, 0.5],
+            "nested": {"overlap": 100},
+        },
+    }
+
+    validate_resume_contract(contract, json.loads(json.dumps(contract)))

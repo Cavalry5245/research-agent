@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 from collections.abc import Mapping
+from math import isfinite
 from pathlib import Path
 
 
@@ -48,10 +49,17 @@ def load_manifest(path: Path) -> dict | None:
     """Load a manifest object, returning None only when the path is absent."""
     if not path.exists():
         return None
-    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest = json.loads(
+        path.read_text(encoding="utf-8"),
+        parse_constant=_reject_non_finite_json_constant,
+    )
     if not isinstance(manifest, dict):
         raise ValueError("manifest must contain a top-level JSON object")
     return manifest
+
+
+def _reject_non_finite_json_constant(constant: str) -> None:
+    raise ValueError(f"manifest contains non-finite JSON constant: {constant}")
 
 
 def write_manifest(path: Path, manifest: dict) -> None:
@@ -89,39 +97,57 @@ def write_manifest(path: Path, manifest: dict) -> None:
 
 
 _REDACTED = "[REDACTED]"
-_SENSITIVE_KEYS = frozenset(
-    {
-        "authorization",
-        "api_key",
-        "api-key",
-        "access_token",
-        "access-token",
-        "client_secret",
-        "client-secret",
-        "token",
-        "key",
-    }
+_KEY_SEPARATOR_RE = re.compile(r"[^a-z0-9]+")
+_SENSITIVE_KEY_SUFFIXES = (
+    "authorization",
+    "api_key",
+    "access_token",
+    "client_secret",
+    "token",
+    "key",
 )
-_SENSITIVE_KEY_PATTERN = (
-    r"(?:api[_-]?key|access[_-]?token|client[_-]?secret|token|key)"
+_KEY_SEPARATOR_PATTERN = r"[_. -]+"
+_TEXT_KEY = (
+    rf"(?P<key>(?:[A-Za-z][A-Za-z0-9_. -]*?{_KEY_SEPARATOR_PATTERN})?"
+    rf"(?:authorization|api{_KEY_SEPARATOR_PATTERN}key|"
+    rf"access{_KEY_SEPARATOR_PATTERN}token|"
+    rf"client{_KEY_SEPARATOR_PATTERN}secret|token|key))"
 )
-_BEARER_RE = re.compile(
-    rf"(?P<prefix>(?<![\w-])[\"']?authorization[\"']?\s*(?:[:=]\s*)?"
-    rf"[\"']?bearer\s+)(?P<secret>[^\s,;\"'&}}\]]+)",
+_QUOTED_VALUE_RE = re.compile(
+    rf"(?P<prefix>(?<![\w.-])(?P<key_quote>[\"']?){_TEXT_KEY}"
+    rf"(?P=key_quote)\s*[:=]\s*(?P<value_quote>[\"']))"
+    rf"(?P<value>.*?)(?P=value_quote)",
     re.IGNORECASE,
 )
-_QUOTED_ASSIGNMENT_RE = re.compile(
-    rf"(?P<prefix>(?<![\w-])(?P<key_quote>[\"']?)"
-    rf"{_SENSITIVE_KEY_PATTERN}(?P=key_quote)\s*[:=]\s*"
-    rf"(?P<value_quote>[\"']))(?P<secret>.*?)(?P=value_quote)",
+_AUTHORIZATION_VALUE_RE = re.compile(
+    rf"(?P<prefix>(?<![\w.-])(?P<key_quote>[\"']?){_TEXT_KEY}"
+    rf"(?P=key_quote)\s*[:=]\s*)(?![\"'\[])"
+    rf"(?P<value>[^\s,;&}}\]]+(?:\s+[^\s,;&}}\]]+)?)",
     re.IGNORECASE,
 )
-_UNQUOTED_ASSIGNMENT_RE = re.compile(
-    rf"(?P<prefix>(?<![\w-])[\"']?{_SENSITIVE_KEY_PATTERN}[\"']?"
-    rf"\s*[:=]\s*)(?P<secret>[^\s,;&}}\]]+)",
+_AUTHORIZATION_SCHEME_RE = re.compile(
+    r"(?P<prefix>(?<![\w.-])authorization\s+[A-Za-z][A-Za-z0-9_-]*\s+)"
+    r"(?P<value>[^\s,;&}\]]+)",
+    re.IGNORECASE,
+)
+_UNQUOTED_VALUE_RE = re.compile(
+    rf"(?P<prefix>(?<![\w.-])(?P<key_quote>[\"']?){_TEXT_KEY}"
+    rf"(?P=key_quote)\s*[:=]\s*)(?![\"'\[])(?P<value>[^\s,;&}}\]]+)",
     re.IGNORECASE,
 )
 _SK_TOKEN_RE = re.compile(r"sk-[A-Za-z0-9_-]+", re.IGNORECASE)
+
+
+def _normalize_sensitive_key(key: str) -> str:
+    return _KEY_SEPARATOR_RE.sub("_", key.lower()).strip("_")
+
+
+def _is_sensitive_key(key: str) -> bool:
+    normalized = _normalize_sensitive_key(key)
+    return any(
+        normalized == suffix or normalized.endswith(f"_{suffix}")
+        for suffix in _SENSITIVE_KEY_SUFFIXES
+    )
 
 
 def _sanitize_sensitive_data(value: object) -> object:
@@ -129,7 +155,7 @@ def _sanitize_sensitive_data(value: object) -> object:
         return {
             key: (
                 _REDACTED
-                if isinstance(key, str) and key.lower() in _SENSITIVE_KEYS
+                if isinstance(key, str) and _is_sensitive_key(key)
                 else _sanitize_sensitive_data(item)
             )
             for key, item in value.items()
@@ -154,15 +180,29 @@ def _error_text(message: object) -> str:
 
 def redact_error(message: object) -> str:
     """Return safe error text while retaining class, status, and ordinary context."""
-    redacted = _BEARER_RE.sub(rf"\g<prefix>{_REDACTED}", _error_text(message))
-
     def redact_quoted(match: re.Match[str]) -> str:
+        if not _is_sensitive_key(match.group("key")):
+            return match.group(0)
         return f"{match.group('prefix')}{_REDACTED}{match.group('value_quote')}"
 
-    redacted = _QUOTED_ASSIGNMENT_RE.sub(redact_quoted, redacted)
-    redacted = _UNQUOTED_ASSIGNMENT_RE.sub(
+    def redact_authorization(match: re.Match[str]) -> str:
+        if not _normalize_sensitive_key(match.group("key")).endswith(
+            "authorization"
+        ):
+            return match.group(0)
+        return f"{match.group('prefix')}{_REDACTED}"
+
+    def redact_unquoted(match: re.Match[str]) -> str:
+        if not _is_sensitive_key(match.group("key")):
+            return match.group(0)
+        return f"{match.group('prefix')}{_REDACTED}"
+
+    redacted = _QUOTED_VALUE_RE.sub(redact_quoted, _error_text(message))
+    redacted = _AUTHORIZATION_VALUE_RE.sub(redact_authorization, redacted)
+    redacted = _AUTHORIZATION_SCHEME_RE.sub(
         rf"\g<prefix>{_REDACTED}", redacted
     )
+    redacted = _UNQUOTED_VALUE_RE.sub(redact_unquoted, redacted)
     return _SK_TOKEN_RE.sub(_REDACTED, redacted)
 
 
@@ -202,14 +242,34 @@ def _validate_build_contract(contract: dict, *, label: str) -> None:
             f"{label} field schema_version must be a positive built-in int"
         )
     chunk_settings = contract.get("chunk_settings")
-    if not isinstance(chunk_settings, dict):
+    if type(chunk_settings) is not dict:
         raise ValueError(f"{label} field chunk_settings must be an object")
     try:
-        json.dumps(chunk_settings, allow_nan=False)
-    except (TypeError, ValueError) as exc:
+        _validate_strict_json_value(chunk_settings)
+    except ValueError as exc:
         raise ValueError(
-            f"{label} field chunk_settings must contain finite JSON-safe values"
+            f"{label} field chunk_settings must contain strict JSON-safe values"
         ) from exc
+
+
+def _validate_strict_json_value(value: object) -> None:
+    if value is None or type(value) in {str, bool, int}:
+        return
+    if type(value) is float:
+        if not isfinite(value):
+            raise ValueError("floating-point values must be finite")
+        return
+    if type(value) is list:
+        for item in value:
+            _validate_strict_json_value(item)
+        return
+    if type(value) is dict:
+        for key, item in value.items():
+            if type(key) is not str:
+                raise ValueError("mapping keys must be strings")
+            _validate_strict_json_value(item)
+        return
+    raise ValueError(f"unsupported JSON value type: {type(value).__name__}")
 
 
 def validate_resume_contract(existing: dict, requested: dict) -> None:
