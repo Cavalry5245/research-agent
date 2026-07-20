@@ -443,7 +443,7 @@ Completion note (2026-07-20): implemented in `949d5fa4`, hardened validation/deg
 - Modify: `tests/test_vector_store_factory.py`
 - Modify direct-store tests: `tests/test_retrieval.py`, `tests/test_vector_store_metadata.py`, `tests/test_indexing_workflow.py`, `tests/test_paper_qa.py`, `tests/test_parent_backfill.py`, `tests/test_paper_status.py`, `tests/test_reranker.py`, `tests/test_paper_qa_closed_client.py`, `tests/test_index_endpoint.py`
 
-- [ ] **Step 1: Write failing facade-selection tests**
+- [x] **Step 1: Write failing facade-selection tests**
 
 Append to `tests/test_vector_store_factory.py`:
 
@@ -477,7 +477,7 @@ def test_vector_store_selects_json_from_configuration(tmp_path):
     assert store.backend_name() == "json"
 ```
 
-- [ ] **Step 2: Run the factory tests and confirm failure**
+- [x] **Step 2: Run the factory tests and confirm failure**
 
 Run:
 
@@ -487,7 +487,7 @@ Run:
 
 Expected: unknown-backend and configured-selection tests FAIL because the facade still always creates JSON.
 
-- [ ] **Step 3: Implement strict selection**
+- [x] **Step 3: Implement strict selection**
 
 Add a private factory in `app/services/vector_store.py`:
 
@@ -517,7 +517,7 @@ class VectorStore:
 
 Do not catch Chroma import, open, readiness, or dimension errors here.
 
-- [ ] **Step 4: Make JSON-focused tests explicit**
+- [x] **Step 4: Make JSON-focused tests explicit**
 
 For each listed test file, replace JSON-specific construction:
 
@@ -536,7 +536,7 @@ store = VectorStore(
 
 Add `from app.services.vector_backends.json_backend import JsonVectorBackend` to those files. Do not change application call sites; they must continue using `VectorStore()` so configuration controls the real backend.
 
-- [ ] **Step 5: Run facade and affected tests**
+- [x] **Step 5: Run facade and affected tests**
 
 Run:
 
@@ -546,7 +546,7 @@ Run:
 
 Expected: factory tests pass; JSON behavior tests remain green without depending on `.env`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -554,6 +554,8 @@ Run:
 git add app/services/vector_store.py tests/test_vector_store_factory.py tests/test_retrieval.py tests/test_vector_store_metadata.py tests/test_indexing_workflow.py tests/test_paper_qa.py tests/test_parent_backfill.py tests/test_paper_status.py tests/test_reranker.py tests/test_paper_qa_closed_client.py tests/test_index_endpoint.py
 git commit -m "feat: select vector backend from configuration"
 ```
+
+Completion note (2026-07-20): implemented in `bf5ff1e7`. Factory tests: 5 passed; affected offline suites: 97 passed with 2 explicit live embedding-client tests deselected; Task 2 contract/reranker/incremental suites: 39 passed. Independent spec and quality reviews approved with no issues.
 
 ### Task 4: Implement the Chroma backend
 
