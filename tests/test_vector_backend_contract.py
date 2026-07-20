@@ -8,6 +8,27 @@ from app.schemas import Chunk
 from app.services.vector_backends.json_backend import JsonVectorBackend
 
 
+@pytest.fixture(params=["json", "chroma"])
+def backend(request, tmp_path: Path):
+    if request.param == "json":
+        return JsonVectorBackend(str(tmp_path / "json"))
+
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    return ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="test_research_papers",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "fake",
+            "embedding_dimension": 2,
+            "schema_version": 1,
+        },
+    )
+
+
 def _chunk(chunk_id: str, paper_id: str, content: str) -> Chunk:
     return Chunk(
         chunk_id=chunk_id,
@@ -25,23 +46,19 @@ def _chunk(chunk_id: str, paper_id: str, content: str) -> Chunk:
     )
 
 
-def test_json_backend_rejects_chunk_embedding_count_mismatch(tmp_path: Path):
-    backend = JsonVectorBackend(str(tmp_path))
-
+def test_backend_rejects_chunk_embedding_count_mismatch(backend):
     with pytest.raises(ValueError, match="chunks and embeddings"):
         backend.add_chunks([_chunk("c1", "p1", "alpha")], [])
 
 
-def test_json_backend_rejects_embedding_dimension_mismatch(tmp_path: Path):
-    backend = JsonVectorBackend(str(tmp_path))
+def test_backend_rejects_embedding_dimension_mismatch(backend):
     backend.add_chunks([_chunk("c1", "p1", "alpha")], [[1.0, 0.0]])
 
     with pytest.raises(ValueError, match="dimension"):
         backend.add_chunks([_chunk("c2", "p2", "beta")], [[1.0, 0.0, 0.0]])
 
 
-def test_json_backend_returns_complete_dense_result(tmp_path: Path):
-    backend = JsonVectorBackend(str(tmp_path))
+def test_backend_returns_complete_dense_result(backend):
     backend.add_chunks([_chunk("c1", "p1", "alpha")], [[1.0, 0.0]])
 
     result = backend.query_dense([1.0, 0.0], top_k=1, paper_id="p1")[0]
@@ -60,6 +77,135 @@ def test_json_backend_returns_complete_dense_result(tmp_path: Path):
         "section_path": "Methods/Setup",
         "page_range": "2-3",
         "element_type": "section",
+    }
+
+
+def test_backend_upserts_same_id_and_ranks_globally_with_filter(backend):
+    backend.add_chunks(
+        [_chunk("c1", "p1", "old"), _chunk("c2", "p2", "beta")],
+        [[1.0, 0.0], [0.0, 1.0]],
+    )
+    backend.add_chunks([_chunk("c1", "p1", "new")], [[0.8, 0.2]])
+
+    assert backend.count() == 2
+    assert backend.has_paper("p1") is True
+    assert backend.has_paper("missing") is False
+    assert [row["chunk_id"] for row in backend.query_dense([1.0, 0.0], 2)] == [
+        "c1",
+        "c2",
+    ]
+    assert [
+        row["chunk_id"]
+        for row in backend.query_dense([0.0, 1.0], 2, paper_id="p1")
+    ] == ["c1"]
+    assert backend.list_chunks("p1") == [
+        {
+            "chunk_id": "c1",
+            "paper_id": "p1",
+            "title": "Title p1",
+            "section": "Methods",
+            "content": "new",
+            "embedding_dim": 2,
+        }
+    ]
+
+
+def test_backend_deletes_only_existing_chunks_and_paper(backend):
+    backend.add_chunks(
+        [
+            _chunk("c1", "p1", "alpha"),
+            _chunk("c2", "p1", "beta"),
+            _chunk("c3", "p2", "gamma"),
+        ],
+        [[1.0, 0.0], [0.5, 0.5], [0.0, 1.0]],
+    )
+
+    assert backend.delete_chunks(["c1", "missing", "c1"]) == 1
+    assert backend.delete_chunks([]) == 0
+    assert backend.delete_paper("p1") == 1
+    assert backend.delete_paper("missing") == 0
+    assert [row["chunk_id"] for row in backend.list_chunks()] == ["c3"]
+
+
+def test_backend_persists_across_reinstantiation(backend, tmp_path: Path, request):
+    backend.add_chunks([_chunk("c1", "p1", "alpha")], [[1.0, 0.0]])
+
+    if request.node.callspec.params["backend"] == "json":
+        reopened = JsonVectorBackend(str(tmp_path / "json"))
+    else:
+        from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+        reopened = ChromaVectorBackend(
+            persist_dir=str(tmp_path / "chroma"),
+            collection_name="test_research_papers",
+            require_ready=False,
+        )
+
+    assert reopened.count() == 1
+    assert reopened.list_chunks()[0]["content"] == "alpha"
+
+
+def test_chroma_ready_open_rejects_building_collection(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    kwargs = {
+        "persist_dir": str(tmp_path / "chroma"),
+        "collection_name": "building_collection",
+    }
+    ChromaVectorBackend(
+        **kwargs,
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building", "embedding_dimension": 2},
+    )
+
+    with pytest.raises(RuntimeError, match="not ready"):
+        ChromaVectorBackend(**kwargs, require_ready=True)
+
+
+def test_chroma_sets_first_embedding_dimension_and_reports_metadata(tmp_path: Path):
+    from app.services.vector_backends import ChromaVectorBackend
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="dimension_collection",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building"},
+    )
+    backend.add_chunks(
+        [_chunk("c1", "p1", "alpha"), _chunk("c2", "p2", "beta")],
+        [[1.0, 0.0], [0.0, 1.0]],
+    )
+
+    assert backend.ids_for_paper("p1") == {"c1"}
+    assert backend.metadata() == {
+        "backend": "chroma",
+        "collection_name": "dimension_collection",
+        "build_status": "building",
+        "embedding_dimension": 2,
+        "chunk_count": 2,
+        "paper_count": 2,
+        "persist_dir": str(tmp_path / "chroma"),
+    }
+
+
+def test_chroma_update_build_metadata_merges_existing_values(tmp_path: Path):
+    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="metadata_collection",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={"build_status": "building", "schema_version": 1},
+    )
+
+    backend.update_build_metadata({"build_status": "ready"})
+
+    assert backend._collection.metadata == {
+        "build_status": "ready",
+        "schema_version": 1,
     }
 
 
@@ -94,11 +240,7 @@ def test_json_backend_keeps_only_last_duplicate_id_in_batch(tmp_path: Path):
         pytest.param([], id="empty"),
     ],
 )
-def test_json_backend_rejects_invalid_write_vector(
-    tmp_path: Path, invalid_vector: list
-):
-    backend = JsonVectorBackend(str(tmp_path))
-
+def test_backend_rejects_invalid_write_vector(backend, invalid_vector: list):
     with pytest.raises(ValueError, match="embedding"):
         backend.add_chunks([_chunk("c1", "p1", "alpha")], [invalid_vector])
 
@@ -115,10 +257,7 @@ def test_json_backend_rejects_invalid_write_vector(
         pytest.param([], id="empty"),
     ],
 )
-def test_json_backend_rejects_invalid_query_vector(
-    tmp_path: Path, invalid_query: list
-):
-    backend = JsonVectorBackend(str(tmp_path))
+def test_backend_rejects_invalid_query_vector(backend, invalid_query: list):
     backend.add_chunks([_chunk("c1", "p1", "alpha")], [[1.0, 0.0]])
 
     with pytest.raises(ValueError, match="query embedding"):

@@ -55,3 +55,26 @@ def test_vector_store_selects_json_from_configuration(tmp_path):
         store = VectorStore(persist_dir=str(tmp_path))
 
     assert store.backend_name() == "json"
+
+
+def test_vector_store_forwards_chroma_open_settings(tmp_path):
+    backend = Mock()
+    with (
+        patch("app.services.vector_store.settings.vector_store", "chroma"),
+        patch(
+            "app.services.vector_store.settings.chroma_collection_name",
+            "configured_collection",
+        ),
+        patch("app.services.vector_store.settings.chroma_require_ready", True),
+        patch(
+            "app.services.vector_backends.chroma_backend.ChromaVectorBackend",
+            return_value=backend,
+        ) as chroma_backend,
+    ):
+        VectorStore(persist_dir=str(tmp_path))
+
+    chroma_backend.assert_called_once_with(
+        persist_dir=str(tmp_path),
+        collection_name="configured_collection",
+        require_ready=True,
+    )
