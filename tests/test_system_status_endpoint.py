@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -259,7 +260,8 @@ def test_system_status_endpoint_redacts_secrets_from_vector_errors(monkeypatch):
 
     def fail_vector_store():
         raise RuntimeError(
-            "vector offline api_key=sk-secret-value at https://secret.invalid/v1"
+            "status=503 vector open failed Authorization: Bearer "
+            "bearer-synthetic-secret retry possible"
         )
 
     monkeypatch.setattr(main, "_storage_is_writable", lambda: True)
@@ -279,5 +281,41 @@ def test_system_status_endpoint_redacts_secrets_from_vector_errors(monkeypatch):
 
     error = response.json()["vector_store"]["error"]
     assert response.json()["status"] == "degraded"
-    assert "sk-secret-value" not in error
-    assert "secret.invalid" not in error
+    assert "bearer-synthetic-secret" not in error
+    assert "status=503" in error
+    assert "vector open failed" in error
+    assert "retry possible" in error
+
+
+@pytest.mark.parametrize(
+    ("message", "secret"),
+    [
+        ("Authorization: Bearer bearer-synthetic", "bearer-synthetic"),
+        ("Authorization: Basic basic-synthetic", "basic-synthetic"),
+        ('api_key="quoted-synthetic" context=kept', "quoted-synthetic"),
+        ("api_key=unquoted-synthetic context=kept", "unquoted-synthetic"),
+        ("LLM_API_KEY=llm-synthetic context=kept", "llm-synthetic"),
+        ("EMBEDDING_API_KEY=embedding-synthetic context=kept", "embedding-synthetic"),
+        (
+            "SEMANTIC_SCHOLAR_API_KEY=scholar-synthetic context=kept",
+            "scholar-synthetic",
+        ),
+        (
+            "request https://synthetic.invalid/embed?access_token=query-synthetic&mode=batch failed",
+            "query-synthetic",
+        ),
+    ],
+)
+def test_vector_status_error_redaction_uses_hardened_redactor(message, secret):
+    from app.main import _safe_vector_error
+
+    redacted = _safe_vector_error(RuntimeError(message))
+
+    assert secret not in redacted
+    assert "[REDACTED" in redacted
+    if "context=kept" in message:
+        assert "context=kept" in redacted
+    if "https://" in message:
+        assert "synthetic.invalid" not in redacted
+        assert "request" in redacted
+        assert "failed" in redacted
