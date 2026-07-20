@@ -5,6 +5,7 @@ import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.schemas import Chunk
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 
@@ -20,13 +21,15 @@ def _make_chunk(paper_id: str, section: str, content: str, seq: int) -> Chunk:
 
 def test_vector_store_reports_backend_name():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         assert store.backend_name() == "json"
 
 
 def test_vector_store_metadata_includes_store_path_and_counts():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         store.add_chunks([_make_chunk("paper_A", "Method", "content", 1)], [[1.0, 0.0]])
 
         meta = store.metadata()
@@ -39,7 +42,8 @@ def test_vector_store_metadata_includes_store_path_and_counts():
 
 def test_vector_store_query_returns_relevant_result():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         store.add_chunks(
             [
                 _make_chunk("paper_A", "Method", "content A", 1),

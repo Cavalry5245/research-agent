@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.main import app
 from app.schemas import IndexJobStatusResponse, PaperParseResult, Section
 from app.services.paper_status import build_index_job_status
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 
@@ -275,7 +276,13 @@ def test_index_job_submission_persists_to_file_backed_job_store_when_env_configu
 
     monkeypatch.setattr("app.main._job_store", None)
     monkeypatch.setenv("RESEARCH_AGENT_JOB_STORE_PATH", str(store_path))
-    monkeypatch.setattr("app.main._vector_store", VectorStore())
+    vector_path = str(tmp_path / "vectors")
+    monkeypatch.setattr(
+        "app.main._vector_store",
+        VectorStore(
+            persist_dir=vector_path, backend=JsonVectorBackend(vector_path)
+        ),
+    )
     monkeypatch.setattr("app.main._embedding_client", FakeEmbeddingClient())
     monkeypatch.setattr(
         "app.main.load_parsed_result", lambda paper_id, _: _make_parsed_result(paper_id)
@@ -732,7 +739,8 @@ def test_index_job_status_endpoint_preserves_zero_progress_failed_job_with_error
     ).model_dump()
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
 
         with patch("app.main._vector_store", store), patch(
             "app.main.load_parsed_result", return_value=short_parsed
@@ -818,7 +826,8 @@ def test_index_job_list_endpoint_returns_typed_jobs_envelope_schema():
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed = _make_parsed_result("paper_SCHEMA_DONE")
 
         with patch("app.main._vector_store", store), patch(
@@ -903,7 +912,8 @@ def test_index_job_list_endpoint_returns_all_current_job_states_sorted_by_create
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed_done = _make_parsed_result("paper_LIST_DONE")
 
         def _load_parsed_result(paper_id: str, _metadata_dir: str):
@@ -1002,7 +1012,8 @@ def test_index_job_list_endpoint_returns_failed_and_completed_jobs_sorted_by_cre
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed_ok = _make_parsed_result("paper_LIST_OK")
 
         def _load_parsed_result(paper_id: str, _metadata_dir: str):
@@ -1049,7 +1060,8 @@ def test_job_status_disappears_after_job_store_reset():
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed = _make_parsed_result("paper_RESET")
 
         with patch("app.main._vector_store", store), patch(
@@ -1077,7 +1089,8 @@ def test_unknown_job_lookup_does_not_leak_jobs_from_previous_tests():
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed = _make_parsed_result("paper_ISO")
 
         with patch("app.main._vector_store", store), patch(
@@ -1100,7 +1113,8 @@ def test_index_endpoint_returns_job_status_and_avoids_repeat_indexing():
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed = _make_parsed_result("paper_A")
 
         with patch("app.main._vector_store", store), patch(
@@ -1157,7 +1171,8 @@ def test_index_job_status_endpoint_returns_latest_job_for_paper():
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed = _make_parsed_result("paper_A")
 
         with patch("app.main._vector_store", store), patch(
@@ -1182,7 +1197,8 @@ def test_index_endpoint_enqueues_background_job_and_initial_status_is_queued():
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed = _make_parsed_result("paper_BG")
 
         with patch("app.main._vector_store", store), patch(
@@ -1214,7 +1230,8 @@ def test_index_job_status_endpoint_returns_failed_job_when_parsed_metadata_missi
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
 
         with patch("app.main._vector_store", store), patch(
             "app.main.load_parsed_result",
@@ -1263,7 +1280,8 @@ def test_index_job_status_endpoint_returns_failed_job_when_parsed_content_produc
     ).model_dump()
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
 
         with patch("app.main._vector_store", store), patch(
             "app.main.load_parsed_result", return_value=parsed
@@ -1297,7 +1315,8 @@ def test_index_job_status_endpoint_preserves_started_at_when_job_fails_after_ent
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed = _make_parsed_result("paper_FAIL_STARTED_AT")
 
         with patch("app.main._vector_store", store), patch(
@@ -1331,7 +1350,8 @@ def test_index_job_status_endpoint_returns_failed_job_when_embedding_raises():
     client = TestClient(app)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         parsed = _make_parsed_result("paper_FAIL")
 
         with patch("app.main._vector_store", store), patch(

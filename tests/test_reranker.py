@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.schemas import Chunk
 from app.services.reranker import HybridReranker
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 
@@ -85,7 +86,8 @@ def test_hybrid_reranker_respects_top_k_and_preserves_original_score():
 
 def test_vector_store_hybrid_query_uses_question_text_to_reorder_dense_results():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk("paper_A", "Method", "generic context only", 1),
             _make_chunk(

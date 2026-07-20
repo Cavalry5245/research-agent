@@ -11,6 +11,7 @@ from app.schemas import Chunk, PaperParseResult, Section
 from app.services.chunker import chunk_paper
 from app.services.embedding_client import EmbeddingClient
 from app.services.paper_status import get_index_status
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 
@@ -164,7 +165,8 @@ def test_embedding_client_wraps_model_lookup_error_with_clear_message():
 
 def test_vector_store_add_chunks_replaces_same_chunk_ids_instead_of_duplication():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunk = _make_chunk("paper_A", "Method", "one", 1)
 
         store.add_chunks([chunk], [[1.0, 0.0]])
@@ -175,7 +177,8 @@ def test_vector_store_add_chunks_replaces_same_chunk_ids_instead_of_duplication(
 
 def test_get_index_status_reports_existing_chunks_for_paper():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk("paper_A", "Method", "one", 1),
             _make_chunk("paper_A", "Experiment", "two", 2),

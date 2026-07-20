@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from app.schemas import Chunk, ParentDocument
 from app.services.paper_qa import _build_context, answer_question
 from app.services.parent_doc_store import ParentDocumentStore
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 
@@ -112,7 +113,8 @@ def test_answer_question_with_parent_backfill():
     """测试 answer_question 的父文档回填逻辑"""
     with tempfile.TemporaryDirectory() as tmpdir:
         # 初始化 vector store
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
 
         # 初始化 parent store
         parent_store = ParentDocumentStore(persist_dir=os.path.join(tmpdir, "parents"))
@@ -199,7 +201,8 @@ def test_answer_question_with_parent_backfill():
 def test_answer_question_backward_compatibility():
     """测试向后兼容：没有 parent_id 的旧数据"""
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
 
         # 添加旧格式的 chunks（无 parent_id）
         chunks = [

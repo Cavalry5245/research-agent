@@ -9,6 +9,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.schemas import Chunk
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 
@@ -54,7 +55,8 @@ def _keyword_embedding(text: str, dim: int = 64) -> list[float]:
 
 def test_vector_store_add_and_count():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk(
                 "paper_A", "Introduction", "infrared detection is critical.", 1
@@ -72,7 +74,8 @@ def test_vector_store_add_and_count():
 
 def test_vector_store_query_all_papers():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk(
                 "paper_A", "Introduction", "infrared detection introduction.", 1
@@ -101,7 +104,8 @@ def test_vector_store_query_all_papers():
 
 def test_vector_store_query_by_paper_id():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk("paper_A", "Introduction", "detection in infrared.", 1),
             _make_chunk("paper_A", "Method", "vl attention mechanism.", 2),
@@ -119,7 +123,8 @@ def test_vector_store_query_by_paper_id():
 
 def test_vector_store_delete_paper():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks_a = [
             _make_chunk("paper_A", "Introduction", "Paper A intro.", 1),
             _make_chunk("paper_A", "Method", "Paper A method.", 2),
@@ -142,7 +147,9 @@ def test_vector_store_delete_paper():
 def test_vector_store_persists_across_instances():
     with tempfile.TemporaryDirectory() as tmpdir:
         persist_dir = os.path.join(tmpdir, "vectors")
-        store = VectorStore(persist_dir=persist_dir)
+        store = VectorStore(
+            persist_dir=persist_dir, backend=JsonVectorBackend(persist_dir)
+        )
         chunks = [
             _make_chunk(
                 "paper_A", "Introduction", "infrared detection introduction.", 1
@@ -151,7 +158,9 @@ def test_vector_store_persists_across_instances():
         ]
         store.add_chunks(chunks, [_keyword_embedding(c.content) for c in chunks])
 
-        reloaded = VectorStore(persist_dir=persist_dir)
+        reloaded = VectorStore(
+            persist_dir=persist_dir, backend=JsonVectorBackend(persist_dir)
+        )
         assert reloaded.count() == 2
 
         results = reloaded.query(_keyword_embedding("infrared detection"), top_k=2)
@@ -162,7 +171,9 @@ def test_vector_store_persists_across_instances():
 def test_vector_store_delete_paper_persists():
     with tempfile.TemporaryDirectory() as tmpdir:
         persist_dir = os.path.join(tmpdir, "vectors")
-        store = VectorStore(persist_dir=persist_dir)
+        store = VectorStore(
+            persist_dir=persist_dir, backend=JsonVectorBackend(persist_dir)
+        )
         chunks = [
             _make_chunk("paper_A", "Introduction", "Paper A intro.", 1),
             _make_chunk("paper_B", "Introduction", "Paper B intro.", 2),
@@ -172,7 +183,9 @@ def test_vector_store_delete_paper_persists():
         deleted = store.delete_paper("paper_A")
         assert deleted == 1
 
-        reloaded = VectorStore(persist_dir=persist_dir)
+        reloaded = VectorStore(
+            persist_dir=persist_dir, backend=JsonVectorBackend(persist_dir)
+        )
         assert reloaded.count() == 1
         results = reloaded.query(_keyword_embedding("intro"), top_k=5)
         assert len(results) == 1
@@ -181,7 +194,8 @@ def test_vector_store_delete_paper_persists():
 
 def test_vector_store_empty_query():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         results = store.query([0.1] * 64, top_k=5)
         assert results == []
 
@@ -189,7 +203,8 @@ def test_vector_store_empty_query():
 def test_vector_store_semantic_ranking():
     """Verify that more relevant chunks rank higher."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk(
                 "paper_A", "Introduction", "infrared detection is important.", 1

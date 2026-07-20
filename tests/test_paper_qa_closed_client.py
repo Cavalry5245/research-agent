@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.schemas import Chunk
 from app.services.paper_qa import answer_question
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 
@@ -38,7 +39,8 @@ def _make_chunk() -> Chunk:
 
 def test_answer_question_recovers_with_fresh_llm_factory():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         store.add_chunks([_make_chunk()], [[1.0, 0.0, 0.0]])
 
         recovered_llm = MagicMock()
@@ -60,7 +62,8 @@ def test_answer_question_recovers_with_fresh_llm_factory():
 
 def test_answer_question_uses_default_llm_factory_when_not_provided():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         store.add_chunks([_make_chunk()], [[1.0, 0.0, 0.0]])
 
         recovered_llm = MagicMock()
@@ -80,7 +83,8 @@ def test_answer_question_uses_default_llm_factory_when_not_provided():
 
 def test_answer_question_does_not_swallow_other_runtime_errors():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         store.add_chunks([_make_chunk()], [[1.0, 0.0, 0.0]])
 
         llm = MagicMock()

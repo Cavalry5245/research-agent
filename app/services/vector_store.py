@@ -6,6 +6,21 @@ from app.services.reranker import HybridReranker
 from app.services.vector_backends import JsonVectorBackend, VectorBackend
 
 
+def _create_backend(name: str, persist_dir: str) -> VectorBackend:
+    normalized = name.strip().lower()
+    if normalized == "json":
+        return JsonVectorBackend(persist_dir)
+    if normalized == "chroma":
+        from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+
+        return ChromaVectorBackend(
+            persist_dir=persist_dir,
+            collection_name=settings.chroma_collection_name,
+            require_ready=settings.chroma_require_ready,
+        )
+    raise ValueError(f"Unsupported vector store backend: {name}")
+
+
 class VectorStore:
     def __init__(
         self,
@@ -14,7 +29,9 @@ class VectorStore:
     ):
         self.persist_dir = persist_dir or settings.chroma_persist_dir
         self._backend = (
-            backend if backend is not None else JsonVectorBackend(self.persist_dir)
+            backend
+            if backend is not None
+            else _create_backend(settings.vector_store, self.persist_dir)
         )
 
     def add_chunks(self, chunks: list[Chunk], embeddings: list[list[float]]) -> int:
