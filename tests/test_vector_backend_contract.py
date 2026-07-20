@@ -207,3 +207,94 @@ def test_json_backend_persists_atomically_and_reloads(
     reloaded = JsonVectorBackend(str(tmp_path))
     assert reloaded.count() == 1
     assert reloaded.list_chunks()[0]["chunk_id"] == "c1"
+
+
+def _backend_snapshot(backend: JsonVectorBackend, store_path: Path) -> tuple:
+    return (
+        store_path.read_bytes(),
+        backend.count(),
+        backend.list_chunks(),
+        backend.metadata(),
+    )
+
+
+def _raise_replace_error(*_args) -> None:
+    raise OSError("injected replace failure")
+
+
+def test_failed_add_is_transactional_and_does_not_leak_later(
+    tmp_path: Path, monkeypatch
+):
+    store_path = tmp_path / "vector_store.json"
+    backend = JsonVectorBackend(str(tmp_path))
+    backend.add_chunks([_chunk("c1", "p1", "alpha")], [[1.0, 0.0]])
+    before = _backend_snapshot(backend, store_path)
+
+    with monkeypatch.context() as context:
+        context.setattr(
+            "app.services.vector_backends.json_backend.os.replace",
+            _raise_replace_error,
+        )
+        with pytest.raises(OSError, match="injected replace failure"):
+            backend.add_chunks([_chunk("c2", "p2", "beta")], [[0.0, 1.0]])
+
+    assert _backend_snapshot(backend, store_path) == before
+    assert list(tmp_path.glob(".vector_store.json.*.tmp")) == []
+
+    backend.add_chunks([_chunk("c3", "p3", "gamma")], [[1.0, 1.0]])
+    reloaded = JsonVectorBackend(str(tmp_path))
+    assert {item["chunk_id"] for item in reloaded.list_chunks()} == {"c1", "c3"}
+
+
+def test_failed_delete_paper_is_transactional_and_does_not_leak_later(
+    tmp_path: Path, monkeypatch
+):
+    store_path = tmp_path / "vector_store.json"
+    backend = JsonVectorBackend(str(tmp_path))
+    backend.add_chunks(
+        [_chunk("c1", "p1", "alpha"), _chunk("c2", "p2", "beta")],
+        [[1.0, 0.0], [0.0, 1.0]],
+    )
+    before = _backend_snapshot(backend, store_path)
+
+    with monkeypatch.context() as context:
+        context.setattr(
+            "app.services.vector_backends.json_backend.os.replace",
+            _raise_replace_error,
+        )
+        with pytest.raises(OSError, match="injected replace failure"):
+            backend.delete_paper("p1")
+
+    assert _backend_snapshot(backend, store_path) == before
+    assert list(tmp_path.glob(".vector_store.json.*.tmp")) == []
+
+    backend.delete_paper("p2")
+    reloaded = JsonVectorBackend(str(tmp_path))
+    assert [item["chunk_id"] for item in reloaded.list_chunks()] == ["c1"]
+
+
+def test_failed_delete_chunks_is_transactional_and_does_not_leak_later(
+    tmp_path: Path, monkeypatch
+):
+    store_path = tmp_path / "vector_store.json"
+    backend = JsonVectorBackend(str(tmp_path))
+    backend.add_chunks(
+        [_chunk("c1", "p1", "alpha"), _chunk("c2", "p1", "beta")],
+        [[1.0, 0.0], [0.0, 1.0]],
+    )
+    before = _backend_snapshot(backend, store_path)
+
+    with monkeypatch.context() as context:
+        context.setattr(
+            "app.services.vector_backends.json_backend.os.replace",
+            _raise_replace_error,
+        )
+        with pytest.raises(OSError, match="injected replace failure"):
+            backend.delete_chunks(["c1"])
+
+    assert _backend_snapshot(backend, store_path) == before
+    assert list(tmp_path.glob(".vector_store.json.*.tmp")) == []
+
+    backend.delete_chunks(["c2"])
+    reloaded = JsonVectorBackend(str(tmp_path))
+    assert [item["chunk_id"] for item in reloaded.list_chunks()] == ["c1"]

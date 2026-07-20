@@ -57,8 +57,15 @@ class JsonVectorBackend(VectorBackend):
         self._load()
 
     def _refresh_dimensions(self) -> None:
-        self._dimensions = sorted({len(embedding) for _, _, embedding in self._store})
-        self._dimension = self._dimensions[0] if len(self._dimensions) == 1 else None
+        self._dimensions, self._dimension = self._dimension_state(self._store)
+
+    @staticmethod
+    def _dimension_state(
+        store: list[tuple[str, Chunk, list[float]]],
+    ) -> tuple[list[int], int | None]:
+        dimensions = sorted({len(embedding) for _, _, embedding in store})
+        dimension = dimensions[0] if len(dimensions) == 1 else None
+        return dimensions, dimension
 
     def _load(self) -> None:
         if not os.path.isfile(self._store_path):
@@ -105,15 +112,18 @@ class JsonVectorBackend(VectorBackend):
                 "JSON vector store load failed; refusing to modify the original file"
             )
 
-    def _persist(self) -> None:
+    def _persist(
+        self, store: list[tuple[str, Chunk, list[float]]] | None = None
+    ) -> None:
         self._ensure_writable()
+        persisted_store = self._store if store is None else store
         records = [
             {
                 "chunk_id": chunk_id,
                 "chunk": chunk.model_dump(),
                 "embedding": embedding,
             }
-            for chunk_id, chunk, embedding in self._store
+            for chunk_id, chunk, embedding in persisted_store
         ]
         descriptor, temporary_path = tempfile.mkstemp(
             dir=self.persist_dir,
@@ -133,7 +143,7 @@ class JsonVectorBackend(VectorBackend):
 
     def add_chunks(self, chunks: list[Chunk], embeddings: list[list[float]]) -> int:
         self._ensure_writable()
-        normalized_embeddings, dimension = normalize_embeddings(
+        normalized_embeddings, _ = normalize_embeddings(
             chunks, embeddings, expected_dimension=self._dimension
         )
         if not chunks:
@@ -145,15 +155,21 @@ class JsonVectorBackend(VectorBackend):
             )
 
         replacement_ids = {chunk.chunk_id for chunk in chunks}
-        self._store = [row for row in self._store if row[0] not in replacement_ids]
+        candidate_store = [
+            row for row in self._store if row[0] not in replacement_ids
+        ]
         replacements = {
             chunk.chunk_id: (chunk.chunk_id, chunk, embedding)
             for chunk, embedding in zip(chunks, normalized_embeddings)
         }
-        self._store.extend(replacements.values())
-        self._dimension = dimension
-        self._dimensions = [dimension] if dimension is not None else []
-        self._persist()
+        candidate_store.extend(replacements.values())
+        candidate_dimensions, candidate_dimension = self._dimension_state(
+            candidate_store
+        )
+        self._persist(candidate_store)
+        self._store = candidate_store
+        self._dimension = candidate_dimension
+        self._dimensions = candidate_dimensions
         logger.info("Added %d chunks to vector store", len(chunks))
         return len(chunks)
 
@@ -196,15 +212,20 @@ class JsonVectorBackend(VectorBackend):
     def delete_paper(self, paper_id: str) -> int:
         self._ensure_writable()
         before = len(self._store)
-        self._store = [
+        candidate_store = [
             (chunk_id, chunk, embedding)
             for chunk_id, chunk, embedding in self._store
             if chunk.paper_id != paper_id
         ]
-        deleted = before - len(self._store)
+        deleted = before - len(candidate_store)
         if deleted:
-            self._refresh_dimensions()
-            self._persist()
+            candidate_dimensions, candidate_dimension = self._dimension_state(
+                candidate_store
+            )
+            self._persist(candidate_store)
+            self._store = candidate_store
+            self._dimension = candidate_dimension
+            self._dimensions = candidate_dimensions
         logger.info("Deleted %d chunks for paper %s", deleted, paper_id)
         return deleted
 
@@ -214,11 +235,16 @@ class JsonVectorBackend(VectorBackend):
             return 0
         target = set(chunk_ids)
         before = len(self._store)
-        self._store = [row for row in self._store if row[0] not in target]
-        deleted = before - len(self._store)
+        candidate_store = [row for row in self._store if row[0] not in target]
+        deleted = before - len(candidate_store)
         if deleted:
-            self._refresh_dimensions()
-            self._persist()
+            candidate_dimensions, candidate_dimension = self._dimension_state(
+                candidate_store
+            )
+            self._persist(candidate_store)
+            self._store = candidate_store
+            self._dimension = candidate_dimension
+            self._dimensions = candidate_dimensions
         return deleted
 
     def has_paper(self, paper_id: str) -> bool:
