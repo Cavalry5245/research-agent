@@ -5,6 +5,7 @@ import json
 import os
 import re
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
 
 
@@ -21,10 +22,18 @@ PROTECTED_CONTRACT_FIELDS = (
 
 def discover_parsed_sources(metadata_dir: Path) -> list[Path]:
     """Return top-level parsed-paper JSON files in deterministic filename order."""
-    return sorted(
-        (path for path in metadata_dir.glob("*_parsed.json") if path.is_file()),
-        key=lambda path: path.name,
-    )
+    metadata_root = metadata_dir.resolve()
+    sources: list[Path] = []
+    for candidate in metadata_dir.glob("*_parsed.json"):
+        try:
+            candidate.resolve().relative_to(metadata_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"parsed source resolves outside metadata directory: {candidate.name}"
+            ) from exc
+        if candidate.is_file():
+            sources.append(candidate)
+    return sorted(sources, key=lambda path: path.name)
 
 
 def source_sha256(path: Path) -> str:
@@ -47,6 +56,14 @@ def load_manifest(path: Path) -> dict | None:
 
 def write_manifest(path: Path, manifest: dict) -> None:
     """Atomically replace a UTF-8 JSON manifest after flushing it to disk."""
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest must contain a top-level JSON object")
+    payload = json.dumps(
+        manifest,
+        ensure_ascii=False,
+        indent=2,
+        allow_nan=False,
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         dir=path.parent,
@@ -57,7 +74,7 @@ def write_manifest(path: Path, manifest: dict) -> None:
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
             descriptor = -1
-            json.dump(manifest, handle, ensure_ascii=False, indent=2)
+            handle.write(payload)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary, path)
@@ -71,21 +88,82 @@ def write_manifest(path: Path, manifest: dict) -> None:
             pass
 
 
-_SECRET_VALUE = r'(?:"[^"\r\n]*"|\'[^\'\r\n]*\'|[^\s,;]+)'
+_REDACTED = "[REDACTED]"
+_SENSITIVE_KEYS = frozenset(
+    {
+        "authorization",
+        "api_key",
+        "api-key",
+        "access_token",
+        "access-token",
+        "client_secret",
+        "client-secret",
+        "token",
+        "key",
+    }
+)
+_SENSITIVE_KEY_PATTERN = (
+    r"(?:api[_-]?key|access[_-]?token|client[_-]?secret|token|key)"
+)
 _BEARER_RE = re.compile(
-    rf"(authorization\s*:?\s*bearer)\s+{_SECRET_VALUE}", re.IGNORECASE
+    rf"(?P<prefix>(?<![\w-])[\"']?authorization[\"']?\s*(?:[:=]\s*)?"
+    rf"[\"']?bearer\s+)(?P<secret>[^\s,;\"'&}}\]]+)",
+    re.IGNORECASE,
 )
-_KEY_ASSIGNMENT_RE = re.compile(
-    rf"\b(api[_-]?key|key)(\s*[:=]\s*){_SECRET_VALUE}", re.IGNORECASE
+_QUOTED_ASSIGNMENT_RE = re.compile(
+    rf"(?P<prefix>(?<![\w-])(?P<key_quote>[\"']?)"
+    rf"{_SENSITIVE_KEY_PATTERN}(?P=key_quote)\s*[:=]\s*"
+    rf"(?P<value_quote>[\"']))(?P<secret>.*?)(?P=value_quote)",
+    re.IGNORECASE,
 )
-_SK_TOKEN_RE = re.compile(r"\bsk-[A-Za-z0-9_-]+", re.IGNORECASE)
+_UNQUOTED_ASSIGNMENT_RE = re.compile(
+    rf"(?P<prefix>(?<![\w-])[\"']?{_SENSITIVE_KEY_PATTERN}[\"']?"
+    rf"\s*[:=]\s*)(?P<secret>[^\s,;&}}\]]+)",
+    re.IGNORECASE,
+)
+_SK_TOKEN_RE = re.compile(r"sk-[A-Za-z0-9_-]+", re.IGNORECASE)
 
 
-def redact_error(message: str) -> str:
-    """Remove common API credential forms while retaining surrounding context."""
-    redacted = _BEARER_RE.sub(r"\1 [REDACTED]", str(message))
-    redacted = _KEY_ASSIGNMENT_RE.sub(r"\1\2[REDACTED]", redacted)
-    return _SK_TOKEN_RE.sub("[REDACTED]", redacted)
+def _sanitize_sensitive_data(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {
+            key: (
+                _REDACTED
+                if isinstance(key, str) and key.lower() in _SENSITIVE_KEYS
+                else _sanitize_sensitive_data(item)
+            )
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_sanitize_sensitive_data(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_sanitize_sensitive_data(item) for item in value)
+    return value
+
+
+def _error_text(message: object) -> str:
+    sanitized = _sanitize_sensitive_data(message)
+    if isinstance(message, BaseException):
+        status = getattr(message, "status_code", None)
+        status_text = "" if status is None else f" status={status}"
+        return f"{type(message).__name__}{status_text}: {sanitized}"
+    if isinstance(message, (Mapping, list, tuple)):
+        return repr(sanitized)
+    return str(sanitized)
+
+
+def redact_error(message: object) -> str:
+    """Return safe error text while retaining class, status, and ordinary context."""
+    redacted = _BEARER_RE.sub(rf"\g<prefix>{_REDACTED}", _error_text(message))
+
+    def redact_quoted(match: re.Match[str]) -> str:
+        return f"{match.group('prefix')}{_REDACTED}{match.group('value_quote')}"
+
+    redacted = _QUOTED_ASSIGNMENT_RE.sub(redact_quoted, redacted)
+    redacted = _UNQUOTED_ASSIGNMENT_RE.sub(
+        rf"\g<prefix>{_REDACTED}", redacted
+    )
+    return _SK_TOKEN_RE.sub(_REDACTED, redacted)
 
 
 def build_contract(
@@ -98,18 +176,46 @@ def build_contract(
     chunk_settings: dict,
 ) -> dict:
     """Construct the protected portion of a rebuild manifest."""
-    return {
+    contract = {
         "collection": collection,
         "provider": provider,
         "model": model,
         "git_head": git_head,
         "schema_version": schema_version,
-        "chunk_settings": dict(chunk_settings),
+        "chunk_settings": chunk_settings,
     }
+    _validate_build_contract(contract, label="contract")
+    contract["chunk_settings"] = dict(chunk_settings)
+    return contract
+
+
+def _validate_build_contract(contract: dict, *, label: str) -> None:
+    if not isinstance(contract, dict):
+        raise ValueError(f"{label} must be a build-contract object")
+    for field in ("collection", "provider", "model", "git_head"):
+        value = contract.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{label} field {field} must be a nonempty string")
+    schema_version = contract.get("schema_version")
+    if type(schema_version) is not int or schema_version <= 0:
+        raise ValueError(
+            f"{label} field schema_version must be a positive built-in int"
+        )
+    chunk_settings = contract.get("chunk_settings")
+    if not isinstance(chunk_settings, dict):
+        raise ValueError(f"{label} field chunk_settings must be an object")
+    try:
+        json.dumps(chunk_settings, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"{label} field chunk_settings must contain finite JSON-safe values"
+        ) from exc
 
 
 def validate_resume_contract(existing: dict, requested: dict) -> None:
     """Reject a resume when any protected build-contract field has changed."""
+    _validate_build_contract(existing, label="existing contract")
+    _validate_build_contract(requested, label="requested contract")
     mismatches = [
         field
         for field in PROTECTED_CONTRACT_FIELDS
@@ -126,6 +232,7 @@ def create_build_manifest(*, metadata_dir: Path, contract: dict) -> dict:
     metadata-directory-relative POSIX paths and SHA-256 hashes; per-paper state;
     source_count; and chunk_count.
     """
+    _validate_build_contract(contract, label="contract")
     sources = discover_parsed_sources(metadata_dir)
     source_records = [
         {
