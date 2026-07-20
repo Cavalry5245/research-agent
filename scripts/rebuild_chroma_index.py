@@ -16,10 +16,12 @@ from app.services.chroma_rebuild import (
     build_contract,
     preflight_rebuild,
     redact_error,
+    resolve_rebuild_manifest_path,
 )
 from app.services.embedding_client import EmbeddingClient
 from app.services.vector_backends.chroma_backend import (
     ChromaVectorBackend,
+    validate_chroma_collection_name,
     validate_existing_chroma_store,
 )
 
@@ -57,8 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _validate_scalar_arguments(args) -> None:
-    if not isinstance(args.collection, str) or not args.collection.strip():
-        raise ValueError("collection must be a nonempty string")
+    validate_chroma_collection_name(args.collection)
     for field in ("expected_source_count", "batch_size", "max_attempts"):
         value = getattr(args, field)
         if type(value) is not int or value <= 0:
@@ -104,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         persist_dir = Path(args.persist_dir)
-        manifest_path = persist_dir / f"{args.collection}.rebuild-manifest.json"
+        manifest_path = resolve_rebuild_manifest_path(persist_dir, args.collection)
         requested_git_head = git_head()
         chunk_settings = {
             "strategy": settings.chunk_strategy,
@@ -151,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         rebuilder = ChromaIndexRebuilder(
             metadata_dir=Path(args.metadata_dir),
-            manifest_path=persist_dir / f"{args.collection}.rebuild-manifest.json",
+            manifest_path=manifest_path,
             backend=backend,
             embedding_client=embedding_client,
             batch_size=args.batch_size,

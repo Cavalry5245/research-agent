@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import threading
 import time
 from contextlib import contextmanager
@@ -35,6 +36,35 @@ _BUILD_STATUSES = {"building", "ready", "failed"}
 _LOCAL_LOCKS: dict[str, threading.Lock] = {}
 _LOCAL_LOCKS_GUARD = threading.Lock()
 CHROMA_DATABASE_FILENAME = "chroma.sqlite3"
+_CHROMA_COLLECTION_NAME_RE = re.compile(
+    r"^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$"
+)
+_CHROMA_IPV4_LIKE_RE = re.compile(
+    r"^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
+)
+
+
+def validate_chroma_collection_name(collection_name: object) -> str:
+    """Mirror the collection-name rules enforced by pinned Chroma 1.5.9."""
+    if type(collection_name) is not str:
+        raise ValueError("Chroma collection name must be a built-in string")
+    if not 3 <= len(collection_name) <= 63:
+        raise ValueError(
+            "Chroma collection name must contain between 3 and 63 characters"
+        )
+    if _CHROMA_COLLECTION_NAME_RE.fullmatch(collection_name) is None:
+        raise ValueError(
+            "Chroma collection name must contain only ASCII letters, numbers, "
+            "dots, underscores, or hyphens and must start and end with an "
+            "ASCII letter or number"
+        )
+    if ".." in collection_name:
+        raise ValueError(
+            "Chroma collection name must not contain two consecutive dots"
+        )
+    if _CHROMA_IPV4_LIKE_RE.fullmatch(collection_name) is not None:
+        raise ValueError("Chroma collection name must not be an IPv4-like address")
+    return collection_name
 
 
 def validate_existing_chroma_store(persist_dir: str) -> Path:
@@ -172,6 +202,7 @@ class ChromaVectorBackend(VectorBackend):
         require_ready: bool = True,
         initial_metadata: dict | None = None,
     ):
+        collection_name = validate_chroma_collection_name(collection_name)
         self.persist_dir = persist_dir
         self.collection_name = collection_name
         if create_if_missing:

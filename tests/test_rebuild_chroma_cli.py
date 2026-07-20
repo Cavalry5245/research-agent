@@ -8,6 +8,7 @@ from app.services.chroma_rebuild import (
     build_contract,
     create_build_manifest,
     preflight_rebuild as real_preflight_rebuild,
+    resolve_rebuild_manifest_path,
     write_manifest,
 )
 from app.services.vector_backends.chroma_backend import (
@@ -203,6 +204,15 @@ def test_cli_default_rerun_skips_canary_after_prior_full_failure(fake_cli, monke
     "arguments",
     [
         ["--collection", ""],
+        ["--collection", "ab"],
+        ["--collection", "../escape"],
+        ["--collection", "a/b"],
+        ["--collection", r"a\b"],
+        ["--collection", r"C:\escape"],
+        ["--collection", "论文abc"],
+        ["--collection", "abc..def"],
+        ["--collection", "127.0.0.1"],
+        ["--collection", "a" * 64],
         ["--expected-source-count", "0"],
         ["--batch-size", "0"],
         ["--max-attempts", "-1"],
@@ -225,6 +235,26 @@ def test_cli_rejects_invalid_scalar_arguments_before_preflight_or_backend(
     )
 
     assert cli.main(arguments) == 2
+    assert not Path(fake_cli.chroma_persist_dir).exists()
+
+
+def test_rebuild_manifest_path_is_resolved_beneath_persist_directory(tmp_path):
+    persist_dir = tmp_path / "chroma" / ".." / "chroma"
+
+    manifest_path = resolve_rebuild_manifest_path(persist_dir, "valid_collection")
+
+    assert manifest_path == (
+        persist_dir.resolve() / "valid_collection.rebuild-manifest.json"
+    )
+    assert manifest_path.is_relative_to(persist_dir.resolve())
+
+
+def test_rebuild_manifest_path_rejects_escape_before_path_resolution(tmp_path):
+    with pytest.raises(ValueError, match="Chroma collection name"):
+        resolve_rebuild_manifest_path(tmp_path / "chroma", "../escape")
+
+    assert not (tmp_path / "escape.rebuild-manifest.json").exists()
+    assert not (tmp_path / "chroma").exists()
 
 
 def test_cli_verify_rejects_empty_building_state(fake_cli, monkeypatch):

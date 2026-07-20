@@ -18,6 +18,9 @@ from typing import BinaryIO
 from app.schemas import PaperParseResult
 from app.services.chunker import chunk_paper
 from app.services.vector_backends.base import validate_embeddings
+from app.services.vector_backends.chroma_backend import (
+    validate_chroma_collection_name,
+)
 
 HASH_BLOCK_SIZE = 1024 * 1024
 PROTECTED_CONTRACT_FIELDS = (
@@ -31,6 +34,24 @@ PROTECTED_CONTRACT_FIELDS = (
 _MANIFEST_LOCK_TIMEOUT_SECONDS = 10.0
 _LOCAL_MANIFEST_LOCKS: dict[str, threading.RLock] = {}
 _LOCAL_MANIFEST_LOCKS_GUARD = threading.Lock()
+
+
+def resolve_rebuild_manifest_path(
+    persist_dir: str | Path, collection_name: object
+) -> Path:
+    """Resolve a validated collection manifest strictly beneath persist_dir."""
+    validated_name = validate_chroma_collection_name(collection_name)
+    persist_root = Path(persist_dir).resolve()
+    manifest_path = (
+        persist_root / f"{validated_name}.rebuild-manifest.json"
+    ).resolve()
+    try:
+        manifest_path.relative_to(persist_root)
+    except ValueError as exc:
+        raise ValueError(
+            "Chroma rebuild manifest must resolve beneath the persist directory"
+        ) from exc
+    return manifest_path
 
 
 def discover_parsed_sources(metadata_dir: Path) -> list[Path]:

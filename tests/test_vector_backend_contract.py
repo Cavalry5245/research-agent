@@ -8,6 +8,10 @@ import chromadb
 import pytest
 
 from app.schemas import Chunk
+from app.services.vector_backends.chroma_backend import (
+    ChromaVectorBackend,
+    validate_chroma_collection_name,
+)
 from app.services.vector_backends.json_backend import JsonVectorBackend
 
 
@@ -15,8 +19,6 @@ from app.services.vector_backends.json_backend import JsonVectorBackend
 def backend(request, tmp_path: Path):
     if request.param == "json":
         return JsonVectorBackend(str(tmp_path / "json"))
-
-    from app.services.vector_backends.chroma_backend import ChromaVectorBackend
 
     return ChromaVectorBackend(
         persist_dir=str(tmp_path / "chroma"),
@@ -30,6 +32,72 @@ def backend(request, tmp_path: Path):
             "schema_version": 1,
         },
     )
+
+
+@pytest.mark.parametrize(
+    "collection_name",
+    [
+        "abc",
+        "A0._-z",
+        "a" + ("x" * 61) + "z",
+    ],
+)
+def test_chroma_collection_name_validator_accepts_exact_valid_names(
+    collection_name,
+):
+    assert validate_chroma_collection_name(collection_name) == collection_name
+
+
+@pytest.mark.parametrize(
+    "collection_name",
+    [
+        None,
+        True,
+        7,
+        "",
+        "ab",
+        "a" * 64,
+        "../escape",
+        "a/b",
+        r"a\b",
+        "/absolute",
+        r"C:\escape",
+        ".abc",
+        "abc.",
+        "-abc",
+        "abc-",
+        "a b",
+        "a@b",
+        "论文abc",
+        "ａｂｃ",
+        "abc..def",
+        "127.0.0.1",
+        "999.999.999.999",
+    ],
+)
+def test_chroma_collection_name_validator_rejects_invalid_names(collection_name):
+    with pytest.raises(ValueError, match="Chroma collection name"):
+        validate_chroma_collection_name(collection_name)
+
+
+@pytest.mark.parametrize(
+    "collection_name",
+    ["../escape", "论文abc", "a" * 64, "127.0.0.1"],
+)
+def test_chroma_backend_rejects_invalid_name_without_persist_artifacts(
+    tmp_path: Path, collection_name
+):
+    persist_dir = tmp_path / "must-not-exist"
+
+    with pytest.raises(ValueError, match="Chroma collection name"):
+        ChromaVectorBackend(
+            persist_dir=str(persist_dir),
+            collection_name=collection_name,
+            create_if_missing=True,
+            require_ready=False,
+        )
+
+    assert not persist_dir.exists()
 
 
 def _chunk(chunk_id: str, paper_id: str, content: str) -> Chunk:
