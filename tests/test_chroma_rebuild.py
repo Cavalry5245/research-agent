@@ -12,6 +12,8 @@ from app.services.chroma_rebuild import (
     discover_parsed_sources,
     embed_batch_with_retry,
     load_manifest,
+    manifest_read_lock,
+    manifest_write_lock,
     preflight_rebuild,
     redact_error,
     source_sha256,
@@ -20,7 +22,10 @@ from app.services.chroma_rebuild import (
     write_manifest,
 )
 from app.schemas import PaperParseResult, Section
-from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+from app.services.vector_backends.chroma_backend import (
+    ChromaVectorBackend,
+    validate_existing_chroma_store,
+)
 
 
 def test_discover_parsed_sources_returns_only_matching_files_sorted_by_name(
@@ -788,11 +793,48 @@ def test_partial_verify_returns_building_status_after_consistent_canary(tmp_path
     )
     rebuilder = _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient())
     rebuilder.run_canary()
+    manifest_path = tmp_path / "rebuild_manifest.json"
+    manifest_before = manifest_path.read_bytes()
+    metadata_before = backend.metadata()
 
     result = rebuilder.verify(require_complete=False)
 
     assert result["status"] == "building"
     assert result["completed_paper_count"] == 1
+    assert manifest_path.read_bytes() == manifest_before
+    assert backend.metadata() == metadata_before
+    validate_existing_chroma_store(str(tmp_path / "chroma"))
+
+
+def test_verify_failure_does_not_create_absent_manifest_lock(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1")
+    backend = ChromaVectorBackend(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="read_lock_test",
+        create_if_missing=True,
+        require_ready=False,
+        initial_metadata={
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        },
+    )
+    rebuilder = _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    )
+    manifest_path = tmp_path / "rebuild_manifest.json"
+    write_manifest(
+        manifest_path,
+        create_build_manifest(metadata_dir=metadata_dir, contract=rebuilder.contract),
+    )
+    lock_path = tmp_path / ".rebuild_manifest.json.lock"
+
+    with pytest.raises(FileNotFoundError, match="lock"):
+        rebuilder.verify(require_complete=False)
+
+    assert not lock_path.exists()
 
 
 def test_partial_verify_rejects_completed_paper_dimension_mismatch(tmp_path: Path):
@@ -1074,6 +1116,45 @@ def test_locked_manifest_updates_do_not_lose_concurrent_writers(tmp_path: Path):
 
     assert all(not thread.is_alive() for thread in threads)
     assert load_manifest(path) == {"counter": 40}
+
+
+def test_manifest_read_lock_does_not_create_missing_lock_file(tmp_path: Path):
+    manifest_path = tmp_path / "manifest.json"
+    write_manifest(manifest_path, {"status": "building"})
+    lock_path = tmp_path / ".manifest.json.lock"
+
+    with pytest.raises(FileNotFoundError, match="lock"):
+        with manifest_read_lock(manifest_path):
+            pass
+
+    assert not lock_path.exists()
+
+
+def test_manifest_read_lock_synchronizes_with_existing_write_lock(tmp_path: Path):
+    manifest_path = tmp_path / "manifest.json"
+    write_manifest(manifest_path, {"status": "building"})
+    with manifest_write_lock(manifest_path):
+        pass
+    entered = threading.Event()
+    release = threading.Event()
+
+    def hold_write_lock():
+        with manifest_write_lock(manifest_path):
+            entered.set()
+            release.wait(timeout=2)
+
+    thread = threading.Thread(target=hold_write_lock)
+    thread.start()
+    assert entered.wait(timeout=2)
+    try:
+        with pytest.raises(TimeoutError, match="locking rebuild manifest"):
+            with manifest_read_lock(manifest_path, timeout=0.01):
+                pass
+    finally:
+        release.set()
+        thread.join(timeout=2)
+
+    assert not thread.is_alive()
 
 
 def test_manifest_replace_retries_windows_sharing_violation(

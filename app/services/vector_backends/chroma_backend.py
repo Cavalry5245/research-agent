@@ -5,6 +5,7 @@ import os
 import threading
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, BinaryIO, Iterator
 
 import chromadb
@@ -33,6 +34,22 @@ _METADATA_LOCK_TIMEOUT_SECONDS = 10.0
 _BUILD_STATUSES = {"building", "ready", "failed"}
 _LOCAL_LOCKS: dict[str, threading.Lock] = {}
 _LOCAL_LOCKS_GUARD = threading.Lock()
+CHROMA_DATABASE_FILENAME = "chroma.sqlite3"
+
+
+def validate_existing_chroma_store(persist_dir: str) -> Path:
+    """Require Chroma 1.5.9's existing SQLite store without creating anything."""
+    root = Path(persist_dir)
+    if not root.is_dir():
+        raise FileNotFoundError(
+            f"Existing Chroma persist directory does not exist: {root}"
+        )
+    database = root / CHROMA_DATABASE_FILENAME
+    if not database.is_file():
+        raise FileNotFoundError(
+            f"Existing Chroma database does not exist: {database.name}"
+        )
+    return database
 
 
 def _validate_lifecycle_metadata(metadata: dict | None) -> None:

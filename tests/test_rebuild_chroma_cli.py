@@ -4,7 +4,15 @@ from pathlib import Path
 import pytest
 
 import scripts.rebuild_chroma_index as cli
-from app.services.chroma_rebuild import preflight_rebuild as real_preflight_rebuild
+from app.services.chroma_rebuild import (
+    build_contract,
+    create_build_manifest,
+    preflight_rebuild as real_preflight_rebuild,
+    write_manifest,
+)
+from app.services.vector_backends.chroma_backend import (
+    validate_existing_chroma_store as real_validate_existing_chroma_store,
+)
 
 
 class FakeBackend:
@@ -74,6 +82,7 @@ def fake_cli(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "ChromaIndexRebuilder", FakeRebuilder)
     monkeypatch.setattr(cli, "git_head", lambda: "abc123")
     monkeypatch.setattr(cli, "preflight_rebuild", lambda **_kwargs: ([], {}))
+    monkeypatch.setattr(cli, "validate_existing_chroma_store", lambda _path: None)
     return settings
 
 
@@ -220,6 +229,66 @@ def test_cli_invalid_source_count_creates_no_backend_or_manifest_artifacts(
     assert not (
         persist_dir / "research_papers_bge_m3_v1.rebuild-manifest.json"
     ).exists()
+
+
+def test_cli_verify_missing_manifest_keeps_persist_directory_absent(
+    fake_cli, monkeypatch
+):
+    metadata_dir = Path(fake_cli.metadata_dir)
+    metadata_dir.mkdir()
+    (metadata_dir / "paper_parsed.json").write_text("{}", encoding="utf-8")
+    persist_dir = Path(fake_cli.chroma_persist_dir)
+    monkeypatch.setattr(cli, "preflight_rebuild", real_preflight_rebuild)
+    monkeypatch.setattr(
+        cli,
+        "ChromaVectorBackend",
+        lambda **_kwargs: pytest.fail("backend must not be opened"),
+    )
+
+    assert cli.main(["--verify-only", "--expected-source-count", "1"]) == 1
+    assert not persist_dir.exists()
+
+
+def test_cli_verify_missing_chroma_database_is_read_only_before_backend(
+    fake_cli, monkeypatch
+):
+    metadata_dir = Path(fake_cli.metadata_dir)
+    metadata_dir.mkdir()
+    (metadata_dir / "paper_parsed.json").write_text("{}", encoding="utf-8")
+    persist_dir = Path(fake_cli.chroma_persist_dir)
+    persist_dir.mkdir()
+    manifest_path = persist_dir / "research_papers_bge_m3_v1.rebuild-manifest.json"
+    contract = build_contract(
+        collection="research_papers_bge_m3_v1",
+        provider="api",
+        model="bge-m3",
+        git_head="abc123",
+        schema_version=1,
+        chunk_settings={
+            "strategy": "parent_child_sliding_window",
+            "size": 500,
+            "overlap": 100,
+        },
+    )
+    write_manifest(
+        manifest_path,
+        create_build_manifest(metadata_dir=metadata_dir, contract=contract),
+    )
+    before = manifest_path.read_bytes()
+    monkeypatch.setattr(cli, "preflight_rebuild", real_preflight_rebuild)
+    monkeypatch.setattr(
+        cli, "validate_existing_chroma_store", real_validate_existing_chroma_store
+    )
+    monkeypatch.setattr(
+        cli,
+        "ChromaVectorBackend",
+        lambda **_kwargs: pytest.fail("backend must not be opened"),
+    )
+
+    assert cli.main(["--verify-only", "--expected-source-count", "1"]) == 1
+    assert manifest_path.read_bytes() == before
+    assert not (persist_dir / "chroma.sqlite3").exists()
+    assert not (persist_dir / f".{manifest_path.name}.lock").exists()
 
 
 def test_cli_returns_nonzero_when_requested_terminal_state_is_not_reached(

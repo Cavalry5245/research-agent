@@ -17,7 +17,10 @@ from app.services.chroma_rebuild import (
     redact_error,
 )
 from app.services.embedding_client import EmbeddingClient
-from app.services.vector_backends.chroma_backend import ChromaVectorBackend
+from app.services.vector_backends.chroma_backend import (
+    ChromaVectorBackend,
+    validate_existing_chroma_store,
+)
 
 
 def git_head() -> str:
@@ -101,6 +104,8 @@ def main(argv: list[str] | None = None) -> int:
             expected_source_count=args.expected_source_count,
             require_manifest=args.verify_only,
         )
+        if args.verify_only:
+            validate_existing_chroma_store(str(persist_dir))
         create_if_missing = not args.verify_only
         backend = ChromaVectorBackend(
             persist_dir=str(persist_dir),

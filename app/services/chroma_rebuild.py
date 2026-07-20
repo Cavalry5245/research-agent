@@ -172,12 +172,15 @@ def _release_file_lock(handle: BinaryIO) -> None:
 
 
 @contextmanager
-def manifest_write_lock(
-    path: Path, *, timeout: float = _MANIFEST_LOCK_TIMEOUT_SECONDS
+def _manifest_lock(
+    path: Path,
+    *,
+    timeout: float,
+    create: bool,
 ) -> Iterator[None]:
-    """Serialize manifest read-modify-write sequences across threads/processes."""
     _nonnegative_finite(timeout, "lock timeout")
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if create:
+        path.parent.mkdir(parents=True, exist_ok=True)
     local_lock = _manifest_local_lock(path)
     if not local_lock.acquire(timeout=timeout):
         raise TimeoutError(f"Timed out locking rebuild manifest {path.name!r}")
@@ -185,11 +188,17 @@ def manifest_write_lock(
     handle: BinaryIO | None = None
     file_locked = False
     try:
-        handle = open(lock_path, "a+b")
-        handle.seek(0, os.SEEK_END)
-        if handle.tell() == 0:
-            handle.write(b"\0")
-            handle.flush()
+        try:
+            handle = open(lock_path, "a+b" if create else "r+b")
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(
+                f"Required rebuild manifest lock does not exist: {lock_path.name}"
+            ) from exc
+        if create:
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
         deadline = time.monotonic() + timeout
         while not _try_file_lock(handle):
             if time.monotonic() >= deadline:
@@ -207,6 +216,24 @@ def manifest_write_lock(
                     handle.close()
         finally:
             local_lock.release()
+
+
+@contextmanager
+def manifest_write_lock(
+    path: Path, *, timeout: float = _MANIFEST_LOCK_TIMEOUT_SECONDS
+) -> Iterator[None]:
+    """Serialize manifest read-modify-write sequences, creating their lock."""
+    with _manifest_lock(path, timeout=timeout, create=True):
+        yield
+
+
+@contextmanager
+def manifest_read_lock(
+    path: Path, *, timeout: float = _MANIFEST_LOCK_TIMEOUT_SECONDS
+) -> Iterator[None]:
+    """Synchronize verification using an existing lock without creating it."""
+    with _manifest_lock(path, timeout=timeout, create=False):
+        yield
 
 
 def update_manifest_locked(
@@ -1008,7 +1035,7 @@ class ChromaIndexRebuilder:
             return {**result, "status": "ready"}
 
     def verify(self, *, require_complete: bool = True) -> dict:
-        with manifest_write_lock(self.manifest_path, timeout=self.lock_timeout):
+        with manifest_read_lock(self.manifest_path, timeout=self.lock_timeout):
             sources = self._validated_sources()
             manifest = self._load_or_create_manifest(sources, require_manifest=True)
             result = self._verify(manifest, require_complete=require_complete)
