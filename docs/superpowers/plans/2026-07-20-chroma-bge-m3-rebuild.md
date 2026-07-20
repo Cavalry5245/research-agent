@@ -918,7 +918,7 @@ Completion note (2026-07-20): implemented in `c06054b2`; hardened atomic persist
 - Modify: `tests/test_chroma_rebuild.py`
 - Create: `scripts/rebuild_chroma_index.py`
 
-- [ ] **Step 1: Write failing retry and resume tests**
+- [x] **Step 1: Write failing retry and resume tests**
 
 Add fakes and tests to `tests/test_chroma_rebuild.py`:
 
@@ -961,7 +961,7 @@ def test_embed_batch_retries_429_without_sleeping():
 
 ```
 
-- [ ] **Step 2: Run and confirm missing behavior**
+- [x] **Step 2: Run and confirm missing behavior**
 
 Run:
 
@@ -971,7 +971,7 @@ Run:
 
 Expected: FAIL because `embed_batch_with_retry` is not defined.
 
-- [ ] **Step 3: Implement bounded embedding retries**
+- [x] **Step 3: Implement bounded embedding retries**
 
 Add:
 
@@ -1007,7 +1007,7 @@ def embed_batch_with_retry(
     raise AssertionError("retry loop exited unexpectedly")
 ```
 
-- [ ] **Step 4: Implement `ChromaIndexRebuilder`**
+- [x] **Step 4: Implement `ChromaIndexRebuilder`**
 
 Add a class with this constructor and public operations:
 
@@ -1077,7 +1077,7 @@ Implement the operations with these exact invariants:
 
 On a source hash change, delete only that paper's IDs from the staging collection immediately before its replacement upsert. This record-level deletion is scoped to the approved staging collection and must not remove files or collections.
 
-- [ ] **Step 5: Write a full fake rebuild test**
+- [x] **Step 5: Write a full fake rebuild test**
 
 Add imports and a real parsed-result fixture:
 
@@ -1172,7 +1172,7 @@ def test_rebuild_canary_full_run_and_no_cost_resume(tmp_path: Path):
     assert second_client.calls == 0
 ```
 
-- [ ] **Step 6: Add the CLI**
+- [x] **Step 6: Add the CLI**
 
 Create `scripts/rebuild_chroma_index.py` with arguments:
 
@@ -1197,7 +1197,7 @@ The script must:
 - run verify-only, canary-only, or canary-then-full according to arguments;
 - return exit code 0 only on the requested successful terminal state.
 
-- [ ] **Step 7: Run rebuild tests**
+- [x] **Step 7: Run rebuild tests**
 
 Run:
 
@@ -1207,7 +1207,7 @@ Run:
 
 Expected: PASS without external network calls.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 Run:
 
@@ -1215,6 +1215,8 @@ Run:
 git add app/services/chroma_rebuild.py scripts/rebuild_chroma_index.py tests/test_chroma_rebuild.py
 git commit -m "feat: add resumable bge-m3 Chroma rebuild"
 ```
+
+Completion note (2026-07-20): implemented in `b7a9e85b` and hardened through `f952b67a`, `8461f0c1`, `cf7c2d74`, `564ff009`, `e77ebe4e`, and `9d7edc2a`. The final implementation provides exact API wire model `bge-m3`, bounded retry delays, strict provider response indices, deterministic canary/full resume, source-to-paper verification, read-only verification, preflight-before-persistence, and Chroma 1.5.9-compatible collection validation. Final independent forced-offline spec suite: 260 passed, 1 skipped; quality suite: 256 passed, 1 skipped. Independent spec and quality reviews approved with no remaining Critical, Important, or Minor findings.
 
 ### Task 7: Expose readiness and protect application startup
 
