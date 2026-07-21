@@ -47,7 +47,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--metadata-dir", default=settings.metadata_dir)
     parser.add_argument("--persist-dir", default=settings.chroma_persist_dir)
     parser.add_argument("--collection", default=settings.chroma_collection_name)
-    parser.add_argument("--expected-source-count", type=int, default=53)
+    parser.add_argument(
+        "--expected-source-count",
+        type=int,
+        default=settings.chroma_expected_source_count,
+    )
     parser.add_argument("--batch-size", type=int, default=settings.embedding_batch_size)
     parser.add_argument("--max-attempts", type=int, default=5)
     parser.add_argument("--base-delay", type=float, default=1.0)
@@ -117,7 +121,7 @@ def main(argv: list[str] | None = None) -> int:
             provider="api",
             model="bge-m3",
             git_head=requested_git_head,
-            schema_version=1,
+            schema_version=settings.chroma_schema_version,
             chunk_settings=chunk_settings,
         )
         _, existing_manifest = preflight_rebuild(
@@ -139,8 +143,14 @@ def main(argv: list[str] | None = None) -> int:
             initial_metadata=(
                 {
                     "build_status": "building",
+                    "embedding_provider": "api",
                     "embedding_model": "bge-m3",
-                    "schema_version": 1,
+                    "schema_version": settings.chroma_schema_version,
+                    "chunk_strategy": settings.chunk_strategy,
+                    "chunk_size": settings.child_chunk_size,
+                    "chunk_overlap": settings.child_chunk_overlap,
+                    "source_count": args.expected_source_count,
+                    "build_git_head": requested_git_head,
                 }
                 if create_if_missing
                 else None

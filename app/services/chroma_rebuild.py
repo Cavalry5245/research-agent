@@ -43,9 +43,7 @@ def resolve_rebuild_manifest_path(
     """Resolve a validated collection manifest strictly beneath persist_dir."""
     validated_name = validate_chroma_collection_name(collection_name)
     persist_root = Path(persist_dir).resolve()
-    manifest_path = (
-        persist_root / f"{validated_name}.rebuild-manifest.json"
-    ).resolve()
+    manifest_path = (persist_root / f"{validated_name}.rebuild-manifest.json").resolve()
     try:
         manifest_path.relative_to(persist_root)
     except ValueError as exc:
@@ -98,6 +96,7 @@ def _reject_non_finite_json_constant(constant: str) -> None:
 
 def _is_windows_sharing_violation(exc: OSError) -> bool:
     return isinstance(exc, PermissionError) and getattr(exc, "winerror", None) in {
+        5,
         32,
         33,
     }
@@ -550,12 +549,59 @@ def _validate_manifest_source_records(
                 "manifest source record sha256 must be a hexadecimal digest"
             )
         resolved.append(_resolve_manifest_source(metadata_dir, record.get("path")))
+        if "attempts" in record:
+            _positive_int(record.get("attempts"), "manifest source attempts")
     if len(set(resolved)) != len(resolved):
         raise ValueError("manifest source paths must be unique")
     if {path.resolve() for path in sources} != set(resolved):
         raise ValueError("manifest sources do not match discovered parsed sources")
     if type(manifest.get("papers")) is not dict:
         raise ValueError("manifest papers must be an object")
+    for paper_id, record in manifest["papers"].items():
+        if (
+            type(paper_id) is not str
+            or not paper_id.strip()
+            or type(record) is not dict
+        ):
+            raise ValueError("manifest paper records must be keyed by nonempty strings")
+        status = record.get("status")
+        if status not in {"completed", "failed"}:
+            raise ValueError(f"manifest paper {paper_id!r} has invalid status")
+        _positive_int(record.get("attempts"), f"manifest paper {paper_id!r} attempts")
+        if status == "completed":
+            _validate_utc_timestamp(
+                record.get("completed_at"),
+                f"manifest paper {paper_id!r} completed_at",
+            )
+        else:
+            error = record.get("error")
+            if type(error) is not str or not error.strip():
+                raise ValueError(
+                    f"manifest paper {paper_id!r} failed error must be nonempty"
+                )
+    failures = manifest.get("failures", {})
+    if type(failures) is not dict:
+        raise ValueError("manifest failures must be an object")
+    for source_name, failure in failures.items():
+        if type(source_name) is not str or type(failure) is not dict:
+            raise ValueError("manifest source failure records must be objects")
+        if failure.get("status") != "failed":
+            raise ValueError("manifest source failure status must be failed")
+        _positive_int(failure.get("attempts"), "manifest source failure attempts")
+        if type(failure.get("error")) is not str or not failure["error"].strip():
+            raise ValueError("manifest source failure error must be nonempty")
+
+
+def _validate_utc_timestamp(value: object, label: str) -> str:
+    if type(value) is not str or not value.strip():
+        raise ValueError(f"{label} must be a UTC ISO-8601 timestamp")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{label} must be a UTC ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+        raise ValueError(f"{label} must be a UTC ISO-8601 timestamp")
+    return value
 
 
 def _discover_expected_sources(
@@ -649,6 +695,15 @@ class ChromaIndexRebuilder:
             raise ValueError("git_head must be a nonempty string")
         if type(chunk_settings) is not dict:
             raise ValueError("chunk_settings must be an object")
+        strategy = chunk_settings.get("strategy")
+        if type(strategy) is not str or not strategy.strip():
+            raise ValueError("chunk_settings strategy must be a nonempty string")
+        _positive_int(chunk_settings.get("size"), "chunk_settings size")
+        overlap = chunk_settings.get("overlap")
+        if type(overlap) is not int or overlap < 0:
+            raise ValueError(
+                "chunk_settings overlap must be a nonnegative built-in int"
+            )
         self.chunk_settings = dict(chunk_settings)
         if backend.backend_name() != "chroma":
             raise ValueError("rebuild backend must be chroma")
@@ -661,16 +716,31 @@ class ChromaIndexRebuilder:
             if getattr(embedding_client, "model_name", None) != "bge-m3":
                 raise ValueError("embedding model must be bge-m3")
         collection_metadata = backend.metadata()
-        if (
-            collection_metadata.get("embedding_model") != "bge-m3"
-            or type(collection_metadata.get("schema_version")) is not int
-            or collection_metadata.get("schema_version") != 1
-            or collection_metadata.get("build_status")
-            not in {"building", "ready", "failed"}
-        ):
+        required_collection_metadata = {
+            "embedding_provider": "api",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+            "chunk_strategy": chunk_settings.get("strategy"),
+            "chunk_size": chunk_settings.get("size"),
+            "chunk_overlap": chunk_settings.get("overlap"),
+            "source_count": self.expected_source_count,
+            "build_git_head": git_head,
+        }
+        mismatches = [
+            field
+            for field, expected in required_collection_metadata.items()
+            if type(collection_metadata.get(field)) is not type(expected)
+            or collection_metadata.get(field) != expected
+        ]
+        if collection_metadata.get("build_status") not in {
+            "building",
+            "ready",
+            "failed",
+        }:
+            mismatches.append("build_status")
+        if mismatches:
             raise ValueError(
-                "collection metadata must specify embedding_model='bge-m3', "
-                "schema_version=1, and a valid build_status"
+                "collection metadata contract mismatch: " + ", ".join(mismatches)
             )
         self.sleep = sleep
         self.contract = build_contract(
@@ -726,14 +796,9 @@ class ChromaIndexRebuilder:
         for paper_id, record in manifest["papers"].items():
             if not isinstance(record, dict) or record.get("source_path") is None:
                 continue
-            if (
-                self._resolve_source_path(record.get("source_path"))
-                == current_source
-            ):
+            if self._resolve_source_path(record.get("source_path")) == current_source:
                 matches.append((paper_id, record))
-        completed = [
-            item for item in matches if item[1].get("status") == "completed"
-        ]
+        completed = [item for item in matches if item[1].get("status") == "completed"]
         if len(completed) > 1:
             raise ValueError(
                 f"paper identity collision: source {source.name!r} has multiple "
@@ -766,10 +831,7 @@ class ChromaIndexRebuilder:
                     f"paper identity collision: {candidate_paper_id!r} is already "
                     f"associated with source {record.get('source_path')!r}"
                 )
-            if (
-                record.get("status") == "completed"
-                and record_source == current_source
-            ):
+            if record.get("status") == "completed" and record_source == current_source:
                 completed_owners.append(existing_paper_id)
         if len(completed_owners) > 1:
             raise ValueError(
@@ -793,34 +855,53 @@ class ChromaIndexRebuilder:
         )
 
     def _record_failure(
-        self, manifest: dict, source: Path, exc: Exception, paper_id: str | None
+        self,
+        manifest: dict,
+        source: Path,
+        exc: Exception,
+        paper_id: str | None,
+        attempts: int,
     ) -> None:
         manifest["status"] = "failed"
         safe_error = redact_error(exc)
         if paper_id is None:
             failures = manifest.setdefault("failures", {})
-            failures[source.name] = safe_error
+            failures[source.name] = {
+                "status": "failed",
+                "attempts": attempts,
+                "error": safe_error,
+            }
         else:
             prior = manifest["papers"].get(paper_id, {})
             manifest["papers"][paper_id] = {
                 **prior,
                 "source_path": source.name,
                 "status": "failed",
+                "attempts": attempts,
                 "error": safe_error,
             }
+            manifest["papers"][paper_id].pop("completed_at", None)
         write_manifest(self.manifest_path, manifest)
 
     def _process_source(self, manifest: dict, source: Path) -> None:
         paper_id: str | None = None
+        manifest_source_path = self._manifest_source_path(manifest, source)
+        source_record = next(
+            record
+            for record in manifest["sources"]
+            if record["path"] == manifest_source_path
+        )
+        prior_attempts = source_record.get("attempts", 0)
+        if type(prior_attempts) is not int or prior_attempts < 0:
+            raise ValueError("manifest source attempts must be a nonnegative integer")
+        attempts = prior_attempts + 1
+        source_record["attempts"] = attempts
         try:
             if self.embedding_client is None:
                 raise RuntimeError("Embedding client is required to process sources")
             payload, digest = _captured_source(source)
             parsed = PaperParseResult.model_validate_json(payload.decode("utf-8"))
-            self._validate_paper_identity_ownership(
-                manifest, source, parsed.paper_id
-            )
-            manifest_source_path = self._manifest_source_path(manifest, source)
+            self._validate_paper_identity_ownership(manifest, source, parsed.paper_id)
             paper_id = parsed.paper_id
             chunks = chunk_paper(
                 parsed,
@@ -884,6 +965,8 @@ class ChromaIndexRebuilder:
                 "source_path": manifest_source_path,
                 "sha256": digest,
                 "status": "completed",
+                "attempts": attempts,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
                 "expected_ids": sorted(expected_ids),
                 "chunk_count": len(expected_ids),
                 "embedding_dimension": dimension,
@@ -891,7 +974,11 @@ class ChromaIndexRebuilder:
             for record in manifest["sources"]:
                 if record["path"] == manifest_source_path:
                     record["sha256"] = digest
-            manifest.pop("failures", None)
+            failures = manifest.get("failures")
+            if isinstance(failures, dict):
+                failures.pop(source.name, None)
+                if not failures:
+                    manifest.pop("failures", None)
             manifest["status"] = "building"
             manifest["chunk_count"] = sum(
                 record.get("chunk_count", 0)
@@ -900,7 +987,7 @@ class ChromaIndexRebuilder:
             )
             write_manifest(self.manifest_path, manifest)
         except Exception as exc:
-            self._record_failure(manifest, source, exc, paper_id)
+            self._record_failure(manifest, source, exc, paper_id, attempts)
             raise
 
     def _verify(self, manifest: dict, *, require_complete: bool) -> dict:

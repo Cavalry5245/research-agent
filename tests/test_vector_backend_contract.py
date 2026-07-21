@@ -12,6 +12,127 @@ from app.services.vector_backends.chroma_backend import (
     ChromaVectorBackend,
     validate_chroma_collection_name,
 )
+
+
+def test_chroma_noncreating_open_validates_database_before_client(
+    tmp_path, monkeypatch
+):
+    missing = tmp_path / "missing"
+    monkeypatch.setattr(
+        "app.services.vector_backends.chroma_backend.chromadb.PersistentClient",
+        lambda **_kwargs: pytest.fail("PersistentClient must not be constructed"),
+    )
+
+    with pytest.raises(FileNotFoundError, match="persist directory"):
+        ChromaVectorBackend(
+            persist_dir=str(missing),
+            collection_name="valid_collection",
+            create_if_missing=False,
+        )
+
+    assert not missing.exists()
+
+
+@pytest.mark.parametrize(
+    "field,wrong",
+    [
+        ("embedding_provider", "local"),
+        ("embedding_model", "same-dimension-wrong-model"),
+        ("schema_version", 2),
+        ("chunk_strategy", "other"),
+        ("chunk_size", 501),
+        ("chunk_overlap", 99),
+        ("source_count", 52),
+    ],
+)
+def test_chroma_full_expected_contract_rejects_same_dimension_mismatch(
+    tmp_path, monkeypatch, field, wrong
+):
+    root = tmp_path / "chroma"
+    root.mkdir()
+    (root / "chroma.sqlite3").write_bytes(b"synthetic")
+    expected = {
+        "embedding_provider": "api",
+        "embedding_model": "bge-m3",
+        "schema_version": 1,
+        "chunk_strategy": "parent_child_sliding_window",
+        "chunk_size": 500,
+        "chunk_overlap": 100,
+        "source_count": 53,
+    }
+    metadata = {
+        "build_status": "ready",
+        **expected,
+        "build_git_head": "abc123",
+        "embedding_dimension": 1024,
+        field: wrong,
+    }
+
+    class Collection:
+        configuration_json = {"hnsw": {"space": "cosine"}}
+
+        def __init__(self):
+            self.metadata = metadata
+
+        def count(self):
+            return 1
+
+    collection = Collection()
+    client = type("Client", (), {"get_collection": lambda self, **kwargs: collection})()
+    monkeypatch.setattr(
+        "app.services.vector_backends.chroma_backend.chromadb.PersistentClient",
+        lambda **kwargs: client,
+    )
+
+    with pytest.raises(RuntimeError, match=field):
+        ChromaVectorBackend(
+            persist_dir=str(root),
+            collection_name="valid_collection",
+            expected_contract=expected,
+        )
+
+
+def test_chroma_full_contract_requires_nonempty_build_git_head(tmp_path, monkeypatch):
+    root = tmp_path / "chroma"
+    root.mkdir()
+    (root / "chroma.sqlite3").write_bytes(b"synthetic")
+    expected = {
+        "embedding_provider": "api",
+        "embedding_model": "bge-m3",
+        "schema_version": 1,
+        "chunk_strategy": "parent_child_sliding_window",
+        "chunk_size": 500,
+        "chunk_overlap": 100,
+        "source_count": 53,
+    }
+    collection = type(
+        "Collection",
+        (),
+        {
+            "configuration_json": {"hnsw": {"space": "cosine"}},
+            "metadata": {
+                "build_status": "ready",
+                **expected,
+                "build_git_head": "",
+                "embedding_dimension": 1024,
+            },
+            "count": lambda self: 1,
+        },
+    )()
+    client = type("Client", (), {"get_collection": lambda self, **kwargs: collection})()
+    monkeypatch.setattr(
+        "app.services.vector_backends.chroma_backend.chromadb.PersistentClient",
+        lambda **kwargs: client,
+    )
+
+    with pytest.raises(RuntimeError, match="build_git_head"):
+        ChromaVectorBackend(
+            persist_dir=str(root),
+            collection_name="valid_collection",
+            expected_contract=expected,
+        )
+
+
 from app.services.vector_backends.json_backend import JsonVectorBackend
 
 
@@ -168,8 +289,7 @@ def test_backend_upserts_same_id_and_ranks_globally_with_filter(backend):
         "c2",
     ]
     assert [
-        row["chunk_id"]
-        for row in backend.query_dense([0.0, 1.0], 2, paper_id="p1")
+        row["chunk_id"] for row in backend.query_dense([0.0, 1.0], 2, paper_id="p1")
     ] == ["c1"]
     assert backend.list_chunks("p1") == [
         {
@@ -332,9 +452,7 @@ def _raw_chroma_collection(
         pytest.param(
             {"build_status": "building", "embedding_dimension": "2"}, id="string"
         ),
-        pytest.param(
-            {"build_status": "building", "embedding_dimension": 0}, id="zero"
-        ),
+        pytest.param({"build_status": "building", "embedding_dimension": 0}, id="zero"),
         pytest.param(
             {"build_status": "building", "embedding_dimension": -2}, id="negative"
         ),
@@ -404,9 +522,7 @@ def test_chroma_rejects_ready_update_without_dimension_unchanged(tmp_path: Path)
         pytest.param({"build_status": "unknown"}, id="unknown-status"),
     ],
 )
-def test_chroma_rejects_invalid_metadata_update_unchanged(
-    tmp_path: Path, update: dict
-):
+def test_chroma_rejects_invalid_metadata_update_unchanged(tmp_path: Path, update: dict):
     from app.services.vector_backends.chroma_backend import ChromaVectorBackend
 
     backend = ChromaVectorBackend(
@@ -754,9 +870,7 @@ def test_json_backend_skips_invalid_legacy_vectors(tmp_path: Path, caplog):
         {"chunk": invalid.model_dump(), "embedding": [float("nan"), 0]},
         {"chunk": invalid.model_dump(), "embedding": [float("inf"), 0]},
     ]
-    (tmp_path / "vector_store.json").write_text(
-        json.dumps(records), encoding="utf-8"
-    )
+    (tmp_path / "vector_store.json").write_text(json.dumps(records), encoding="utf-8")
 
     backend = JsonVectorBackend(str(tmp_path))
 
@@ -800,9 +914,7 @@ def test_json_backend_degraded_load_preserves_original_file(
     assert store_path.read_bytes() == payload
 
 
-def test_json_backend_persists_atomically_and_reloads(
-    tmp_path: Path, monkeypatch
-):
+def test_json_backend_persists_atomically_and_reloads(tmp_path: Path, monkeypatch):
     replace_calls: list[tuple[Path, Path]] = []
     real_replace = os.replace
 

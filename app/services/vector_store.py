@@ -17,6 +17,15 @@ def _create_backend(name: str, persist_dir: str) -> VectorBackend:
             persist_dir=persist_dir,
             collection_name=settings.chroma_collection_name,
             require_ready=settings.chroma_require_ready,
+            expected_contract={
+                "embedding_provider": settings.embedding_provider,
+                "embedding_model": settings.embedding_model,
+                "schema_version": settings.chroma_schema_version,
+                "chunk_strategy": settings.chunk_strategy,
+                "chunk_size": settings.child_chunk_size,
+                "chunk_overlap": settings.child_chunk_overlap,
+                "source_count": settings.chroma_expected_source_count,
+            },
         )
     raise ValueError(f"Unsupported vector store backend: {name}")
 

@@ -76,6 +76,8 @@ def fake_cli(monkeypatch, tmp_path):
         child_chunk_size=500,
         child_chunk_overlap=100,
         chunk_strategy="parent_child_sliding_window",
+        chroma_schema_version=1,
+        chroma_expected_source_count=53,
     )
     monkeypatch.setattr(cli, "settings", settings)
     monkeypatch.setattr(cli, "ChromaVectorBackend", FakeBackend)
@@ -189,8 +191,14 @@ def test_cli_default_runs_canary_then_full(fake_cli):
     assert FakeRebuilder.calls == [("canary",), ("full",)]
     assert FakeBackend.created[0]["initial_metadata"] == {
         "build_status": "building",
+        "embedding_provider": "api",
         "embedding_model": "bge-m3",
         "schema_version": 1,
+        "chunk_strategy": "parent_child_sliding_window",
+        "chunk_size": 500,
+        "chunk_overlap": 100,
+        "source_count": 53,
+        "build_git_head": "abc123",
     }
     assert FakeBackend.created[0]["create_if_missing"] is True
 

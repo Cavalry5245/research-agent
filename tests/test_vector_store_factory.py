@@ -28,6 +28,10 @@ def test_vector_store_settings_have_chroma_defaults(monkeypatch):
         "CHROMA_PERSIST_DIR",
         "CHROMA_COLLECTION_NAME",
         "CHROMA_REQUIRE_READY",
+        "CHROMA_SCHEMA_VERSION",
+        "CHROMA_EXPECTED_SOURCE_COUNT",
+        "EMBEDDING_PROVIDER",
+        "EMBEDDING_MODEL",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -37,6 +41,10 @@ def test_vector_store_settings_have_chroma_defaults(monkeypatch):
     assert configured.chroma_persist_dir == "app/storage/vector_db"
     assert configured.chroma_collection_name == "research_papers_bge_m3_v1"
     assert configured.chroma_require_ready is True
+    assert configured.chroma_schema_version == 1
+    assert configured.chroma_expected_source_count == 53
+    assert configured.embedding_provider == "api"
+    assert configured.embedding_model == "bge-m3"
 
 
 def test_vector_store_uses_explicit_backend_instance(tmp_path):
@@ -70,6 +78,16 @@ def test_vector_store_forwards_chroma_open_settings(tmp_path):
             "configured_collection",
         ),
         patch("app.services.vector_store.settings.chroma_require_ready", True),
+        patch("app.services.vector_store.settings.embedding_provider", "api"),
+        patch("app.services.vector_store.settings.embedding_model", "bge-m3"),
+        patch("app.services.vector_store.settings.chroma_schema_version", 1),
+        patch("app.services.vector_store.settings.chroma_expected_source_count", 53),
+        patch(
+            "app.services.vector_store.settings.chunk_strategy",
+            "parent_child_sliding_window",
+        ),
+        patch("app.services.vector_store.settings.child_chunk_size", 500),
+        patch("app.services.vector_store.settings.child_chunk_overlap", 100),
         patch(
             "app.services.vector_backends.chroma_backend.ChromaVectorBackend",
             return_value=backend,
@@ -81,7 +99,24 @@ def test_vector_store_forwards_chroma_open_settings(tmp_path):
         persist_dir=str(tmp_path),
         collection_name="configured_collection",
         require_ready=True,
+        expected_contract={
+            "embedding_provider": "api",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+            "chunk_strategy": "parent_child_sliding_window",
+            "chunk_size": 500,
+            "chunk_overlap": 100,
+            "source_count": 53,
+        },
     )
+
+
+def test_vector_store_chroma_missing_path_creates_no_artifacts(tmp_path):
+    missing = tmp_path / "missing"
+    with patch("app.services.vector_store.settings.vector_store", "chroma"):
+        with pytest.raises(FileNotFoundError, match="persist directory"):
+            VectorStore(persist_dir=str(missing))
+    assert not missing.exists()
 
 
 def test_vector_store_does_not_disable_required_chroma_readiness(tmp_path):

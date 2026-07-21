@@ -8,6 +8,7 @@ from typing import Protocol
 # Fix SSL certificate issue for httpx
 try:
     import certifi
+
     os.environ["SSL_CERT_FILE"] = certifi.where()
 except ImportError:
     pass
@@ -156,7 +157,11 @@ def _resolve_upload_dir() -> str:
 
 
 def _storage_is_writable() -> bool:
-    for directory in [_resolve_upload_dir(), _resolve_note_dir(), _resolve_metadata_dir()]:
+    for directory in [
+        _resolve_upload_dir(),
+        _resolve_note_dir(),
+        _resolve_metadata_dir(),
+    ]:
         probe = os.path.join(
             directory,
             f".system_status_probe.{os.getpid()}.{time.time_ns()}",
@@ -193,9 +198,14 @@ _SAFE_VECTOR_STRING_FIELDS = (
     "store_path",
     "collection_name",
     "build_status",
+    "embedding_provider",
     "embedding_model",
+    "chunk_strategy",
+    "build_git_head",
     "persist_dir",
 )
+
+
 def _safe_vector_error(exc: Exception) -> str:
     # Preserve the endpoint's historical plain-message shape while applying the
     # rebuild pipeline's adversarially tested credential redaction.
@@ -210,8 +220,14 @@ def _vector_store_status_payload() -> dict:
         "collection_name": None,
         "build_status": None,
         "embedding_dimension": None,
+        "embedding_provider": None,
         "embedding_model": None,
         "schema_version": None,
+        "chunk_strategy": None,
+        "chunk_size": None,
+        "chunk_overlap": None,
+        "source_count": None,
+        "build_git_head": None,
         "chunk_count": 0,
         "paper_count": None,
         "persist_dir": None,
@@ -232,10 +248,18 @@ def _vector_store_status_payload() -> dict:
             value = vector_meta.get(field)
             if type(value) is str:
                 payload[field] = value
-        for field in ("embedding_dimension", "schema_version"):
+        for field in (
+            "embedding_dimension",
+            "schema_version",
+            "chunk_size",
+            "source_count",
+        ):
             value = vector_meta.get(field)
             if type(value) is int and value > 0:
                 payload[field] = value
+        chunk_overlap = vector_meta.get("chunk_overlap")
+        if type(chunk_overlap) is int and chunk_overlap >= 0:
+            payload["chunk_overlap"] = chunk_overlap
         paper_count = vector_meta.get("paper_count")
         if type(paper_count) is int and paper_count >= 0:
             payload["paper_count"] = paper_count
@@ -261,7 +285,17 @@ def _vector_store_status_payload() -> dict:
                     vector_meta.get("build_status") == "ready",
                     type(dimension) is int and dimension > 0,
                     vector_meta.get("embedding_model") == settings.embedding_model,
-                    type(schema_version) is int and schema_version == 1,
+                    vector_meta.get("embedding_provider")
+                    == settings.embedding_provider,
+                    type(schema_version) is int
+                    and schema_version == settings.chroma_schema_version,
+                    vector_meta.get("chunk_strategy") == settings.chunk_strategy,
+                    vector_meta.get("chunk_size") == settings.child_chunk_size,
+                    vector_meta.get("chunk_overlap") == settings.child_chunk_overlap,
+                    vector_meta.get("source_count")
+                    == settings.chroma_expected_source_count,
+                    type(vector_meta.get("build_git_head")) is str
+                    and bool(vector_meta["build_git_head"].strip()),
                 )
             )
         payload["available"] = available
@@ -550,7 +584,9 @@ async def parse_paper(paper_id: str):
 async def update_paper_title(paper_id: str, payload: PaperTitleUpdateRequest):
     title = payload.title.strip()
     if len(title) < 3:
-        raise HTTPException(status_code=400, detail="Title must be at least 3 characters long")
+        raise HTTPException(
+            status_code=400, detail="Title must be at least 3 characters long"
+        )
 
     data = update_parsed_title(paper_id, _resolve_metadata_dir(), title)
     return PaperTitleUpdateResponse(
@@ -565,7 +601,9 @@ async def list_paper_zotero_collections(limit: int = 100):
     try:
         collections = ZoteroLocalHttpClient().list_collections(limit=limit)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+        raise HTTPException(
+            status_code=503, detail=f"Zotero API unavailable: {e}"
+        ) from e
 
     items = [
         ZoteroImportCollection(
@@ -579,8 +617,12 @@ async def list_paper_zotero_collections(limit: int = 100):
     return ZoteroImportCollectionsResponse(collections=items, count=len(items))
 
 
-def _zotero_import_item_response(item, existing_index: dict[str, str]) -> ZoteroImportItem:
-    pdf_path = resolve_first_existing_pdf([attachment.path for attachment in item.attachments])
+def _zotero_import_item_response(
+    item, existing_index: dict[str, str]
+) -> ZoteroImportItem:
+    pdf_path = resolve_first_existing_pdf(
+        [attachment.path for attachment in item.attachments]
+    )
     existing_paper_id = (
         existing_index.get(f"source_id:{_normalize_duplicate_key(item.key)}")
         or existing_index.get(f"doi:{_normalize_duplicate_key(item.doi)}")
@@ -607,10 +649,14 @@ async def list_paper_zotero_collection_items(collection_key: str):
     try:
         zotero_items = ZoteroLocalHttpClient().list_collection_items(collection_key)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+        raise HTTPException(
+            status_code=503, detail=f"Zotero API unavailable: {e}"
+        ) from e
 
     existing_index = _existing_paper_identity_index()
-    items = [_zotero_import_item_response(item, existing_index) for item in zotero_items]
+    items = [
+        _zotero_import_item_response(item, existing_index) for item in zotero_items
+    ]
     return ZoteroImportItemsResponse(
         collection_key=collection_key,
         items=items,
@@ -632,9 +678,13 @@ def _unique_upload_path(upload_dir: str, filename: str) -> str:
 @app.post("/papers/zotero/import", response_model=ZoteroImportResponse)
 async def import_papers_from_zotero(payload: ZoteroImportRequest):
     try:
-        zotero_items = ZoteroLocalHttpClient().list_collection_items(payload.collection_key)
+        zotero_items = ZoteroLocalHttpClient().list_collection_items(
+            payload.collection_key
+        )
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+        raise HTTPException(
+            status_code=503, detail=f"Zotero API unavailable: {e}"
+        ) from e
 
     items_by_key = {item.key: item for item in zotero_items}
     existing_index = _existing_paper_identity_index()
@@ -760,7 +810,9 @@ def _build_note_status_response() -> NoteStatusListResponse:
     if os.path.isdir(note_dir):
         for filename in os.listdir(note_dir):
             if filename.endswith("_note.md"):
-                existing_notes[filename.removesuffix("_note.md")] = os.path.join(note_dir, filename)
+                existing_notes[filename.removesuffix("_note.md")] = os.path.join(
+                    note_dir, filename
+                )
 
     notes: list[NoteStatusItem] = []
     for paper in list_papers(_resolve_metadata_dir()):
@@ -768,7 +820,9 @@ def _build_note_status_response() -> NoteStatusListResponse:
         if not paper_id:
             continue
 
-        note_path = existing_notes.get(paper_id) or os.path.join(note_dir, f"{paper_id}_note.md")
+        note_path = existing_notes.get(paper_id) or os.path.join(
+            note_dir, f"{paper_id}_note.md"
+        )
         exists = os.path.isfile(note_path)
         generated_at = None
         if exists:

@@ -27,6 +27,12 @@ def test_system_status_endpoint_returns_dashboard_contract(monkeypatch):
                 "embedding_dimension": 1024,
                 "embedding_model": "bge-m3",
                 "schema_version": 1,
+                "embedding_provider": "api",
+                "chunk_strategy": "parent_child_sliding_window",
+                "chunk_size": 500,
+                "chunk_overlap": 100,
+                "source_count": 53,
+                "build_git_head": "abc123",
                 "chunk_count": 100,
                 "paper_count": 2,
                 "persist_dir": "app/storage/vector_db",
@@ -95,6 +101,12 @@ def test_system_status_endpoint_returns_dashboard_contract(monkeypatch):
         "embedding_dimension": 1024,
         "embedding_model": "bge-m3",
         "schema_version": 1,
+        "embedding_provider": "api",
+        "chunk_strategy": "parent_child_sliding_window",
+        "chunk_size": 500,
+        "chunk_overlap": 100,
+        "source_count": 53,
+        "build_git_head": "abc123",
         "chunk_count": 100,
         "paper_count": 2,
         "persist_dir": "app/storage/vector_db",
@@ -165,9 +177,13 @@ def test_system_status_endpoint_does_not_start_mcp_services(monkeypatch, tmp_pat
     monkeypatch.setattr(main.settings, "metadata_dir", str(tmp_path / "metadata"))
     monkeypatch.setattr(main, "_storage_is_writable", lambda: True)
     monkeypatch.setattr(main, "_get_vector_store", lambda: FakeVectorStore())
-    monkeypatch.setattr(main, "_get_job_store", lambda: type("Jobs", (), {"list": lambda self: []})())
+    monkeypatch.setattr(
+        main, "_get_job_store", lambda: type("Jobs", (), {"list": lambda self: []})()
+    )
     monkeypatch.setattr(main, "list_papers", lambda metadata_dir: [])
-    monkeypatch.setattr(ResearchRunService, "_init_mcp_manager", fail_if_mcp_initializes)
+    monkeypatch.setattr(
+        ResearchRunService, "_init_mcp_manager", fail_if_mcp_initializes
+    )
 
     client = TestClient(app)
     response = client.get("/system/status")

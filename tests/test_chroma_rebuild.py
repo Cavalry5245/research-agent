@@ -711,6 +711,20 @@ def _write_parsed_fixture(
 
 
 def _rebuilder(tmp_path: Path, metadata_dir: Path, backend, client, *, expected=2):
+    contract_metadata = {
+        "embedding_provider": "api",
+        "embedding_model": "bge-m3",
+        "schema_version": 1,
+        "chunk_strategy": "parent_child_sliding_window",
+        "chunk_size": 500,
+        "chunk_overlap": 100,
+        "source_count": expected,
+        "build_git_head": "test-head",
+    }
+    current = backend.metadata()
+    backend.update_build_metadata(
+        {key: value for key, value in contract_metadata.items() if key not in current}
+    )
     return ChromaIndexRebuilder(
         metadata_dir=metadata_dir,
         manifest_path=tmp_path / "rebuild_manifest.json",
@@ -978,8 +992,14 @@ def test_rebuild_canary_full_run_and_no_cost_resume(tmp_path: Path):
         require_ready=False,
         initial_metadata={
             "build_status": "building",
+            "embedding_provider": "api",
             "embedding_model": "bge-m3",
             "schema_version": 1,
+            "chunk_strategy": "parent_child_sliding_window",
+            "chunk_size": 500,
+            "chunk_overlap": 100,
+            "source_count": 2,
+            "build_git_head": "test-head",
         },
     )
     first_client = FakeEmbeddingClient()
@@ -1192,8 +1212,14 @@ def test_first_batch_locks_dimension_before_later_batch_mismatch(tmp_path: Path)
         require_ready=False,
         initial_metadata={
             "build_status": "building",
+            "embedding_provider": "api",
             "embedding_model": "bge-m3",
             "schema_version": 1,
+            "chunk_strategy": "parent_child_sliding_window",
+            "chunk_size": 100,
+            "chunk_overlap": 10,
+            "source_count": 1,
+            "build_git_head": "test-head",
         },
     )
 
@@ -1346,9 +1372,7 @@ def test_same_hash_rerun_repairs_stale_live_ids_without_reembedding_exact_paper(
     )
     repair_client = FakeEmbeddingClient()
 
-    result = _rebuilder(
-        tmp_path, metadata_dir, backend, repair_client
-    ).run_all()
+    result = _rebuilder(tmp_path, metadata_dir, backend, repair_client).run_all()
 
     assert result["status"] == "ready"
     assert repair_client.calls == expected_repair_calls
@@ -1423,6 +1447,14 @@ def test_changed_source_cannot_take_another_manifest_paper_identity(tmp_path: Pa
     assert backend.rows == rows_before
     assert manifest_after["papers"]["paper_B"] == paper_b_before
     assert manifest_after["status"] == "failed"
+    source_record = next(
+        record
+        for record in manifest_after["sources"]
+        if record["path"] == source_a.name
+    )
+    assert source_record["attempts"] == 2
+    assert manifest_after["failures"][source_a.name]["attempts"] == 2
+    assert manifest_after["failures"][source_a.name]["status"] == "failed"
 
 
 def test_fresh_build_rejects_duplicate_paper_identity_before_second_embedding(
@@ -1476,9 +1508,7 @@ def test_rerun_rejects_multiple_completed_identities_for_one_source_before_skip(
     client = FakeEmbeddingClient()
 
     with pytest.raises(ValueError, match="multiple completed identities"):
-        _rebuilder(
-            tmp_path, metadata_dir, backend, client, expected=1
-        ).run_all()
+        _rebuilder(tmp_path, metadata_dir, backend, client, expected=1).run_all()
 
     assert client.calls == 0
     assert backend.add_calls == 0
@@ -1517,6 +1547,77 @@ def test_source_may_change_to_a_previously_unowned_paper_identity(tmp_path: Path
     assert backend.ids_for_paper("paper_C") == set(
         manifest["papers"]["paper_C"]["expected_ids"]
     )
+    assert manifest["papers"]["paper_C"]["attempts"] == 2
+    assert manifest["papers"]["paper_C"]["completed_at"].endswith("+00:00")
+
+
+def test_failed_then_resumed_paper_preserves_attempt_count_and_completion_time(
+    tmp_path: Path,
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    backend = MemoryRebuildBackend()
+
+    with pytest.raises(Exception):
+        _rebuilder(
+            tmp_path,
+            metadata_dir,
+            backend,
+            FakeEmbeddingClient(failures=10),
+            expected=1,
+        ).run_all()
+
+    failed = load_manifest(tmp_path / "rebuild_manifest.json")["papers"]["paper_1"]
+    assert failed["status"] == "failed"
+    assert failed["attempts"] == 1
+    assert "error" in failed
+    assert "completed_at" not in failed
+
+    _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    ).run_all()
+    completed = load_manifest(tmp_path / "rebuild_manifest.json")["papers"]["paper_1"]
+    assert completed["status"] == "completed"
+    assert completed["attempts"] == 2
+    assert datetime.fromisoformat(completed["completed_at"]).tzinfo == timezone.utc
+
+
+@pytest.mark.parametrize("bad_attempts", [True, 0, -1, 1.5, "1"])
+def test_verify_rejects_invalid_completed_attempt_audit_field(
+    tmp_path: Path, bad_attempts
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    backend = MemoryRebuildBackend()
+    rebuilder = _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    )
+    rebuilder.run_all()
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    manifest["papers"]["paper_1"]["attempts"] = bad_attempts
+    write_manifest(tmp_path / "rebuild_manifest.json", manifest)
+
+    with pytest.raises((ValueError, RuntimeError), match="attempts"):
+        rebuilder.verify()
+
+
+def test_verify_rejects_non_utc_completed_timestamp(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    backend = MemoryRebuildBackend()
+    rebuilder = _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    )
+    rebuilder.run_all()
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    manifest["papers"]["paper_1"]["completed_at"] = "2026-07-21T12:00:00"
+    write_manifest(tmp_path / "rebuild_manifest.json", manifest)
+
+    with pytest.raises((ValueError, RuntimeError), match="completed_at"):
+        rebuilder.verify()
 
 
 def test_source_mutation_during_processing_is_not_marked_completed(tmp_path: Path):
@@ -1694,6 +1795,19 @@ def test_rebuilder_rejects_invalid_constructor_arguments(tmp_path: Path, kwargs,
         def backend_name(self):
             return "chroma"
 
+        def metadata(self):
+            return {
+                "build_status": "building",
+                "embedding_provider": "api",
+                "embedding_model": "bge-m3",
+                "schema_version": 1,
+                "chunk_strategy": "parent_child_sliding_window",
+                "chunk_size": 500,
+                "chunk_overlap": 100,
+                "source_count": 1,
+                "build_git_head": "head",
+            }
+
     arguments = dict(
         metadata_dir=metadata_dir,
         manifest_path=tmp_path / "manifest.json",
@@ -1710,3 +1824,28 @@ def test_rebuilder_rejects_invalid_constructor_arguments(tmp_path: Path, kwargs,
     arguments.update(kwargs)
     with pytest.raises(ValueError, match=match):
         ChromaIndexRebuilder(**arguments)
+
+
+def test_rebuilder_rejects_incomplete_chunk_contract_before_backend_metadata(tmp_path):
+    class Backend:
+        collection_name = "collection"
+
+        def backend_name(self):
+            return "chroma"
+
+        def metadata(self):
+            pytest.fail("invalid chunk_settings must fail before backend metadata")
+
+    with pytest.raises(ValueError, match="chunk_settings"):
+        ChromaIndexRebuilder(
+            metadata_dir=tmp_path,
+            manifest_path=tmp_path / "manifest.json",
+            backend=Backend(),
+            embedding_client=FakeEmbeddingClient(),
+            batch_size=2,
+            max_attempts=3,
+            base_delay=0,
+            git_head="head",
+            chunk_settings={"size": 500},
+            expected_source_count=1,
+        )

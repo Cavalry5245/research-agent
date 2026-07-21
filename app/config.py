@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     # Embedding
     # embedding_provider: "local" (sentence-transformers, in-process) |
     # "api" (OpenAI-compatible /v1/embeddings — e.g. SiliconFlow bge-m3)
-    embedding_provider: str = "local"
-    embedding_model: str = "m3e-base"
+    embedding_provider: str = "api"
+    embedding_model: str = "bge-m3"
     embedding_device: str = "auto"
     embedding_batch_size: int = 32
     # Only used when embedding_provider == "api"
@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "app/storage/vector_db"
     chroma_collection_name: str = "research_papers_bge_m3_v1"
     chroma_require_ready: bool = True
+    chroma_schema_version: int = 1
+    chroma_expected_source_count: int = 53
 
     # Storage paths
     upload_dir: str = "app/storage/papers"

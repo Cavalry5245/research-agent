@@ -34,12 +34,19 @@ _CHUNK_METADATA_FIELDS = (
 )
 _METADATA_LOCK_TIMEOUT_SECONDS = 10.0
 _BUILD_STATUSES = {"building", "ready", "failed"}
+COLLECTION_CONTRACT_FIELDS = (
+    "embedding_provider",
+    "embedding_model",
+    "schema_version",
+    "chunk_strategy",
+    "chunk_size",
+    "chunk_overlap",
+    "source_count",
+)
 _LOCAL_LOCKS: dict[str, threading.Lock] = {}
 _LOCAL_LOCKS_GUARD = threading.Lock()
 CHROMA_DATABASE_FILENAME = "chroma.sqlite3"
-_CHROMA_COLLECTION_NAME_RE = re.compile(
-    r"^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$"
-)
+_CHROMA_COLLECTION_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$")
 
 
 def validate_chroma_collection_name(collection_name: object) -> str:
@@ -57,18 +64,14 @@ def validate_chroma_collection_name(collection_name: object) -> str:
             "ASCII letter or number"
         )
     if ".." in collection_name:
-        raise ValueError(
-            "Chroma collection name must not contain two consecutive dots"
-        )
+        raise ValueError("Chroma collection name must not contain two consecutive dots")
     try:
         parsed_address = ip_address(collection_name)
     except ValueError:
         pass
     else:
         if isinstance(parsed_address, IPv4Address):
-            raise ValueError(
-                "Chroma collection name must not be a valid IPv4 address"
-            )
+            raise ValueError("Chroma collection name must not be a valid IPv4 address")
     return collection_name
 
 
@@ -117,6 +120,46 @@ def _validate_lifecycle_metadata(metadata: dict | None) -> None:
         )
 
 
+def _validate_expected_contract(expected: dict) -> dict:
+    if type(expected) is not dict:
+        raise ValueError("expected_contract must be a built-in dict")
+    if set(expected) != set(COLLECTION_CONTRACT_FIELDS):
+        raise ValueError(
+            "expected_contract must contain exactly: "
+            + ", ".join(COLLECTION_CONTRACT_FIELDS)
+        )
+    for field in ("embedding_provider", "embedding_model", "chunk_strategy"):
+        value = expected[field]
+        if type(value) is not str or not value.strip():
+            raise ValueError(f"expected_contract {field} must be a nonempty string")
+    for field in ("schema_version", "chunk_size", "source_count"):
+        value = expected[field]
+        if type(value) is not int or value <= 0:
+            raise ValueError(f"expected_contract {field} must be a positive integer")
+    overlap = expected["chunk_overlap"]
+    if type(overlap) is not int or overlap < 0:
+        raise ValueError(
+            "expected_contract chunk_overlap must be a nonnegative integer"
+        )
+    return dict(expected)
+
+
+def _validate_required_collection_contract(metadata: dict, expected: dict) -> None:
+    for field in COLLECTION_CONTRACT_FIELDS:
+        actual = metadata.get(field)
+        required = expected[field]
+        if type(actual) is not type(required) or actual != required:
+            raise RuntimeError(
+                f"Chroma collection contract mismatch for {field}: "
+                f"expected {required!r}, found {actual!r}"
+            )
+    build_git_head = metadata.get("build_git_head")
+    if type(build_git_head) is not str or not build_git_head.strip():
+        raise RuntimeError(
+            "Chroma collection contract requires a nonempty build_git_head"
+        )
+
+
 def _local_lock(path: str) -> threading.Lock:
     with _LOCAL_LOCKS_GUARD:
         return _LOCAL_LOCKS.setdefault(path, threading.Lock())
@@ -156,9 +199,7 @@ def _release_file_lock(handle: BinaryIO) -> None:
 
 
 @contextmanager
-def _metadata_write_lock(
-    persist_dir: str, collection_name: str
-) -> Iterator[None]:
+def _metadata_write_lock(persist_dir: str, collection_name: str) -> Iterator[None]:
     digest = hashlib.sha256(collection_name.encode("utf-8")).hexdigest()[:16]
     lock_path = os.path.abspath(
         os.path.join(persist_dir, f".chroma-metadata-{digest}.lock")
@@ -206,12 +247,20 @@ class ChromaVectorBackend(VectorBackend):
         create_if_missing: bool = False,
         require_ready: bool = True,
         initial_metadata: dict | None = None,
+        expected_contract: dict | None = None,
     ):
         collection_name = validate_chroma_collection_name(collection_name)
         self.persist_dir = persist_dir
         self.collection_name = collection_name
+        self.expected_contract = (
+            _validate_expected_contract(expected_contract)
+            if expected_contract is not None
+            else None
+        )
         if create_if_missing:
             _validate_lifecycle_metadata(initial_metadata)
+        else:
+            validate_existing_chroma_store(persist_dir)
         self._client = chromadb.PersistentClient(path=persist_dir)
         if create_if_missing:
             create_kwargs: dict[str, Any] = {
@@ -247,6 +296,10 @@ class ChromaVectorBackend(VectorBackend):
 
         collection_metadata = self._collection.metadata or {}
         _validate_lifecycle_metadata(collection_metadata)
+        if self.expected_contract is not None:
+            _validate_required_collection_contract(
+                collection_metadata, self.expected_contract
+            )
         if require_ready and collection_metadata.get("build_status") != "ready":
             raise RuntimeError(
                 f"Chroma collection {self.collection_name!r} is not ready "
@@ -392,9 +445,7 @@ class ChromaVectorBackend(VectorBackend):
         if not chunk_ids:
             return 0
         requested = sorted(set(chunk_ids))
-        existing = set(
-            self._collection.get(ids=requested, include=[]).get("ids") or []
-        )
+        existing = set(self._collection.get(ids=requested, include=[]).get("ids") or [])
         if not existing:
             return 0
         self._collection.delete(ids=sorted(existing))
@@ -430,14 +481,12 @@ class ChromaVectorBackend(VectorBackend):
             "backend": self.backend_name(),
             "collection_name": self.collection_name,
             "build_status": collection_metadata.get("build_status"),
-            "embedding_dimension": collection_metadata.get(
-                "embedding_dimension"
-            ),
+            "embedding_dimension": collection_metadata.get("embedding_dimension"),
             "chunk_count": chunk_count,
             "paper_count": len(paper_ids),
             "persist_dir": self.persist_dir,
         }
-        for field in ("embedding_model", "schema_version"):
+        for field in (*COLLECTION_CONTRACT_FIELDS, "build_git_head"):
             if field in collection_metadata:
                 result[field] = collection_metadata[field]
         return result
