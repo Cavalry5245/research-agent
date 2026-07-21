@@ -36,6 +36,12 @@ class SystemStatusVectorStore(BaseModel):
     embedding_dimension: int | None = None
     embedding_model: str | None = None
     schema_version: int | None = None
+    embedding_provider: str | None = None
+    chunk_strategy: str | None = None
+    chunk_size: int | None = None
+    chunk_overlap: int | None = None
+    source_count: int | None = None
+    build_git_head: str | None = None
     chunk_count: int = 0
     paper_count: int | None = None
     persist_dir: str | None = None
@@ -547,4 +553,3 @@ class ParentDocument(BaseModel):
         default_factory=list
     )  # [(page, bbox), ...]
     metadata: dict[str, Any] = Field(default_factory=dict)
-

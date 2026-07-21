@@ -74,6 +74,12 @@ def test_health_endpoint_reports_building_chroma_as_degraded(monkeypatch, tmp_pa
                 "embedding_dimension": 1024,
                 "embedding_model": "bge-m3",
                 "schema_version": 1,
+                "embedding_provider": "api",
+                "chunk_strategy": "parent_child_sliding_window",
+                "chunk_size": 500,
+                "chunk_overlap": 100,
+                "source_count": 53,
+                "build_git_head": "abc123",
             }
 
         def count(self):
@@ -109,6 +115,12 @@ def test_health_endpoint_reports_ready_chroma_as_available(monkeypatch, tmp_path
                 "embedding_dimension": 1024,
                 "embedding_model": "bge-m3",
                 "schema_version": 1,
+                "embedding_provider": "api",
+                "chunk_strategy": "parent_child_sliding_window",
+                "chunk_size": 500,
+                "chunk_overlap": 100,
+                "source_count": 53,
+                "build_git_head": "abc123",
             }
 
         def count(self):
