@@ -735,6 +735,9 @@ class MemoryRebuildBackend:
 
     def __init__(self):
         self.rows = {}
+        self.add_calls = 0
+        self.delete_paper_calls = 0
+        self.delete_chunks_calls = 0
         self.build_metadata = {
             "build_status": "building",
             "embedding_model": "bge-m3",
@@ -765,15 +768,18 @@ class MemoryRebuildBackend:
         }
 
     def delete_paper(self, paper_id):
+        self.delete_paper_calls += 1
         return self.delete_chunks(sorted(self.ids_for_paper(paper_id)))
 
     def delete_chunks(self, chunk_ids):
+        self.delete_chunks_calls += 1
         existing = set(chunk_ids).intersection(self.rows)
         for chunk_id in existing:
             self.rows.pop(chunk_id)
         return len(existing)
 
     def add_chunks(self, chunks, embeddings):
+        self.add_calls += 1
         for chunk, embedding in zip(chunks, embeddings):
             self.rows[chunk.chunk_id] = (chunk, list(embedding))
         if chunks and "embedding_dimension" not in self.build_metadata:
@@ -790,6 +796,11 @@ class MemoryRebuildBackend:
             for chunk_id, (chunk, vector) in sorted(self.rows.items())
             if paper_id is None or chunk.paper_id == paper_id
         ]
+
+    def reset_mutation_calls(self):
+        self.add_calls = 0
+        self.delete_paper_calls = 0
+        self.delete_chunks_calls = 0
 
 
 def test_embed_batch_retries_429_with_retry_after_then_exponential_delay():
@@ -1379,6 +1390,133 @@ def test_failed_embedding_does_not_delete_stale_records_before_repair(
         ).run_all()
 
     assert backend.ids_for_paper("paper_1") == ids_before
+
+
+def test_changed_source_cannot_take_another_manifest_paper_identity(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    source_a = _write_parsed_fixture(metadata_dir, "paper_A", repeat=40)
+    _write_parsed_fixture(metadata_dir, "paper_B", repeat=40)
+    backend = MemoryRebuildBackend()
+    _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient()).run_all()
+    manifest_before = load_manifest(tmp_path / "rebuild_manifest.json")
+    paper_b_before = dict(manifest_before["papers"]["paper_B"])
+    rows_before = dict(backend.rows)
+    parsed_a = PaperParseResult.model_validate_json(
+        source_a.read_text(encoding="utf-8")
+    )
+    source_a.write_text(
+        parsed_a.model_copy(update={"paper_id": "paper_B"}).model_dump_json(),
+        encoding="utf-8",
+    )
+    backend.reset_mutation_calls()
+    client = FakeEmbeddingClient()
+
+    with pytest.raises(ValueError, match="paper identity.*paper_B.*paper_B_parsed"):
+        _rebuilder(tmp_path, metadata_dir, backend, client).run_all()
+
+    manifest_after = load_manifest(tmp_path / "rebuild_manifest.json")
+    assert client.calls == 0
+    assert backend.add_calls == 0
+    assert backend.delete_paper_calls == 0
+    assert backend.delete_chunks_calls == 0
+    assert backend.rows == rows_before
+    assert manifest_after["papers"]["paper_B"] == paper_b_before
+    assert manifest_after["status"] == "failed"
+
+
+def test_fresh_build_rejects_duplicate_paper_identity_before_second_embedding(
+    tmp_path: Path,
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "source_A", repeat=40)
+    source_b = _write_parsed_fixture(metadata_dir, "source_B", repeat=40)
+    parsed_b = PaperParseResult.model_validate_json(
+        source_b.read_text(encoding="utf-8")
+    )
+    source_b.write_text(
+        parsed_b.model_copy(update={"paper_id": "source_A"}).model_dump_json(),
+        encoding="utf-8",
+    )
+    backend = MemoryRebuildBackend()
+    client = FakeEmbeddingClient()
+
+    with pytest.raises(ValueError, match="paper identity.*source_A"):
+        _rebuilder(tmp_path, metadata_dir, backend, client).run_all()
+
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    assert client.calls > 0
+    assert backend.add_calls == 1
+    assert backend.delete_paper_calls == 0
+    assert backend.delete_chunks_calls == 0
+    assert len(manifest["papers"]) == 1
+    assert manifest["status"] == "failed"
+
+
+def test_rerun_rejects_multiple_completed_identities_for_one_source_before_skip(
+    tmp_path: Path,
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_A", repeat=40)
+    backend = MemoryRebuildBackend()
+    _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    ).run_all()
+    manifest_path = tmp_path / "rebuild_manifest.json"
+    manifest = load_manifest(manifest_path)
+    manifest["papers"]["paper_alias"] = {
+        **manifest["papers"]["paper_A"],
+        "expected_ids": [],
+        "chunk_count": 0,
+    }
+    write_manifest(manifest_path, manifest)
+    backend.reset_mutation_calls()
+    client = FakeEmbeddingClient()
+
+    with pytest.raises(ValueError, match="multiple completed identities"):
+        _rebuilder(
+            tmp_path, metadata_dir, backend, client, expected=1
+        ).run_all()
+
+    assert client.calls == 0
+    assert backend.add_calls == 0
+    assert backend.delete_paper_calls == 0
+    assert backend.delete_chunks_calls == 0
+
+
+def test_source_may_change_to_a_previously_unowned_paper_identity(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    source = _write_parsed_fixture(metadata_dir, "paper_A", repeat=40)
+    backend = MemoryRebuildBackend()
+    _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    ).run_all()
+    manifest_path = tmp_path / "rebuild_manifest.json"
+    manifest = load_manifest(manifest_path)
+    normalized_alias = f"./{source.name}"
+    manifest["sources"][0]["path"] = normalized_alias
+    manifest["papers"]["paper_A"]["source_path"] = normalized_alias
+    write_manifest(manifest_path, manifest)
+    parsed = PaperParseResult.model_validate_json(source.read_text(encoding="utf-8"))
+    source.write_text(
+        parsed.model_copy(update={"paper_id": "paper_C"}).model_dump_json(),
+        encoding="utf-8",
+    )
+
+    result = _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    ).run_all()
+
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    assert result["status"] == "ready"
+    assert set(manifest["papers"]) == {"paper_C"}
+    assert not backend.ids_for_paper("paper_A")
+    assert backend.ids_for_paper("paper_C") == set(
+        manifest["papers"]["paper_C"]["expected_ids"]
+    )
 
 
 def test_source_mutation_during_processing_is_not_marked_completed(tmp_path: Path):

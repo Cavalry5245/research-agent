@@ -718,15 +718,67 @@ class ChromaIndexRebuilder:
         self._validate_manifest_sources(manifest, sources)
         return manifest
 
-    @staticmethod
-    def _paper_for_source(manifest: dict, source_name: str) -> tuple[str, dict] | None:
+    def _paper_for_source(
+        self, manifest: dict, source: Path
+    ) -> tuple[str, dict] | None:
+        current_source = source.resolve()
+        matches = []
         for paper_id, record in manifest["papers"].items():
-            if isinstance(record, dict) and record.get("source_path") == source_name:
-                return paper_id, record
-        return None
+            if not isinstance(record, dict) or record.get("source_path") is None:
+                continue
+            if (
+                self._resolve_source_path(record.get("source_path"))
+                == current_source
+            ):
+                matches.append((paper_id, record))
+        completed = [
+            item for item in matches if item[1].get("status") == "completed"
+        ]
+        if len(completed) > 1:
+            raise ValueError(
+                f"paper identity collision: source {source.name!r} has multiple "
+                f"completed identities: "
+                f"{', '.join(sorted(item[0] for item in completed))}"
+            )
+        return completed[0] if completed else (matches[0] if matches else None)
+
+    def _manifest_source_path(self, manifest: dict, source: Path) -> str:
+        current_source = source.resolve()
+        for record in manifest["sources"]:
+            if self._resolve_source_path(record.get("path")) == current_source:
+                return record["path"]
+        raise ValueError(f"Source {source.name!r} is not owned by the rebuild manifest")
+
+    def _validate_paper_identity_ownership(
+        self, manifest: dict, source: Path, candidate_paper_id: str
+    ) -> None:
+        current_source = source.resolve()
+        completed_owners = []
+        for existing_paper_id, record in manifest["papers"].items():
+            if not isinstance(record, dict) or record.get("source_path") is None:
+                continue
+            record_source = self._resolve_source_path(record.get("source_path"))
+            if (
+                existing_paper_id == candidate_paper_id
+                and record_source != current_source
+            ):
+                raise ValueError(
+                    f"paper identity collision: {candidate_paper_id!r} is already "
+                    f"associated with source {record.get('source_path')!r}"
+                )
+            if (
+                record.get("status") == "completed"
+                and record_source == current_source
+            ):
+                completed_owners.append(existing_paper_id)
+        if len(completed_owners) > 1:
+            raise ValueError(
+                f"paper identity collision: source {source.name!r} has multiple "
+                f"completed identities: {', '.join(sorted(completed_owners))}"
+            )
 
     def _should_skip(self, manifest: dict, source: Path) -> bool:
-        found = self._paper_for_source(manifest, source.name)
+        found = self._paper_for_source(manifest, source)
         if found is None:
             return False
         paper_id, record = found
@@ -765,6 +817,10 @@ class ChromaIndexRebuilder:
                 raise RuntimeError("Embedding client is required to process sources")
             payload, digest = _captured_source(source)
             parsed = PaperParseResult.model_validate_json(payload.decode("utf-8"))
+            self._validate_paper_identity_ownership(
+                manifest, source, parsed.paper_id
+            )
+            manifest_source_path = self._manifest_source_path(manifest, source)
             paper_id = parsed.paper_id
             chunks = chunk_paper(
                 parsed,
@@ -805,7 +861,7 @@ class ChromaIndexRebuilder:
             if source_sha256(source) != digest:
                 raise RuntimeError(f"Source {source.name!r} changed during processing")
 
-            previous = self._paper_for_source(manifest, source.name)
+            previous = self._paper_for_source(manifest, source)
             if previous is not None and (
                 previous[1].get("sha256") != digest or previous[0] != paper_id
             ):
@@ -825,7 +881,7 @@ class ChromaIndexRebuilder:
             if previous is not None and previous[0] != paper_id:
                 manifest["papers"].pop(previous[0], None)
             manifest["papers"][paper_id] = {
-                "source_path": source.name,
+                "source_path": manifest_source_path,
                 "sha256": digest,
                 "status": "completed",
                 "expected_ids": sorted(expected_ids),
@@ -833,7 +889,7 @@ class ChromaIndexRebuilder:
                 "embedding_dimension": dimension,
             }
             for record in manifest["sources"]:
-                if record["path"] == source.name:
+                if record["path"] == manifest_source_path:
                     record["sha256"] = digest
             manifest.pop("failures", None)
             manifest["status"] = "building"
