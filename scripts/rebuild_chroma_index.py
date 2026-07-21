@@ -59,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--canary-only", action="store_true")
     modes.add_argument("--verify-only", action="store_true")
+    modes.add_argument("--migrate-legacy-audit", action="store_true")
     return parser
 
 
@@ -94,6 +95,65 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+
+    if args.migrate_legacy_audit:
+        try:
+            persist_dir = Path(args.persist_dir)
+            manifest_path = resolve_rebuild_manifest_path(persist_dir, args.collection)
+            chunk_settings = {
+                "strategy": settings.chunk_strategy,
+                "size": settings.child_chunk_size,
+                "overlap": settings.child_chunk_overlap,
+            }
+            migration_contract = build_contract(
+                collection=args.collection,
+                provider="api",
+                model="bge-m3",
+                git_head="legacy-migration-readonly",
+                schema_version=settings.chroma_schema_version,
+                chunk_settings=chunk_settings,
+            )
+            _, legacy_manifest = preflight_rebuild(
+                metadata_dir=Path(args.metadata_dir),
+                manifest_path=manifest_path,
+                contract=migration_contract,
+                expected_source_count=args.expected_source_count,
+                require_manifest=True,
+                readonly_verify=True,
+            )
+            if legacy_manifest is None:
+                raise FileNotFoundError("Required legacy rebuild manifest is missing")
+            validate_existing_chroma_store(str(persist_dir))
+            backend = ChromaVectorBackend(
+                persist_dir=str(persist_dir),
+                collection_name=args.collection,
+                create_if_missing=False,
+                require_ready=False,
+                initial_metadata=None,
+            )
+            rebuilder = ChromaIndexRebuilder(
+                metadata_dir=Path(args.metadata_dir),
+                manifest_path=manifest_path,
+                backend=backend,
+                embedding_client=None,
+                batch_size=args.batch_size,
+                max_attempts=args.max_attempts,
+                base_delay=args.base_delay,
+                max_delay=args.max_delay,
+                git_head=legacy_manifest["git_head"],
+                schema_version=settings.chroma_schema_version,
+                chunk_settings=chunk_settings,
+                expected_source_count=args.expected_source_count,
+                legacy_collection_mode=True,
+            )
+            result = rebuilder.migrate_legacy_audit()
+            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+            return 0 if result.get("status") == "ready" else 1
+        except Exception as exc:
+            print(
+                f"Legacy audit migration failed: {redact_error(exc)}", file=sys.stderr
+            )
+            return 1
 
     _print_configuration_presence()
     if not args.verify_only and not (
@@ -175,6 +235,7 @@ def main(argv: list[str] | None = None) -> int:
                 if args.verify_only
                 else requested_git_head
             ),
+            schema_version=settings.chroma_schema_version,
             chunk_settings=chunk_settings,
             expected_source_count=args.expected_source_count,
         )

@@ -371,6 +371,7 @@ def create_build_manifest(*, metadata_dir: Path, contract: dict) -> dict:
     protected = {field: contract[field] for field in PROTECTED_CONTRACT_FIELDS}
     return {
         "status": "building",
+        "audit_schema_version": 2,
         **protected,
         "sources": source_records,
         "papers": {},
@@ -530,6 +531,7 @@ def _validate_manifest_source_records(
     sources: list[Path],
     expected_source_count: int,
 ) -> None:
+    audit_version = _manifest_audit_version(manifest)
     records = manifest.get("sources")
     if not isinstance(records, list) or len(records) != expected_source_count:
         raise ValueError("manifest sources do not match expected source count")
@@ -567,12 +569,16 @@ def _validate_manifest_source_records(
         status = record.get("status")
         if status not in {"completed", "failed"}:
             raise ValueError(f"manifest paper {paper_id!r} has invalid status")
-        _positive_int(record.get("attempts"), f"manifest paper {paper_id!r} attempts")
-        if status == "completed":
-            _validate_utc_timestamp(
-                record.get("completed_at"),
-                f"manifest paper {paper_id!r} completed_at",
+        if audit_version == 2 or "attempts" in record:
+            _positive_int(
+                record.get("attempts"), f"manifest paper {paper_id!r} attempts"
             )
+        if status == "completed":
+            if audit_version == 2 or "completed_at" in record:
+                _validate_utc_timestamp(
+                    record.get("completed_at"),
+                    f"manifest paper {paper_id!r} completed_at",
+                )
         else:
             error = record.get("error")
             if type(error) is not str or not error.strip():
@@ -583,11 +589,18 @@ def _validate_manifest_source_records(
     if type(failures) is not dict:
         raise ValueError("manifest failures must be an object")
     for source_name, failure in failures.items():
-        if type(source_name) is not str or type(failure) is not dict:
+        if type(source_name) is not str:
+            raise ValueError("manifest source failure names must be strings")
+        if audit_version == 1 and type(failure) is str:
+            if not failure.strip():
+                raise ValueError("manifest source failure error must be nonempty")
+            continue
+        if type(failure) is not dict:
             raise ValueError("manifest source failure records must be objects")
         if failure.get("status") != "failed":
             raise ValueError("manifest source failure status must be failed")
-        _positive_int(failure.get("attempts"), "manifest source failure attempts")
+        if audit_version == 2 or "attempts" in failure:
+            _positive_int(failure.get("attempts"), "manifest source failure attempts")
         if type(failure.get("error")) is not str or not failure["error"].strip():
             raise ValueError("manifest source failure error must be nonempty")
 
@@ -602,6 +615,25 @@ def _validate_utc_timestamp(value: object, label: str) -> str:
     if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
         raise ValueError(f"{label} must be a UTC ISO-8601 timestamp")
     return value
+
+
+def _manifest_audit_version(manifest: dict) -> int:
+    missing = object()
+    version = manifest.get("audit_schema_version", missing)
+    if version is missing:
+        if "audit_status" in manifest or "verified_at" in manifest:
+            raise ValueError("legacy audit marker requires audit_schema_version=1")
+        return 1
+    if type(version) is not int or version not in {1, 2}:
+        raise ValueError("audit_schema_version must be built-in int 1 or 2")
+    if version == 2:
+        if "audit_status" in manifest or "verified_at" in manifest:
+            raise ValueError("audit schema v2 cannot claim a legacy audit marker")
+        return 2
+    if manifest.get("audit_status") != "legacy_unavailable":
+        raise ValueError("audit schema v1 requires audit_status='legacy_unavailable'")
+    _validate_utc_timestamp(manifest.get("verified_at"), "verified_at")
+    return 1
 
 
 def _discover_expected_sources(
@@ -673,11 +705,13 @@ class ChromaIndexRebuilder:
         max_attempts: int,
         base_delay: float,
         git_head: str,
+        schema_version: int,
         chunk_settings: dict,
         expected_source_count: int,
         max_delay: float = 60.0,
         sleep: Callable[[float], None] = time.sleep,
         lock_timeout: float = _MANIFEST_LOCK_TIMEOUT_SECONDS,
+        legacy_collection_mode: bool = False,
     ):
         self.metadata_dir = Path(metadata_dir)
         self.manifest_path = Path(manifest_path)
@@ -693,6 +727,10 @@ class ChromaIndexRebuilder:
         self.lock_timeout = _nonnegative_finite(lock_timeout, "lock_timeout")
         if not isinstance(git_head, str) or not git_head.strip():
             raise ValueError("git_head must be a nonempty string")
+        self.schema_version = _positive_int(schema_version, "schema_version")
+        if type(legacy_collection_mode) is not bool:
+            raise ValueError("legacy_collection_mode must be a built-in bool")
+        self.legacy_collection_mode = legacy_collection_mode
         if type(chunk_settings) is not dict:
             raise ValueError("chunk_settings must be an object")
         strategy = chunk_settings.get("strategy")
@@ -719,25 +757,42 @@ class ChromaIndexRebuilder:
         required_collection_metadata = {
             "embedding_provider": "api",
             "embedding_model": "bge-m3",
-            "schema_version": 1,
+            "schema_version": self.schema_version,
             "chunk_strategy": chunk_settings.get("strategy"),
             "chunk_size": chunk_settings.get("size"),
             "chunk_overlap": chunk_settings.get("overlap"),
             "source_count": self.expected_source_count,
             "build_git_head": git_head,
         }
-        mismatches = [
-            field
-            for field, expected in required_collection_metadata.items()
-            if type(collection_metadata.get(field)) is not type(expected)
-            or collection_metadata.get(field) != expected
-        ]
-        if collection_metadata.get("build_status") not in {
-            "building",
-            "ready",
-            "failed",
-        }:
-            mismatches.append("build_status")
+        if self.legacy_collection_mode:
+            baseline = {
+                "embedding_model": "bge-m3",
+                "schema_version": self.schema_version,
+            }
+            mismatches = [
+                field
+                for field, expected in baseline.items()
+                if type(collection_metadata.get(field)) is not type(expected)
+                or collection_metadata.get(field) != expected
+            ]
+            dimension = collection_metadata.get("embedding_dimension")
+            if type(dimension) is not int or dimension <= 0:
+                mismatches.append("embedding_dimension")
+            if collection_metadata.get("build_status") != "ready":
+                mismatches.append("build_status")
+        else:
+            mismatches = [
+                field
+                for field, expected in required_collection_metadata.items()
+                if type(collection_metadata.get(field)) is not type(expected)
+                or collection_metadata.get(field) != expected
+            ]
+            if collection_metadata.get("build_status") not in {
+                "building",
+                "ready",
+                "failed",
+            }:
+                mismatches.append("build_status")
         if mismatches:
             raise ValueError(
                 "collection metadata contract mismatch: " + ", ".join(mismatches)
@@ -748,7 +803,7 @@ class ChromaIndexRebuilder:
             provider="api",
             model="bge-m3",
             git_head=git_head,
-            schema_version=1,
+            schema_version=self.schema_version,
             chunk_settings=chunk_settings,
         )
 
@@ -1078,6 +1133,13 @@ class ChromaIndexRebuilder:
             != sum(r["chunk_count"] for r in completed.values())
         ):
             raise RuntimeError("Verified paper or chunk counts do not match manifest")
+        manifest_chunk_count = manifest.get("chunk_count")
+        if (
+            type(manifest_chunk_count) is not int
+            or manifest_chunk_count < 0
+            or manifest_chunk_count != result["chunk_count"]
+        ):
+            raise RuntimeError("Manifest chunk_count does not match live Chroma rows")
         if status == "ready" and len(completed) != self.expected_source_count:
             raise RuntimeError("Ready manifest does not cover every source")
         return result
@@ -1134,3 +1196,40 @@ class ChromaIndexRebuilder:
             ):
                 raise RuntimeError("Chroma collection is not ready")
             return result
+
+    def migrate_legacy_audit(self) -> dict:
+        """Verify a ready legacy build before explicitly marking unavailable audit."""
+        if not self.legacy_collection_mode:
+            raise RuntimeError("legacy audit migration requires legacy_collection_mode")
+        with manifest_write_lock(self.manifest_path, timeout=self.lock_timeout):
+            manifest = load_manifest(self.manifest_path)
+            if manifest is None:
+                raise FileNotFoundError(self.manifest_path)
+            if _manifest_audit_version(manifest) != 1:
+                raise ValueError("Only legacy audit manifests can be migrated")
+            validate_resume_contract(manifest, self.contract)
+            result = self._verify(manifest, require_complete=True)
+            if manifest.get("status") != "ready" or result.get("status") != "ready":
+                raise RuntimeError("Legacy audit migration requires a ready build")
+
+            collection_values = {
+                "embedding_provider": "api",
+                "embedding_model": "bge-m3",
+                "schema_version": self.schema_version,
+                "chunk_strategy": self.chunk_settings["strategy"],
+                "chunk_size": self.chunk_settings["size"],
+                "chunk_overlap": self.chunk_settings["overlap"],
+                "source_count": self.expected_source_count,
+                "build_git_head": manifest["git_head"],
+            }
+            self.backend.update_build_metadata(collection_values)
+            if "audit_schema_version" not in manifest:
+                manifest["audit_schema_version"] = 1
+                manifest["audit_status"] = "legacy_unavailable"
+                manifest["verified_at"] = datetime.now(timezone.utc).isoformat()
+                write_manifest(self.manifest_path, manifest)
+            return {
+                **result,
+                "audit_schema_version": 1,
+                "audit_status": "legacy_unavailable",
+            }

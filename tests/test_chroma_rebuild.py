@@ -310,6 +310,7 @@ def test_create_build_manifest_has_documented_deterministic_schema(tmp_path: Pat
 
     assert manifest == {
         "status": "building",
+        "audit_schema_version": 2,
         "collection": "research_papers_bge_m3_v1",
         "provider": "api",
         "model": "bge-m3",
@@ -734,6 +735,7 @@ def _rebuilder(tmp_path: Path, metadata_dir: Path, backend, client, *, expected=
         max_attempts=3,
         base_delay=0.01,
         git_head="test-head",
+        schema_version=1,
         chunk_settings={
             "strategy": "parent_child_sliding_window",
             "size": 500,
@@ -1238,6 +1240,7 @@ def test_first_batch_locks_dimension_before_later_batch_mismatch(tmp_path: Path)
         max_attempts=2,
         base_delay=0,
         git_head="test-head",
+        schema_version=1,
         chunk_settings={
             "strategy": "parent_child_sliding_window",
             "size": 100,
@@ -1783,6 +1786,7 @@ def test_manifest_replace_retries_windows_sharing_violation(
         ({"expected_source_count": -1}, "expected_source_count"),
         ({"base_delay": float("nan")}, "base_delay"),
         ({"max_delay": float("inf")}, "max_delay"),
+        ({"schema_version": True}, "schema_version"),
     ],
 )
 def test_rebuilder_rejects_invalid_constructor_arguments(tmp_path: Path, kwargs, match):
@@ -1818,6 +1822,7 @@ def test_rebuilder_rejects_invalid_constructor_arguments(tmp_path: Path, kwargs,
         base_delay=0.1,
         max_delay=60,
         git_head="head",
+        schema_version=1,
         chunk_settings={"size": 500},
         expected_source_count=1,
     )
@@ -1846,6 +1851,165 @@ def test_rebuilder_rejects_incomplete_chunk_contract_before_backend_metadata(tmp
             max_attempts=3,
             base_delay=0,
             git_head="head",
+            schema_version=1,
             chunk_settings={"size": 500},
             expected_source_count=1,
         )
+
+
+def _legacy_ready_manifest(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    backend = MemoryRebuildBackend()
+    _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    ).run_all()
+    manifest_path = tmp_path / "rebuild_manifest.json"
+    manifest = load_manifest(manifest_path)
+    manifest.pop("audit_schema_version")
+    for source in manifest["sources"]:
+        source.pop("attempts", None)
+    for paper in manifest["papers"].values():
+        paper.pop("attempts", None)
+        paper.pop("completed_at", None)
+    write_manifest(manifest_path, manifest)
+    for field in (
+        "embedding_provider",
+        "chunk_strategy",
+        "chunk_size",
+        "chunk_overlap",
+        "source_count",
+        "build_git_head",
+    ):
+        backend.build_metadata.pop(field, None)
+    return metadata_dir, manifest_path, manifest, backend
+
+
+def test_legacy_audit_migration_verifies_then_backfills_without_embeddings(tmp_path):
+    metadata_dir, manifest_path, legacy, backend = _legacy_ready_manifest(tmp_path)
+    rows_before = dict(backend.rows)
+    rebuilder = ChromaIndexRebuilder(
+        metadata_dir=metadata_dir,
+        manifest_path=manifest_path,
+        backend=backend,
+        embedding_client=None,
+        batch_size=2,
+        max_attempts=3,
+        base_delay=0,
+        git_head=legacy["git_head"],
+        schema_version=1,
+        chunk_settings=legacy["chunk_settings"],
+        expected_source_count=1,
+        legacy_collection_mode=True,
+    )
+
+    result = rebuilder.migrate_legacy_audit()
+
+    migrated = load_manifest(manifest_path)
+    assert result["status"] == "ready"
+    assert backend.rows == rows_before
+    assert migrated["audit_schema_version"] == 1
+    assert migrated["audit_status"] == "legacy_unavailable"
+    assert datetime.fromisoformat(migrated["verified_at"]).tzinfo == timezone.utc
+    assert "attempts" not in migrated["papers"]["paper_1"]
+    assert "completed_at" not in migrated["papers"]["paper_1"]
+    assert backend.build_metadata == {
+        "build_status": "ready",
+        "embedding_model": "bge-m3",
+        "schema_version": 1,
+        "embedding_dimension": 3,
+        "embedding_provider": "api",
+        "chunk_strategy": "parent_child_sliding_window",
+        "chunk_size": 500,
+        "chunk_overlap": 100,
+        "source_count": 1,
+        "build_git_head": legacy["git_head"],
+    }
+
+
+def test_legacy_audit_migration_failure_is_read_only(tmp_path):
+    metadata_dir, manifest_path, _legacy, backend = _legacy_ready_manifest(tmp_path)
+    manifest = load_manifest(manifest_path)
+    manifest["sources"][0]["sha256"] = "0" * 64
+    write_manifest(manifest_path, manifest)
+    bytes_before = manifest_path.read_bytes()
+    metadata_before = dict(backend.build_metadata)
+    rebuilder = ChromaIndexRebuilder(
+        metadata_dir=metadata_dir,
+        manifest_path=manifest_path,
+        backend=backend,
+        embedding_client=None,
+        batch_size=2,
+        max_attempts=3,
+        base_delay=0,
+        git_head=manifest["git_head"],
+        schema_version=1,
+        chunk_settings=manifest["chunk_settings"],
+        expected_source_count=1,
+        legacy_collection_mode=True,
+    )
+
+    with pytest.raises(RuntimeError, match="source hash"):
+        rebuilder.migrate_legacy_audit()
+
+    assert manifest_path.read_bytes() == bytes_before
+    assert backend.build_metadata == metadata_before
+
+
+def test_legacy_audit_migration_rerun_is_idempotent(tmp_path):
+    metadata_dir, manifest_path, legacy, backend = _legacy_ready_manifest(tmp_path)
+    kwargs = dict(
+        metadata_dir=metadata_dir,
+        manifest_path=manifest_path,
+        backend=backend,
+        embedding_client=None,
+        batch_size=2,
+        max_attempts=3,
+        base_delay=0,
+        git_head=legacy["git_head"],
+        schema_version=1,
+        chunk_settings=legacy["chunk_settings"],
+        expected_source_count=1,
+        legacy_collection_mode=True,
+    )
+    ChromaIndexRebuilder(**kwargs).migrate_legacy_audit()
+    first = load_manifest(manifest_path)
+
+    ChromaIndexRebuilder(**kwargs).migrate_legacy_audit()
+
+    assert load_manifest(manifest_path) == first
+
+
+@pytest.mark.parametrize(
+    "version,extra",
+    [
+        (True, {}),
+        (3, {}),
+        (2, {"audit_status": "legacy_unavailable"}),
+        (1, {}),
+        (
+            1,
+            {
+                "audit_status": "legacy_unavailable",
+                "verified_at": "not-a-timestamp",
+            },
+        ),
+    ],
+)
+def test_verify_rejects_unknown_or_inconsistent_audit_schema(tmp_path, version, extra):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    backend = MemoryRebuildBackend()
+    rebuilder = _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    )
+    rebuilder.run_all()
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    manifest["audit_schema_version"] = version
+    manifest.update(extra)
+    write_manifest(tmp_path / "rebuild_manifest.json", manifest)
+
+    with pytest.raises((ValueError, RuntimeError), match="audit|verified_at"):
+        rebuilder.verify()

@@ -59,6 +59,16 @@ class FakeRebuilder:
         self.calls.append(("full",))
         return {"status": "ready", "paper_count": 53, "chunk_count": 100}
 
+    def migrate_legacy_audit(self):
+        self.calls.append(("migrate",))
+        return {
+            "status": "ready",
+            "paper_count": 53,
+            "chunk_count": 8182,
+            "audit_schema_version": 1,
+            "audit_status": "legacy_unavailable",
+        }
+
 
 @pytest.fixture
 def fake_cli(monkeypatch, tmp_path):
@@ -160,6 +170,32 @@ def test_cli_verify_allows_missing_credentials_and_does_not_create_embedding_cli
     )
 
     assert cli.main(["--verify-only"]) == 0
+
+
+def test_cli_legacy_migration_uses_recorded_head_without_credentials_or_clients(
+    fake_cli, monkeypatch, capsys
+):
+    fake_cli.embedding_base_url = ""
+    fake_cli.embedding_api_key = ""
+    monkeypatch.setattr(
+        cli,
+        "git_head",
+        lambda: pytest.fail("migration must not inspect current git HEAD"),
+    )
+    monkeypatch.setattr(
+        cli,
+        "EmbeddingClient",
+        lambda **_kwargs: pytest.fail("migration must not create embedding client"),
+    )
+
+    assert cli.main(["--migrate-legacy-audit"]) == 0
+
+    assert FakeRebuilder.calls == [("migrate",)]
+    assert FakeBackend.created[0]["create_if_missing"] is False
+    assert FakeBackend.created[0]["require_ready"] is False
+    output = capsys.readouterr().out
+    assert "legacy_unavailable" in output
+    assert "api_key" not in output
 
 
 def test_cli_verify_uses_recorded_build_head_without_mutating_preflight_contract(
