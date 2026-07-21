@@ -1427,7 +1427,7 @@ Completion note (2026-07-21): all six non-secret `.env` activation selections ma
 - Modify: `project-dossier/05_decisions_and_tradeoffs.md`
 - Modify: `docs/superpowers/plans/2026-07-20-chroma-bge-m3-rebuild.md` while executing, checking completed steps and adding concise completion notes
 
-- [ ] **Step 1: Update C1 only with verified facts**
+- [x] **Step 1: Update C1 only with verified facts**
 
 Change the dossier language from “JSON only / Chroma pending” to:
 
@@ -1440,7 +1440,7 @@ manifest、逐篇 ID 回读和维度一致性校验。
 
 Record actual runtime evidence from Task 8: collection name, paper count, chunk count, embedding dimension, and verification date. Do not invent any value before reading it from the ready collection.
 
-- [ ] **Step 2: Run focused vector and rebuild tests**
+- [x] **Step 2: Run focused vector and rebuild tests**
 
 Run:
 
@@ -1450,7 +1450,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 3: Run the full non-performance suite**
+- [x] **Step 3: Run the full non-performance suite**
 
 Run:
 
@@ -1460,7 +1460,7 @@ Run:
 
 Expected: PASS with no collection errors, hangs, secret-bearing error output, or unexpected network calls in unit tests.
 
-- [ ] **Step 4: Inspect all source changes and runtime state**
+- [x] **Step 4: Inspect all source changes and runtime state**
 
 Run:
 
@@ -1472,7 +1472,7 @@ git diff --stat
 
 Expected: no whitespace errors; existing unrelated changes remain untouched; Chroma runtime files are not staged.
 
-- [ ] **Step 5: Commit verified documentation and any final test-only adjustments**
+- [x] **Step 5: Commit verified documentation and any final test-only adjustments**
 
 Run:
 
@@ -1482,6 +1482,8 @@ git commit -m "docs: record verified Chroma index rollout"
 ```
 
 Expected: only verified documentation, the checked-off plan, and deliberate final test adjustments are committed. Existing unrelated files remain unstaged.
+
+Completion note (2026-07-21): verified dossier updates were committed in `1b8c7b32`. The focused vector/rebuild gate passed 258 tests with 1 platform skip and 2 explicit live-model deselections; the segmented non-performance gate passed 1,395 tests with 16 skips and the same 2 live-model deselections. Final contract hardening and legacy-audit migration were added through `4bdaa889` and independently approved after 170 offline tests (1 platform skip) plus a 21-test review gate. The real legacy collection was migrated without re-embedding and then verified twice at 53 papers, 8,182 chunks, and dimension 1024; the second migration preserved the exact manifest SHA-256 and `verified_at`. `VectorStore()` opened the complete API `bge-m3` contract successfully. Current and failed diagnostic manifests contain neither the actual API key nor base URL. Runtime Chroma files, the preserved JSON store, unrelated dossier copies, and pytest temporary directories remain ignored or untracked and unstaged.
 
 ## Completion criteria
 
