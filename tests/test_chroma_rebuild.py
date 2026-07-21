@@ -21,7 +21,7 @@ from app.services.chroma_rebuild import (
     validate_resume_contract,
     write_manifest,
 )
-from app.schemas import PaperParseResult, Section
+from app.schemas import Chunk, PaperParseResult, Section
 from app.services.vector_backends.chroma_backend import (
     ChromaVectorBackend,
     validate_existing_chroma_store,
@@ -178,6 +178,116 @@ def test_validate_resume_contract_names_all_mismatched_fields_deterministically(
         "Resume contract mismatch: collection, provider, model, git_head, "
         "schema_version, chunk_settings"
     )
+
+
+def test_readonly_preflight_accepts_manifest_build_head_but_mutating_resume_rejects(
+    tmp_path: Path,
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    (metadata_dir / "paper_parsed.json").write_text("{}", encoding="utf-8")
+    manifest_path = tmp_path / "manifest.json"
+    built = build_contract(
+        collection="research_papers_bge_m3_v1",
+        provider="api",
+        model="bge-m3",
+        git_head="build-head",
+        schema_version=1,
+        chunk_settings={"strategy": "parent_child", "size": 500, "overlap": 100},
+    )
+    requested = {**built, "git_head": "later-head"}
+    write_manifest(
+        manifest_path,
+        create_build_manifest(metadata_dir=metadata_dir, contract=built),
+    )
+
+    _, manifest = preflight_rebuild(
+        metadata_dir=metadata_dir,
+        manifest_path=manifest_path,
+        contract=requested,
+        expected_source_count=1,
+        require_manifest=True,
+        readonly_verify=True,
+    )
+
+    assert manifest["git_head"] == "build-head"
+    with pytest.raises(ValueError, match="Resume contract mismatch: git_head"):
+        preflight_rebuild(
+            metadata_dir=metadata_dir,
+            manifest_path=manifest_path,
+            contract=requested,
+            expected_source_count=1,
+        )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("collection", "other_collection"),
+        ("provider", "local"),
+        ("model", "other-model"),
+        ("schema_version", 2),
+        ("chunk_settings", {"strategy": "other", "size": 500}),
+    ],
+)
+def test_readonly_preflight_still_rejects_non_head_contract_mismatches(
+    tmp_path: Path, field: str, value: object
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    (metadata_dir / "paper_parsed.json").write_text("{}", encoding="utf-8")
+    manifest_path = tmp_path / "manifest.json"
+    built = build_contract(
+        collection="research_papers_bge_m3_v1",
+        provider="api",
+        model="bge-m3",
+        git_head="build-head",
+        schema_version=1,
+        chunk_settings={"strategy": "parent_child", "size": 500, "overlap": 100},
+    )
+    write_manifest(
+        manifest_path,
+        create_build_manifest(metadata_dir=metadata_dir, contract=built),
+    )
+    requested = {**built, "git_head": "later-head", field: value}
+
+    with pytest.raises(ValueError, match=field):
+        preflight_rebuild(
+            metadata_dir=metadata_dir,
+            manifest_path=manifest_path,
+            contract=requested,
+            expected_source_count=1,
+            require_manifest=True,
+            readonly_verify=True,
+        )
+
+
+def test_readonly_preflight_rejects_invalid_recorded_build_head(tmp_path: Path):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    (metadata_dir / "paper_parsed.json").write_text("{}", encoding="utf-8")
+    manifest_path = tmp_path / "manifest.json"
+    contract = build_contract(
+        collection="research_papers_bge_m3_v1",
+        provider="api",
+        model="bge-m3",
+        git_head="current-head",
+        schema_version=1,
+        chunk_settings={"strategy": "parent_child", "size": 500},
+    )
+    manifest = create_build_manifest(metadata_dir=metadata_dir, contract=contract)
+    manifest["git_head"] = ""
+    write_manifest(manifest_path, manifest)
+
+    with pytest.raises(ValueError, match="existing contract field git_head"):
+        preflight_rebuild(
+            metadata_dir=metadata_dir,
+            manifest_path=manifest_path,
+            contract=contract,
+            expected_source_count=1,
+            require_manifest=True,
+            readonly_verify=True,
+        )
 
 
 def test_create_build_manifest_has_documented_deterministic_schema(tmp_path: Path):
@@ -618,6 +728,68 @@ def _rebuilder(tmp_path: Path, metadata_dir: Path, backend, client, *, expected=
         expected_source_count=expected,
         sleep=lambda _delay: None,
     )
+
+
+class MemoryRebuildBackend:
+    collection_name = "memory_rebuild_test"
+
+    def __init__(self):
+        self.rows = {}
+        self.build_metadata = {
+            "build_status": "building",
+            "embedding_model": "bge-m3",
+            "schema_version": 1,
+        }
+
+    def backend_name(self):
+        return "chroma"
+
+    def metadata(self):
+        paper_ids = {chunk.paper_id for chunk, _vector in self.rows.values()}
+        return {
+            "backend": "chroma",
+            "collection_name": self.collection_name,
+            "chunk_count": len(self.rows),
+            "paper_count": len(paper_ids),
+            **self.build_metadata,
+        }
+
+    def update_build_metadata(self, values):
+        self.build_metadata.update(values)
+
+    def ids_for_paper(self, paper_id):
+        return {
+            chunk_id
+            for chunk_id, (chunk, _vector) in self.rows.items()
+            if chunk.paper_id == paper_id
+        }
+
+    def delete_paper(self, paper_id):
+        return self.delete_chunks(sorted(self.ids_for_paper(paper_id)))
+
+    def delete_chunks(self, chunk_ids):
+        existing = set(chunk_ids).intersection(self.rows)
+        for chunk_id in existing:
+            self.rows.pop(chunk_id)
+        return len(existing)
+
+    def add_chunks(self, chunks, embeddings):
+        for chunk, embedding in zip(chunks, embeddings):
+            self.rows[chunk.chunk_id] = (chunk, list(embedding))
+        if chunks and "embedding_dimension" not in self.build_metadata:
+            self.build_metadata["embedding_dimension"] = len(embeddings[0])
+        return len(chunks)
+
+    def list_chunks(self, paper_id=None):
+        return [
+            {
+                "chunk_id": chunk_id,
+                "paper_id": chunk.paper_id,
+                "embedding_dim": len(vector),
+            }
+            for chunk_id, (chunk, vector) in sorted(self.rows.items())
+            if paper_id is None or chunk.paper_id == paper_id
+        ]
 
 
 def test_embed_batch_retries_429_with_retry_after_then_exponential_delay():
@@ -1134,6 +1306,79 @@ def test_source_hash_change_replaces_only_changed_paper(tmp_path: Path):
         r for r in manifest["papers"].values() if r["source_path"] == changed.name
     )
     assert changed_record["sha256"] == source_sha256(changed)
+
+
+def test_same_hash_rerun_repairs_stale_live_ids_without_reembedding_exact_paper(
+    tmp_path: Path,
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    _write_parsed_fixture(metadata_dir, "paper_2", repeat=40)
+    backend = MemoryRebuildBackend()
+    _rebuilder(tmp_path, metadata_dir, backend, FakeEmbeddingClient()).run_all()
+    manifest = load_manifest(tmp_path / "rebuild_manifest.json")
+    expected_paper_1 = set(manifest["papers"]["paper_1"]["expected_ids"])
+    expected_repair_calls = (manifest["papers"]["paper_1"]["chunk_count"] + 1) // 2
+    exact_paper_2 = backend.ids_for_paper("paper_2")
+    backend.add_chunks(
+        [
+            Chunk(
+                chunk_id="paper_1_stale_chunk",
+                paper_id="paper_1",
+                title="stale",
+                section="stale",
+                content="stale",
+            )
+        ],
+        [[1.0, 0.0, 1.0]],
+    )
+    repair_client = FakeEmbeddingClient()
+
+    result = _rebuilder(
+        tmp_path, metadata_dir, backend, repair_client
+    ).run_all()
+
+    assert result["status"] == "ready"
+    assert repair_client.calls == expected_repair_calls
+    assert backend.ids_for_paper("paper_1") == expected_paper_1
+    assert backend.ids_for_paper("paper_2") == exact_paper_2
+
+
+def test_failed_embedding_does_not_delete_stale_records_before_repair(
+    tmp_path: Path,
+):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    backend = MemoryRebuildBackend()
+    _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    ).run_all()
+    backend.add_chunks(
+        [
+            Chunk(
+                chunk_id="paper_1_stale_chunk",
+                paper_id="paper_1",
+                title="stale",
+                section="stale",
+                content="stale",
+            )
+        ],
+        [[1.0, 0.0, 1.0]],
+    )
+    ids_before = backend.ids_for_paper("paper_1")
+
+    with pytest.raises(RetryableEmbeddingError):
+        _rebuilder(
+            tmp_path,
+            metadata_dir,
+            backend,
+            FakeEmbeddingClient(failures=10),
+            expected=1,
+        ).run_all()
+
+    assert backend.ids_for_paper("paper_1") == ids_before
 
 
 def test_source_mutation_during_processing_is_not_marked_completed(tmp_path: Path):

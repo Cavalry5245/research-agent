@@ -576,6 +576,7 @@ def preflight_rebuild(
     contract: dict,
     expected_source_count: int,
     require_manifest: bool = False,
+    readonly_verify: bool = False,
 ) -> tuple[list[Path], dict | None]:
     """Validate sources and resume state without creating or changing artifacts."""
     expected_source_count = _positive_int(
@@ -591,7 +592,18 @@ def preflight_rebuild(
                 f"Required rebuild manifest does not exist: {Path(manifest_path).name}"
             )
         return sources, None
-    validate_resume_contract(manifest, contract)
+    if readonly_verify:
+        _validate_build_contract(manifest, label="existing contract")
+        _validate_build_contract(contract, label="requested contract")
+        mismatches = [
+            field
+            for field in PROTECTED_CONTRACT_FIELDS
+            if field != "git_head" and manifest.get(field) != contract.get(field)
+        ]
+        if mismatches:
+            raise ValueError(f"Resume contract mismatch: {', '.join(mismatches)}")
+    else:
+        validate_resume_contract(manifest, contract)
     _validate_manifest_source_records(
         manifest=manifest,
         metadata_dir=metadata_dir,
@@ -794,8 +806,13 @@ class ChromaIndexRebuilder:
                 raise RuntimeError(f"Source {source.name!r} changed during processing")
 
             previous = self._paper_for_source(manifest, source.name)
-            if previous is not None and previous[1].get("sha256") != digest:
+            if previous is not None and (
+                previous[1].get("sha256") != digest or previous[0] != paper_id
+            ):
                 self.backend.delete_paper(previous[0])
+            stale_ids = self.backend.ids_for_paper(paper_id) - set(expected_ids)
+            if stale_ids:
+                self.backend.delete_chunks(sorted(stale_ids))
             self.backend.add_chunks(chunks, embeddings)
             live_ids = self.backend.ids_for_paper(paper_id)
             if live_ids != set(expected_ids):

@@ -126,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
             contract=contract,
             expected_source_count=args.expected_source_count,
             require_manifest=args.verify_only,
+            readonly_verify=args.verify_only,
         )
         if args.verify_only:
             validate_existing_chroma_store(str(persist_dir))
@@ -159,7 +160,11 @@ def main(argv: list[str] | None = None) -> int:
             max_attempts=args.max_attempts,
             base_delay=args.base_delay,
             max_delay=args.max_delay,
-            git_head=requested_git_head,
+            git_head=(
+                existing_manifest["git_head"]
+                if args.verify_only
+                else requested_git_head
+            ),
             chunk_settings=chunk_settings,
             expected_source_count=args.expected_source_count,
         )

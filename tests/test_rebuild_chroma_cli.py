@@ -85,7 +85,10 @@ def fake_cli(monkeypatch, tmp_path):
     monkeypatch.setattr(
         cli,
         "preflight_rebuild",
-        lambda **kwargs: ([], {} if kwargs.get("require_manifest") else None),
+        lambda **kwargs: (
+            [],
+            {"git_head": "build-head"} if kwargs.get("require_manifest") else None,
+        ),
     )
     monkeypatch.setattr(cli, "validate_existing_chroma_store", lambda _path: None)
     return settings
@@ -155,6 +158,30 @@ def test_cli_verify_allows_missing_credentials_and_does_not_create_embedding_cli
     )
 
     assert cli.main(["--verify-only"]) == 0
+
+
+def test_cli_verify_uses_recorded_build_head_without_mutating_preflight_contract(
+    fake_cli, monkeypatch
+):
+    preflights = []
+    constructor_args = []
+
+    def preflight(**kwargs):
+        preflights.append(kwargs)
+        return [], {"git_head": "recorded-build-head"}
+
+    class RecordingRebuilder(FakeRebuilder):
+        def __init__(self, **kwargs):
+            constructor_args.append(kwargs)
+
+    monkeypatch.setattr(cli, "preflight_rebuild", preflight)
+    monkeypatch.setattr(cli, "ChromaIndexRebuilder", RecordingRebuilder)
+    monkeypatch.setattr(cli, "git_head", lambda: "later-current-head")
+
+    assert cli.main(["--verify-only"]) == 0
+    assert preflights[0]["contract"]["git_head"] == "later-current-head"
+    assert preflights[0]["readonly_verify"] is True
+    assert constructor_args[0]["git_head"] == "recorded-build-head"
 
 
 def test_cli_default_runs_canary_then_full(fake_cli):
