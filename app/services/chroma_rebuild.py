@@ -1061,6 +1061,17 @@ class ChromaIndexRebuilder:
             raise RuntimeError(
                 f"Rebuild incomplete: {len(completed)}/{self.expected_source_count} papers"
             )
+        metadata = self.backend.metadata()
+        if metadata.get("build_status") != status:
+            raise RuntimeError(
+                "Chroma collection is not ready or its build status is inconsistent "
+                "with the manifest"
+            )
+        dimension = metadata.get("embedding_dimension")
+        if completed and (type(dimension) is not int or dimension <= 0):
+            raise RuntimeError(
+                "Completed papers require a positive built-in collection dimension"
+            )
         expected_ids: set[str] = set()
         completed_source_paths: set[str] = set()
         for paper_id, record in completed.items():
@@ -1081,8 +1092,32 @@ class ChromaIndexRebuilder:
                     f"Completed paper {paper_id!r} source hash is not current"
                 )
             ids = record.get("expected_ids")
-            if not isinstance(ids, list) or len(ids) != len(set(ids)):
+            if (
+                not isinstance(ids, list)
+                or not ids
+                or any(type(chunk_id) is not str or not chunk_id for chunk_id in ids)
+                or len(ids) != len(set(ids))
+            ):
                 raise RuntimeError(f"Manifest IDs for {paper_id!r} are invalid")
+            record_chunk_count = record.get("chunk_count")
+            if (
+                type(record_chunk_count) is not int
+                or record_chunk_count <= 0
+                or record_chunk_count != len(ids)
+            ):
+                raise RuntimeError(
+                    f"Completed paper {paper_id!r} chunk_count does not match IDs"
+                )
+            record_dimension = record.get("embedding_dimension")
+            if (
+                type(record_dimension) is not int
+                or record_dimension <= 0
+                or record_dimension != dimension
+            ):
+                raise RuntimeError(
+                    f"Completed paper {paper_id!r} embedding_dimension does not "
+                    "match Chroma metadata"
+                )
             if set(ids) != self.backend.ids_for_paper(paper_id):
                 raise RuntimeError(f"Live IDs for {paper_id!r} do not match manifest")
             if expected_ids.intersection(ids):
@@ -1102,23 +1137,13 @@ class ChromaIndexRebuilder:
                 "Chroma chunk IDs do not match completed manifest papers"
             )
         dimensions = {row.get("embedding_dim") for row in rows}
-        if rows and (len(dimensions) != 1 or next(iter(dimensions)) <= 0):
+        row_dimension = next(iter(dimensions)) if len(dimensions) == 1 else None
+        if rows and (
+            len(dimensions) != 1 or type(row_dimension) is not int or row_dimension <= 0
+        ):
             raise RuntimeError("Chroma embeddings do not have one valid dimension")
-        metadata = self.backend.metadata()
-        if metadata.get("build_status") != status:
-            raise RuntimeError(
-                "Chroma collection is not ready or its build status is inconsistent "
-                "with the manifest"
-            )
-        dimension = metadata.get("embedding_dimension")
         if rows and dimensions != {dimension}:
             raise RuntimeError("Chroma embedding dimension does not match metadata")
-        for paper_id, record in completed.items():
-            if record.get("embedding_dimension") != dimension:
-                raise RuntimeError(
-                    f"Completed paper {paper_id!r} embedding dimension does not "
-                    "match Chroma metadata"
-                )
         paper_ids = {row.get("paper_id") for row in rows}
         result = {
             "status": status,
@@ -1212,6 +1237,12 @@ class ChromaIndexRebuilder:
             if manifest.get("status") != "ready" or result.get("status") != "ready":
                 raise RuntimeError("Legacy audit migration requires a ready build")
 
+            if "audit_schema_version" not in manifest:
+                manifest["audit_schema_version"] = 1
+                manifest["audit_status"] = "legacy_unavailable"
+                manifest["verified_at"] = datetime.now(timezone.utc).isoformat()
+                write_manifest(self.manifest_path, manifest)
+
             collection_values = {
                 "embedding_provider": "api",
                 "embedding_model": "bge-m3",
@@ -1223,11 +1254,6 @@ class ChromaIndexRebuilder:
                 "build_git_head": manifest["git_head"],
             }
             self.backend.update_build_metadata(collection_values)
-            if "audit_schema_version" not in manifest:
-                manifest["audit_schema_version"] = 1
-                manifest["audit_status"] = "legacy_unavailable"
-                manifest["verified_at"] = datetime.now(timezone.utc).isoformat()
-                write_manifest(self.manifest_path, manifest)
             return {
                 **result,
                 "audit_schema_version": 1,

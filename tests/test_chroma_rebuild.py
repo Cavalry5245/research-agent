@@ -1857,13 +1857,18 @@ def test_rebuilder_rejects_incomplete_chunk_contract_before_backend_metadata(tmp
         )
 
 
-def _legacy_ready_manifest(tmp_path: Path):
+def _legacy_ready_manifest(tmp_path: Path, *, paper_count: int = 1):
     metadata_dir = tmp_path / "metadata"
     metadata_dir.mkdir()
-    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    for index in range(1, paper_count + 1):
+        _write_parsed_fixture(metadata_dir, f"paper_{index}", repeat=40 + index)
     backend = MemoryRebuildBackend()
     _rebuilder(
-        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+        tmp_path,
+        metadata_dir,
+        backend,
+        FakeEmbeddingClient(),
+        expected=paper_count,
     ).run_all()
     manifest_path = tmp_path / "rebuild_manifest.json"
     manifest = load_manifest(manifest_path)
@@ -1975,10 +1980,156 @@ def test_legacy_audit_migration_rerun_is_idempotent(tmp_path):
     )
     ChromaIndexRebuilder(**kwargs).migrate_legacy_audit()
     first = load_manifest(manifest_path)
+    metadata_after_first = dict(backend.build_metadata)
+    rows_after_first = dict(backend.rows)
 
     ChromaIndexRebuilder(**kwargs).migrate_legacy_audit()
 
     assert load_manifest(manifest_path) == first
+    assert backend.build_metadata == metadata_after_first
+    assert backend.rows == rows_after_first
+    assert backend.add_calls == 1
+
+
+def test_legacy_migration_manifest_write_failure_leaves_collection_inactive(
+    tmp_path, monkeypatch
+):
+    metadata_dir, manifest_path, legacy, backend = _legacy_ready_manifest(tmp_path)
+    bytes_before = manifest_path.read_bytes()
+    metadata_before = dict(backend.build_metadata)
+    rebuilder = ChromaIndexRebuilder(
+        metadata_dir=metadata_dir,
+        manifest_path=manifest_path,
+        backend=backend,
+        embedding_client=None,
+        batch_size=2,
+        max_attempts=3,
+        base_delay=0,
+        git_head=legacy["git_head"],
+        schema_version=1,
+        chunk_settings=legacy["chunk_settings"],
+        expected_source_count=1,
+        legacy_collection_mode=True,
+    )
+    monkeypatch.setattr(
+        "app.services.chroma_rebuild.write_manifest",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+
+    with pytest.raises(OSError, match="disk full"):
+        rebuilder.migrate_legacy_audit()
+
+    assert manifest_path.read_bytes() == bytes_before
+    assert backend.build_metadata == metadata_before
+    assert "embedding_provider" not in backend.build_metadata
+
+
+def test_legacy_migration_metadata_failure_resumes_from_stable_marker(
+    tmp_path, monkeypatch
+):
+    metadata_dir, manifest_path, legacy, backend = _legacy_ready_manifest(tmp_path)
+    metadata_before = dict(backend.build_metadata)
+    kwargs = dict(
+        metadata_dir=metadata_dir,
+        manifest_path=manifest_path,
+        backend=backend,
+        embedding_client=None,
+        batch_size=2,
+        max_attempts=3,
+        base_delay=0,
+        git_head=legacy["git_head"],
+        schema_version=1,
+        chunk_settings=legacy["chunk_settings"],
+        expected_source_count=1,
+        legacy_collection_mode=True,
+    )
+    original_update = backend.update_build_metadata
+    monkeypatch.setattr(
+        backend,
+        "update_build_metadata",
+        lambda _values: (_ for _ in ()).throw(RuntimeError("metadata unavailable")),
+    )
+
+    with pytest.raises(RuntimeError, match="metadata unavailable"):
+        ChromaIndexRebuilder(**kwargs).migrate_legacy_audit()
+
+    marked = load_manifest(manifest_path)
+    assert marked["audit_schema_version"] == 1
+    assert marked["audit_status"] == "legacy_unavailable"
+    verified_at = marked["verified_at"]
+    assert backend.build_metadata == metadata_before
+    assert "embedding_provider" not in backend.build_metadata
+
+    monkeypatch.setattr(backend, "update_build_metadata", original_update)
+    ChromaIndexRebuilder(**kwargs).migrate_legacy_audit()
+
+    assert load_manifest(manifest_path)["verified_at"] == verified_at
+    assert backend.build_metadata["embedding_provider"] == "api"
+    assert backend.add_calls == 1
+
+
+def test_legacy_migration_rejects_pairwise_paper_count_tampering_read_only(tmp_path):
+    metadata_dir, manifest_path, legacy, backend = _legacy_ready_manifest(
+        tmp_path, paper_count=2
+    )
+    manifest = load_manifest(manifest_path)
+    manifest["papers"]["paper_1"]["chunk_count"] += 1
+    manifest["papers"]["paper_2"]["chunk_count"] -= 1
+    write_manifest(manifest_path, manifest)
+    bytes_before = manifest_path.read_bytes()
+    metadata_before = dict(backend.build_metadata)
+    rebuilder = ChromaIndexRebuilder(
+        metadata_dir=metadata_dir,
+        manifest_path=manifest_path,
+        backend=backend,
+        embedding_client=None,
+        batch_size=2,
+        max_attempts=3,
+        base_delay=0,
+        git_head=legacy["git_head"],
+        schema_version=1,
+        chunk_settings=legacy["chunk_settings"],
+        expected_source_count=2,
+        legacy_collection_mode=True,
+    )
+
+    with pytest.raises(RuntimeError, match="paper_[12].*chunk_count"):
+        rebuilder.migrate_legacy_audit()
+
+    assert manifest_path.read_bytes() == bytes_before
+    assert backend.build_metadata == metadata_before
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("chunk_count", True),
+        ("chunk_count", 0),
+        ("chunk_count", 999),
+        ("embedding_dimension", True),
+        ("embedding_dimension", 0),
+        ("embedding_dimension", 999),
+        ("expected_ids", []),
+        ("expected_ids", [""]),
+        ("expected_ids", [1]),
+    ],
+)
+def test_verify_rejects_invalid_completed_paper_exact_contract(tmp_path, field, value):
+    metadata_dir = tmp_path / "metadata"
+    metadata_dir.mkdir()
+    _write_parsed_fixture(metadata_dir, "paper_1", repeat=40)
+    backend = MemoryRebuildBackend()
+    rebuilder = _rebuilder(
+        tmp_path, metadata_dir, backend, FakeEmbeddingClient(), expected=1
+    )
+    rebuilder.run_all()
+    manifest_path = tmp_path / "rebuild_manifest.json"
+    manifest = load_manifest(manifest_path)
+    manifest["papers"]["paper_1"][field] = value
+    write_manifest(manifest_path, manifest)
+
+    with pytest.raises(RuntimeError, match="paper_1|Manifest IDs"):
+        rebuilder.verify()
 
 
 @pytest.mark.parametrize(
