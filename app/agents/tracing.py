@@ -61,6 +61,7 @@ class AgentTracer:
         metadata: dict[str, Any] | None = None,
     ) -> Generator[TraceSpan, None, None]:
         """Context manager that times a span and persists it on exit."""
+        started = time.perf_counter()
         s = TraceSpan(
             agent_id=agent_id,
             action=action,
@@ -77,7 +78,7 @@ class AgentTracer:
         try:
             yield s
         finally:
-            s.duration_ms = (time.time() - s.started_at) * 1000
+            s.duration_ms = (time.perf_counter() - started) * 1000
             self._active_span = parent
             self._spans.append(s)
             self._persist(s)

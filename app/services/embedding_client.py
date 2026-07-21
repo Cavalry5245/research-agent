@@ -105,9 +105,9 @@ class EmbeddingClient:
             api_key=settings.embedding_api_key,
         )
         logger.info(
-            "Embedding API client ready: base_url=%s, model=%s",
-            settings.embedding_base_url,
-            self._resolved_model_name,
+            "Embedding API client ready: base_url_configured=%s, model=%s",
+            bool(settings.embedding_base_url),
+            self.model_name,
         )
 
     def _api_embed(self, texts: list[str]) -> list[list[float]]:
@@ -117,11 +117,25 @@ class EmbeddingClient:
         for i in range(0, len(texts), self.batch_size):
             batch = texts[i : i + self.batch_size]
             resp = self._api_client.embeddings.create(
+                # Keep model_name logical for collection/manifest compatibility.
+                # The rebuild contract's git_head prevents resuming across alias
+                # mapping/code changes, while providers receive the resolved wire ID.
                 model=self._resolved_model_name,
                 input=batch,
             )
-            # Response data may come back out of order; sort by index.
-            for item in sorted(resp.data, key=lambda d: getattr(d, "index", 0)):
+            items = list(resp.data)
+            indices = [getattr(item, "index", None) for item in items]
+            if (
+                any(type(index) is not int for index in indices)
+                or len(indices) != len(batch)
+                or set(indices) != set(range(len(batch)))
+            ):
+                raise ValueError(
+                    "Embedding API response indices must be unique built-in ints "
+                    "covering exactly the requested batch"
+                )
+            # Response data may come back out of order; sort only after validation.
+            for item in sorted(items, key=lambda item: item.index):
                 out.append(list(item.embedding))
         return out
 

@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.schemas import Chunk
 from app.services.paper_status import get_index_status, get_library_status
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 
@@ -21,7 +22,8 @@ def _make_chunk(paper_id: str, section: str, content: str, seq: int) -> Chunk:
 
 def test_get_index_status_for_specific_paper():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk("paper_A", "Introduction", "infrared detection intro", 1),
             _make_chunk("paper_A", "Method", "vl attention method", 2),
@@ -38,7 +40,8 @@ def test_get_index_status_for_specific_paper():
 
 def test_get_index_status_for_unindexed_paper():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         status = get_index_status(store, "paper_missing")
         assert status == {
             "paper_id": "paper_missing",
@@ -50,7 +53,8 @@ def test_get_index_status_for_unindexed_paper():
 
 def test_get_library_status_summary():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk("paper_A", "Introduction", "infrared detection intro", 1),
             _make_chunk("paper_A", "Method", "vl attention method", 2),

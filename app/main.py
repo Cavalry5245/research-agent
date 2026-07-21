@@ -8,6 +8,7 @@ from typing import Protocol
 # Fix SSL certificate issue for httpx
 try:
     import certifi
+
     os.environ["SSL_CERT_FILE"] = certifi.where()
 except ImportError:
     pass
@@ -80,6 +81,7 @@ from app.research_workflow.zotero_intake import (
     resolve_first_existing_pdf,
 )
 from app.services.chunker import chunk_paper
+from app.services.error_redaction import redact_error
 from app.services.embedding_client import EmbeddingClient
 from app.services.job_store import FileJobStore, InMemoryJobStore, utc_now_iso
 from app.services.llm_client import LLMClient
@@ -155,7 +157,11 @@ def _resolve_upload_dir() -> str:
 
 
 def _storage_is_writable() -> bool:
-    for directory in [_resolve_upload_dir(), _resolve_note_dir(), _resolve_metadata_dir()]:
+    for directory in [
+        _resolve_upload_dir(),
+        _resolve_note_dir(),
+        _resolve_metadata_dir(),
+    ]:
         probe = os.path.join(
             directory,
             f".system_status_probe.{os.getpid()}.{time.time_ns()}",
@@ -187,6 +193,119 @@ def _paper_not_found(paper_id: str):
 # ── Health ───────────────────────────────────────────────────────────────────
 
 
+_SAFE_VECTOR_STRING_FIELDS = (
+    "backend",
+    "store_path",
+    "collection_name",
+    "build_status",
+    "embedding_provider",
+    "embedding_model",
+    "chunk_strategy",
+    "build_git_head",
+    "persist_dir",
+)
+
+
+def _safe_vector_error(exc: Exception) -> str:
+    # Preserve the endpoint's historical plain-message shape while applying the
+    # rebuild pipeline's adversarially tested credential redaction.
+    return redact_error(str(exc))
+
+
+def _vector_store_status_payload() -> dict:
+    payload = {
+        "available": False,
+        "backend": None,
+        "store_path": None,
+        "collection_name": None,
+        "build_status": None,
+        "embedding_dimension": None,
+        "embedding_provider": None,
+        "embedding_model": None,
+        "schema_version": None,
+        "chunk_strategy": None,
+        "chunk_size": None,
+        "chunk_overlap": None,
+        "source_count": None,
+        "build_git_head": None,
+        "chunk_count": 0,
+        "paper_count": None,
+        "persist_dir": None,
+        "error": None,
+    }
+    try:
+        vector_store = _get_vector_store()
+        vector_meta = vector_store.metadata()
+        if not isinstance(vector_meta, dict):
+            raise RuntimeError("vector store metadata must be a mapping")
+
+        backend_name = vector_store.backend_name()
+        chunk_count = vector_store.count()
+        if type(chunk_count) is not int or chunk_count < 0:
+            raise RuntimeError("vector store count must be a non-negative integer")
+
+        for field in _SAFE_VECTOR_STRING_FIELDS:
+            value = vector_meta.get(field)
+            if type(value) is str:
+                payload[field] = value
+        for field in (
+            "embedding_dimension",
+            "schema_version",
+            "chunk_size",
+            "source_count",
+        ):
+            value = vector_meta.get(field)
+            if type(value) is int and value > 0:
+                payload[field] = value
+        chunk_overlap = vector_meta.get("chunk_overlap")
+        if type(chunk_overlap) is int and chunk_overlap >= 0:
+            payload["chunk_overlap"] = chunk_overlap
+        paper_count = vector_meta.get("paper_count")
+        if type(paper_count) is int and paper_count >= 0:
+            payload["paper_count"] = paper_count
+        payload["chunk_count"] = chunk_count
+
+        metadata_backend = vector_meta.get("backend")
+        available = (
+            type(backend_name) is str
+            and backend_name in {"json", "chroma"}
+            and metadata_backend == backend_name
+        )
+        if backend_name == "json":
+            for field in ("load_failed", "degraded"):
+                value = vector_meta.get(field, False)
+                available = available and type(value) is bool and not value
+        elif backend_name == "chroma":
+            dimension = vector_meta.get("embedding_dimension")
+            schema_version = vector_meta.get("schema_version")
+            available = available and all(
+                (
+                    vector_meta.get("collection_name")
+                    == settings.chroma_collection_name,
+                    vector_meta.get("build_status") == "ready",
+                    type(dimension) is int and dimension > 0,
+                    vector_meta.get("embedding_model") == settings.embedding_model,
+                    vector_meta.get("embedding_provider")
+                    == settings.embedding_provider,
+                    type(schema_version) is int
+                    and schema_version == settings.chroma_schema_version,
+                    vector_meta.get("chunk_strategy") == settings.chunk_strategy,
+                    vector_meta.get("chunk_size") == settings.child_chunk_size,
+                    vector_meta.get("chunk_overlap") == settings.child_chunk_overlap,
+                    vector_meta.get("source_count")
+                    == settings.chroma_expected_source_count,
+                    type(vector_meta.get("build_git_head")) is str
+                    and bool(vector_meta["build_git_head"].strip()),
+                )
+            )
+        payload["available"] = available
+        if not available:
+            payload["error"] = "vector store is not ready"
+    except Exception as exc:
+        payload["error"] = _safe_vector_error(exc)
+    return payload
+
+
 @app.get("/health", response_model=HealthResponse, summary="Health check")
 async def health_check():
     storage_dirs = [_resolve_upload_dir(), _resolve_note_dir(), _resolve_metadata_dir()]
@@ -202,12 +321,7 @@ async def health_check():
             storage_writable = False
             break
 
-    try:
-        vector_store_available = (
-            _get_vector_store().metadata().get("backend") is not None
-        )
-    except Exception:
-        vector_store_available = False
+    vector_store_available = _vector_store_status_payload()["available"]
 
     status = "ok" if storage_writable and vector_store_available else "degraded"
     return HealthResponse(
@@ -228,34 +342,7 @@ async def system_status():
     storage_root = Path(settings.metadata_dir).parent
     storage_writable = _storage_is_writable()
 
-    vector_payload = {
-        "available": True,
-        "backend": None,
-        "store_path": None,
-        "chunk_count": 0,
-        "error": None,
-    }
-    try:
-        vector_store = _get_vector_store()
-        vector_meta = vector_store.metadata()
-        vector_payload.update(
-            {
-                "available": True,
-                "backend": vector_meta.get("backend"),
-                "store_path": vector_meta.get("store_path"),
-                "chunk_count": int(vector_store.count()),
-            }
-        )
-    except Exception as exc:
-        vector_payload.update(
-            {
-                "available": False,
-                "backend": None,
-                "store_path": None,
-                "chunk_count": 0,
-                "error": str(exc),
-            }
-        )
+    vector_payload = _vector_store_status_payload()
 
     try:
         paper_count = len(list_papers(_resolve_metadata_dir()))
@@ -497,7 +584,9 @@ async def parse_paper(paper_id: str):
 async def update_paper_title(paper_id: str, payload: PaperTitleUpdateRequest):
     title = payload.title.strip()
     if len(title) < 3:
-        raise HTTPException(status_code=400, detail="Title must be at least 3 characters long")
+        raise HTTPException(
+            status_code=400, detail="Title must be at least 3 characters long"
+        )
 
     data = update_parsed_title(paper_id, _resolve_metadata_dir(), title)
     return PaperTitleUpdateResponse(
@@ -512,7 +601,9 @@ async def list_paper_zotero_collections(limit: int = 100):
     try:
         collections = ZoteroLocalHttpClient().list_collections(limit=limit)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+        raise HTTPException(
+            status_code=503, detail=f"Zotero API unavailable: {e}"
+        ) from e
 
     items = [
         ZoteroImportCollection(
@@ -526,8 +617,12 @@ async def list_paper_zotero_collections(limit: int = 100):
     return ZoteroImportCollectionsResponse(collections=items, count=len(items))
 
 
-def _zotero_import_item_response(item, existing_index: dict[str, str]) -> ZoteroImportItem:
-    pdf_path = resolve_first_existing_pdf([attachment.path for attachment in item.attachments])
+def _zotero_import_item_response(
+    item, existing_index: dict[str, str]
+) -> ZoteroImportItem:
+    pdf_path = resolve_first_existing_pdf(
+        [attachment.path for attachment in item.attachments]
+    )
     existing_paper_id = (
         existing_index.get(f"source_id:{_normalize_duplicate_key(item.key)}")
         or existing_index.get(f"doi:{_normalize_duplicate_key(item.doi)}")
@@ -554,10 +649,14 @@ async def list_paper_zotero_collection_items(collection_key: str):
     try:
         zotero_items = ZoteroLocalHttpClient().list_collection_items(collection_key)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+        raise HTTPException(
+            status_code=503, detail=f"Zotero API unavailable: {e}"
+        ) from e
 
     existing_index = _existing_paper_identity_index()
-    items = [_zotero_import_item_response(item, existing_index) for item in zotero_items]
+    items = [
+        _zotero_import_item_response(item, existing_index) for item in zotero_items
+    ]
     return ZoteroImportItemsResponse(
         collection_key=collection_key,
         items=items,
@@ -579,9 +678,13 @@ def _unique_upload_path(upload_dir: str, filename: str) -> str:
 @app.post("/papers/zotero/import", response_model=ZoteroImportResponse)
 async def import_papers_from_zotero(payload: ZoteroImportRequest):
     try:
-        zotero_items = ZoteroLocalHttpClient().list_collection_items(payload.collection_key)
+        zotero_items = ZoteroLocalHttpClient().list_collection_items(
+            payload.collection_key
+        )
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Zotero API unavailable: {e}") from e
+        raise HTTPException(
+            status_code=503, detail=f"Zotero API unavailable: {e}"
+        ) from e
 
     items_by_key = {item.key: item for item in zotero_items}
     existing_index = _existing_paper_identity_index()
@@ -707,7 +810,9 @@ def _build_note_status_response() -> NoteStatusListResponse:
     if os.path.isdir(note_dir):
         for filename in os.listdir(note_dir):
             if filename.endswith("_note.md"):
-                existing_notes[filename.removesuffix("_note.md")] = os.path.join(note_dir, filename)
+                existing_notes[filename.removesuffix("_note.md")] = os.path.join(
+                    note_dir, filename
+                )
 
     notes: list[NoteStatusItem] = []
     for paper in list_papers(_resolve_metadata_dir()):
@@ -715,7 +820,9 @@ def _build_note_status_response() -> NoteStatusListResponse:
         if not paper_id:
             continue
 
-        note_path = existing_notes.get(paper_id) or os.path.join(note_dir, f"{paper_id}_note.md")
+        note_path = existing_notes.get(paper_id) or os.path.join(
+            note_dir, f"{paper_id}_note.md"
+        )
         exists = os.path.isfile(note_path)
         generated_at = None
         if exists:

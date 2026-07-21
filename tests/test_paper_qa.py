@@ -11,6 +11,7 @@ from app.prompts import qa_prompt
 from app.prompts.qa_prompt import build_qa_prompt
 from app.schemas import Chunk
 from app.services.paper_qa import _build_context, answer_question
+from app.services.vector_backends.json_backend import JsonVectorBackend
 from app.services.vector_store import VectorStore
 
 MOCK_ANSWER = (
@@ -156,7 +157,8 @@ def test_build_context():
 
 def test_answer_question_with_results():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk(
                 "paper_A", "Method", "We propose a vl attention detection method.", 1
@@ -211,7 +213,8 @@ def test_answer_question_with_results():
 
 def test_answer_question_filter_by_paper_id():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk("paper_A", "Method", "vl attention detection method.", 1),
             _make_chunk("paper_B", "Method", "model compression pruning.", 2),
@@ -239,7 +242,8 @@ def test_answer_question_filter_by_paper_id():
 
 def test_answer_question_empty_store():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
 
         mock_emb = MagicMock()
         mock_emb.embed_query.return_value = [0.1] * 64
@@ -260,7 +264,8 @@ def test_answer_question_empty_store():
 
 def test_answer_question_prompt_content():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         store.add_chunks(
             [_make_chunk("paper_A", "Method", "VLM detection method.", 1)],
             [_keyword_embedding("VLM detection method.")],
@@ -287,7 +292,8 @@ def test_answer_question_prompt_content():
 
 def test_answer_question_uses_reranked_results_for_prompt_and_sources():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         chunks = [
             _make_chunk("paper_A", "Method", "dense first chunk", 1),
             _make_chunk("paper_A", "Conclusion", "dense second chunk", 2),
@@ -349,7 +355,8 @@ def test_answer_question_uses_reranked_results_for_prompt_and_sources():
 
 def test_answer_question_validates_reranker_output_length():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = VectorStore(persist_dir=os.path.join(tmpdir, "vectors"))
+        path = os.path.join(tmpdir, "vectors")
+        store = VectorStore(persist_dir=path, backend=JsonVectorBackend(path))
         store.add_chunks(
             [_make_chunk("paper_A", "Method", "dense chunk", 1)],
             [[1.0, 0.0]],

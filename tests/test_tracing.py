@@ -5,6 +5,7 @@ import time
 
 import pytest
 
+import app.agents.tracing as tracing_module
 from app.agents.tracing import AgentTracer, TraceSpan
 from app.services.memory_store import MemoryStore
 
@@ -37,6 +38,19 @@ class TestAgentTracer:
         assert s.duration_ms >= 10
         assert s.output_data == {"results": 3}
         assert len(tracer.spans) == 1
+
+    def test_span_uses_monotonic_clock_for_duration(self, tracer, monkeypatch):
+        monotonic_times = iter([10.0, 10.025])
+        monkeypatch.setattr(tracing_module.time, "time", lambda: 1_000.0)
+        monkeypatch.setattr(
+            tracing_module.time, "perf_counter", lambda: next(monotonic_times)
+        )
+
+        with tracer.span("qa_agent", "tool_call") as s:
+            pass
+
+        assert s.started_at == 1_000.0
+        assert s.duration_ms == pytest.approx(25.0)
 
     def test_span_persists_to_store(self, tracer, store):
         with tracer.span("extractor", "delegation", input_data={"paper_id": "p1"}) as s:

@@ -41,6 +41,7 @@ app/storage/research_pipeline.db
 .claude/
 .agents/
 .superpowers/
+.worktrees/
 app/storage/research_runs.json
 tests/debug/
 
